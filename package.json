@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "generator": "pulp build -m Generator --to generator.js && node generator.js --abis build/contracts --dest src --truffle true",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
