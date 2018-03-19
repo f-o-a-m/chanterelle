@@ -36,4 +36,4 @@ main = do
 
 
 simpleStorageFP :: FilePath
-simpleStorageFP = "./contracts/SimpleStorage.json"
+simpleStorageFP = "./build/contracts/SimpleStorage.json"

@@ -1,5 +1,7 @@
 module Utils
   ( makeProvider
+  , makeDeployConfig
+  , DeployConfig
   , getPrimaryAccount
   , pollTransactionReceipt
   , withTimeout
@@ -7,19 +9,21 @@ module Utils
 
 import Prelude
 import Control.Monad.Eff (Eff)
-import Control.Monad.Aff (Aff, Milliseconds(..), delay, forkAff)
+import Control.Monad.Aff (Aff, Milliseconds(..), delay, forkAff, liftEff')
 import Control.Monad.Aff.Unsafe (unsafeCoerceAff)
 import Control.Monad.Aff.AVar (AVAR, makeEmptyVar, tryTakeVar, putVar)
+import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Data.Array ((!!))
 import Data.Maybe (Maybe, maybe, fromJust)
 import Data.Either (Either(..))
-import Network.Ethereum.Web3 (ETH, Web3, HexString, Address, runWeb3)
-import Network.Ethereum.Web3.Api (eth_getAccounts, eth_getTransactionReceipt)
+import Network.Ethereum.Web3 (ETH, Web3, HexString, Address, BigNumber, runWeb3)
+import Network.Ethereum.Web3.Api (eth_getAccounts, eth_getTransactionReceipt, net_version)
 import Network.Ethereum.Web3.Types (TransactionReceipt)
 import Network.Ethereum.Web3.Types.Provider (Provider, httpProvider)
 import Node.Process (lookupEnv)
+import Partial.Unsafe (unsafePartial)
 
 
 -- | Make an http provider with address given by NODE_URL, falling back
@@ -31,6 +35,21 @@ makeProvider = unsafeCoerceEff $ do
   murl <- lookupEnv "NODE_URL"
   url <- maybe (pure "http://localhost:8545") pure murl
   httpProvider url
+
+type DeployConfig =
+  { networkId :: BigNumber
+  , primaryAccount :: Address
+  , provider :: Provider
+  }
+
+makeDeployConfig
+  :: forall eff.
+     Web3 eff DeployConfig
+makeDeployConfig = do
+  provider <- liftAff <<< liftEff' $ makeProvider
+  primaryAccount <- unsafePartial getPrimaryAccount
+  networkId <- net_version
+  pure {provider, primaryAccount, networkId}
 
 -- | get the primary account for the ethereum client
 getPrimaryAccount

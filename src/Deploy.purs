@@ -65,5 +65,5 @@ writeDeployAddress filename deployAddress nid = runExceptT $ do
   artifact <- ExceptT $ jsonParser <$> readTextFile UTF8 filename
   let networkIdObj = "address" := show deployAddress ~> jsonEmptyObject
       networkObj = show nid := networkIdObj ~> jsonEmptyObject
-      artifactWithAddress = artifact # _Object <<< ix "network" .~ networkObj
+      artifactWithAddress = artifact # _Object <<< ix "networks" .~ networkObj
   liftAff $ writeTextFile UTF8 filename $ stringify artifactWithAddress
