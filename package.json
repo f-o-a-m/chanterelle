@@ -4,13 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "generator": "pulp build -m Generator --to generator.js && node generator.js --abis build/contracts --dest src --truffle true",
+    "generator": "pulp build --src-path generator -m Generator --to generator.js && node generator.js --abis build/contracts --dest src --truffle true; rm generator.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bignumber.js": "git+https://github.com/frozeman/bignumber.js-nolookahead.git",
     "bower": "^1.8.2",
+    "crypto-js": "^3.1.8",
+    "ethjs-provider-http": "^0.1.6",
     "pulp": "^11.0.0",
     "purescript": "^0.11.4",
     "truffle": "^4.1.3"
