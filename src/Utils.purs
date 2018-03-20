@@ -75,7 +75,9 @@ pollTransactionReceipt txHash provider = do
     Left _ -> do
       delay (Milliseconds 3000.0)
       pollTransactionReceipt txHash provider
-    Right txRec -> pure txRec
+    Right txRec -> do
+      C.log $ show txRec
+      pure txRec
 
 -- | try an aff action for the specified amount of time before giving up.
 withTimeout

@@ -25,7 +25,8 @@ simpleStorageSpec deployConfig = do
   describe "Getting the default value" do
     it "can read the value set when the contract was deployed" do
       simpleStorageAddress <- readDeployAddress simpleStorageConfig.filepath deployConfig.networkId
-      ecount <- runWeb3 deployConfig.provider $ SimpleStorage.count defaultTransactionOptions Latest
+      let txOpts = defaultTransactionOptions # _to ?~ simpleStorageAddress
+      ecount <- runWeb3 deployConfig.provider $ SimpleStorage.count txOpts Latest
       let initialValue = unsafePartial fromJust $ simpleStorageConfig.deployArgs
       ecount `shouldEqual` (Right (Right initialValue._count))
 

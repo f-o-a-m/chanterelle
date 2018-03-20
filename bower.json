@@ -12,7 +12,8 @@
     "purescript-web3-generator": "git://github.com/f-o-a-m/purescript-web3-generator#deploying",
     "purescript-console": "^3.0.0",
     "purescript-errors": "^3.0.0",
-    "purescript-node-process": "^5.0.0"
+    "purescript-node-process": "^5.0.0",
+    "purescript-debug": "^3.0.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^3.0.0",
