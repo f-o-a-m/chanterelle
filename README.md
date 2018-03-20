@@ -33,7 +33,7 @@ the filepath for the build artifact and and necessary arguments for deployment) 
 
 When you are ready to deploy, you can run
 ```bash
-make deploy
+> make deploy
 ```
 
 You should see the logs from the deployment printed to the console, and the address for the recently deployed contract will
@@ -45,5 +45,5 @@ You can write whatever tests you want in purescript to include in `test/Main.pur
 from the deployment as an argument passed from `main`. When you want to run the tests, run
 
 ```bash
-make test
+> make test
 ```
