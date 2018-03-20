@@ -77,6 +77,8 @@ writeDeployAddress filename deployAddress nid = runExceptT $ do
       artifactWithAddress = artifact # _Object <<< ix "networks" .~ networkObj
   liftAff $ writeTextFile UTF8 filename $ stringify artifactWithAddress
 
+-- | 'defaultDeployContract' is what you want most of the time, especially if you're just trying
+-- | to ship a contract out the door as fast as possible.
 defaultDeployContract
   :: forall eff.
      DeployConfig
