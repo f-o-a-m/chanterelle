@@ -11,13 +11,13 @@ import Prelude
 import Control.Monad.Eff (Eff)
 import Control.Monad.Aff (Aff, Milliseconds(..), delay, forkAff, liftEff')
 import Control.Monad.Aff.Unsafe (unsafeCoerceAff)
-import Control.Monad.Aff.AVar (AVAR, makeEmptyVar, tryTakeVar, putVar)
 import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as C
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Control.Monad.Eff.Exception (EXCEPTION, error)
 import Control.Monad.Except (throwError)
+import Control.Parallel (parOneOf)
 import Data.Array ((!!))
 import Data.Maybe (Maybe, maybe, fromJust)
 import Data.Either (Either(..))
@@ -77,7 +77,6 @@ pollTransactionReceipt
   -> Provider
   -> Aff (eth :: ETH, console :: CONSOLE | eff) TransactionReceipt
 pollTransactionReceipt txHash provider = do
-  C.log $ "Polling for TransactionReceipt: " <> show txHash
   etxReceipt <- runWeb3 provider $ eth_getTransactionReceipt txHash
   case etxReceipt of
     Left _ -> do
@@ -90,11 +89,9 @@ withTimeout
   :: forall eff a.
      Milliseconds
   -> Aff eff a
-  -> Aff (avar :: AVAR | eff) (Maybe a)
+  -> Aff eff a
 withTimeout maxTimeout action = do
-  var <- makeEmptyVar
-  _ <- forkAff $ do
-    res <- unsafeCoerceAff action
-    putVar res var
-  delay maxTimeout
-  tryTakeVar var
+  let timeout = do
+        delay maxTimeout
+        throwError $ error "TimeOut"
+  parOneOf [action, timeout]
