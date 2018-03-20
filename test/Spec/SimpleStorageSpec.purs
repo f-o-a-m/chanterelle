@@ -3,14 +3,15 @@ module SimpleStorageSpec (simpleStorageSpec) where
 import Prelude
 
 import Contracts.SimpleStorage as SimpleStorage
-import Control.Monad.Aff.AVar (makeEmptyVar, putVar, takeVar)
+import Control.Monad.Aff.AVar (AVAR, makeEmptyVar, putVar, takeVar)
 import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Console (log)
+import Control.Monad.Eff.Console (CONSOLE, log)
 import Data.Either (Either(..))
 import Data.Lens.Setter ((?~))
 import Data.Maybe (Maybe(..), fromJust)
-import Network.Ethereum.Web3 (runWeb3, EventAction(..), event, embed, eventFilter, uIntNFromBigNumber, _from, _to, defaultTransactionOptions, ChainCursor(..))
+import Network.Ethereum.Web3 (ETH, runWeb3, EventAction(..), event, embed, eventFilter, uIntNFromBigNumber, _from, _to, defaultTransactionOptions, ChainCursor(..))
+import Node.FS.Aff (FS)
 import Partial.Unsafe (unsafePartial)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -19,7 +20,15 @@ import Deploy (readDeployAddress)
 import ContractConfig (simpleStorageConfig)
 import Types (DeployConfig)
 
-simpleStorageSpec :: DeployConfig -> Spec _ Unit
+simpleStorageSpec
+  :: forall e.
+     DeployConfig
+  -> Spec ( fs :: FS
+          , eth :: ETH
+          , avar :: AVAR
+          , console :: CONSOLE
+          | e
+          ) Unit
 simpleStorageSpec deployConfig = do
 
   describe "Getting the default value" do

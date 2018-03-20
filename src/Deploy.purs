@@ -19,7 +19,7 @@ import Data.Either (Either(..), either)
 import Data.Foreign.NullOrUndefined (unNullOrUndefined)
 import Data.Lens ((^?), (?~), (.~))
 import Data.Lens.Index (ix)
-import Data.Maybe (Maybe(..), maybe)
+import Data.Maybe (Maybe, maybe, isNothing, fromJust)
 import Network.Ethereum.Web3 (ETH, Web3, Address, BigNumber, HexString, mkHexString, defaultTransactionOptions, _from, _data, fromWei, _value, runWeb3, mkAddress)
 import Network.Ethereum.Web3.Api (eth_sendTransaction)
 import Network.Ethereum.Web3.Types.Provider (Provider)
@@ -27,6 +27,7 @@ import Data.Newtype (unwrap)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff (FS, readTextFile, writeTextFile)
 import Node.Path (FilePath)
+import Partial.Unsafe (unsafePartial)
 import Utils (withTimeout, pollTransactionReceipt, reportIfErrored)
 import Types (DeployConfig, ContractConfig)
 
@@ -103,17 +104,20 @@ getPublishedContractAddress
 getPublishedContractAddress txHash provider name = do
   C.log $ "Polling for TransactionReceipt: " <> show txHash
   etxReceipt <- attempt $ withTimeout (Milliseconds $ 90.0 * 1000.0) (pollTransactionReceipt txHash provider)
-  case unNullOrUndefined <<< _.contractAddress <<< unwrap <$> etxReceipt of
+  case unwrap <$> etxReceipt of
     Left err -> do
       liftAff $ C.error $ "No Transaction Receipt found for deployment : " <> name <> " : " <> show txHash
       liftAff $ throwError err
-    Right Nothing -> do
-      let missingMessage = "Didn't find contract address in Transaction Receipt for deployment: " <> name
-      liftAff $ C.error missingMessage
-      liftAff $ liftEff' $ throw missingMessage
-    Right (Just contractAddress) -> do
-      liftAff <<< C.log $ "Contract " <> name <> " deployed to address " <> show contractAddress
-      pure contractAddress
+    Right txReceipt ->
+      if txReceipt.status == "0x0" || isNothing (unNullOrUndefined txReceipt.contractAddress)
+         then do
+            let missingMessage = "Deployment failed to create contract, no address found or status 0x0 in receipt: " <> name
+            liftAff $ C.error missingMessage
+            liftAff $ liftEff' $ throw missingMessage
+         else do
+           let contractAddress = unsafePartial fromJust <<< unNullOrUndefined $ txReceipt.contractAddress
+           liftAff <<< C.log $ "Contract " <> name <> " deployed to address " <> show contractAddress
+           pure contractAddress
 
 -- | `deployContractNoArgs` grabs the bytecode from a build artifact and deploys it
 -- | from the primary account, writing the contract address to the artifact.
