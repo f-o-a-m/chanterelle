@@ -13,8 +13,11 @@ import Control.Monad.Aff (Aff, Milliseconds(..), delay, forkAff, liftEff')
 import Control.Monad.Aff.Unsafe (unsafeCoerceAff)
 import Control.Monad.Aff.AVar (AVAR, makeEmptyVar, tryTakeVar, putVar)
 import Control.Monad.Aff.Class (liftAff)
+import Control.Monad.Aff.Console (CONSOLE)
+import Control.Monad.Aff.Console as C
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
-import Control.Monad.Eff.Exception (EXCEPTION)
+import Control.Monad.Eff.Exception (EXCEPTION, error)
+import Control.Monad.Except (throwError)
 import Data.Array ((!!))
 import Data.Maybe (Maybe, maybe, fromJust)
 import Data.Either (Either(..))
@@ -44,12 +47,18 @@ type DeployConfig =
 
 makeDeployConfig
   :: forall eff.
-     Web3 eff DeployConfig
+     Aff (console :: CONSOLE, eth :: ETH | eff) DeployConfig
 makeDeployConfig = do
   provider <- liftAff <<< liftEff' $ makeProvider
-  primaryAccount <- unsafePartial getPrimaryAccount
-  networkId <- net_version
-  pure {provider, primaryAccount, networkId}
+  econfig <- runWeb3 provider $ do
+    primaryAccount <- unsafePartial getPrimaryAccount
+    networkId <- net_version
+    pure {provider, primaryAccount, networkId}
+  case econfig of
+    Left err -> do
+      C.error $ "Couldn't create DeployConfig: " <> show err
+      throwError <<< error <<< show $ err
+    Right config -> pure config
 
 -- | get the primary account for the ethereum client
 getPrimaryAccount
@@ -66,8 +75,9 @@ pollTransactionReceipt
   :: forall eff.
      HexString
   -> Provider
-  -> Aff (eth :: ETH | eff) TransactionReceipt
+  -> Aff (eth :: ETH, console :: CONSOLE | eff) TransactionReceipt
 pollTransactionReceipt txHash provider = do
+  C.log $ "Polling for TransactionReceipt: " <> show txHash
   etxReceipt <- runWeb3 provider $ eth_getTransactionReceipt txHash
   case etxReceipt of
     Left _ -> do

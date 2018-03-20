@@ -5,11 +5,12 @@ module Deploy
 
 import Prelude
 import Control.Error.Util ((??))
-import Control.Monad.Aff (Aff)
+import Control.Monad.Aff (Aff, liftEff')
 import Control.Monad.Aff.Class (liftAff)
+import Control.Monad.Aff.Console (CONSOLE)
+import Control.Monad.Aff.Console as C
 import Control.Monad.Except (ExceptT(..), runExceptT)
-import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Exception (EXCEPTION, throw)
+import Control.Monad.Eff.Exception (throw)
 import Data.Argonaut (stringify, _Object, _String, jsonEmptyObject, (~>), (:=))
 import Data.Argonaut.Parser (jsonParser)
 import Data.Either (Either(..))
@@ -39,19 +40,23 @@ defaultDeployContract
   -- filename of contract artifact
   -> Address
   -- deploy from address
-  -> Web3 (fs :: FS, exception :: EXCEPTION | eff) HexString
+  -> Web3 (fs :: FS, console :: CONSOLE | eff) HexString
 defaultDeployContract filename primaryAccount = do
   ebytecode <- liftAff $ getBytecode filename
   case ebytecode of
-    Left err -> liftEff $ throw err
-    Right bytecode ->
+    Left err -> do
+      liftAff $ C.error err
+      liftAff <<< liftEff' $ throw err
+    Right bytecode -> do
       let txOpts = defaultTransactionOptions # _from ?~ primaryAccount
                                              # _data ?~ bytecode
                                              # _value ?~ fromWei zero
-      in eth_sendTransaction txOpts
+      liftAff $ C.log $ "Deploying contract for " <> filename
+      eth_sendTransaction txOpts
 
 -- | Write the "network object" for a given deployment on a network with
 -- | the given id.
+-- | TODO: this currently overwrites the entire network object
 writeDeployAddress
   :: forall eff.
      FilePath
