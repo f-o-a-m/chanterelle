@@ -17,9 +17,10 @@ import Data.Argonaut (stringify, _Object, _String, jsonEmptyObject, (~>), (:=))
 import Data.Argonaut.Parser (jsonParser)
 import Data.Either (Either(..), either)
 import Data.Foreign.NullOrUndefined (unNullOrUndefined)
-import Data.Lens ((^?), (?~), (.~))
+import Data.Lens ((^?), (?~), (%~))
 import Data.Lens.Index (ix)
 import Data.Maybe (Maybe, maybe, isNothing, fromJust)
+import Data.StrMap as M
 import Network.Ethereum.Web3 (ETH, Web3, Address, BigNumber, HexString, mkHexString, defaultTransactionOptions, _from, _data, fromWei, _value, runWeb3, mkAddress)
 import Network.Ethereum.Web3.Api (eth_sendTransaction)
 import Network.Ethereum.Web3.Types.Provider (Provider)
@@ -72,8 +73,7 @@ writeDeployAddress
 writeDeployAddress filename deployAddress nid = runExceptT $ do
   artifact <- ExceptT $ jsonParser <$> readTextFile UTF8 filename
   let networkIdObj = "address" := show deployAddress ~> jsonEmptyObject
-      networkObj = show nid := networkIdObj ~> jsonEmptyObject
-      artifactWithAddress = artifact # _Object <<< ix "networks" .~ networkObj
+      artifactWithAddress = artifact # _Object <<< ix "networks" <<< _Object %~ M.insert (show nid) networkIdObj
   liftAff $ writeTextFile UTF8 filename $ stringify artifactWithAddress
 
 readDeployAddress
