@@ -1,19 +1,22 @@
+.PHONY: test
+
 NODE_URL ?= "http://localhost:8545"
 
 all: install
+	@echo prereqs that are newer than install: $?
 
-install:
+install: package.json
 	npm install
 
-compile-contracts: install
+compile-contracts: build/
 	truffle compile/
 	npm run generator;
 
-build: compile-contracts
+build: src/
 	pulp build
 
-deploy: build
+deploy: output/
 	pulp run
 
-test: deploy
+test: output/
 	npm run test
