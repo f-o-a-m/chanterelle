@@ -1,16 +1,15 @@
 module Utils
   ( makeProvider
   , makeDeployConfig
-  , DeployConfig
   , getPrimaryAccount
   , pollTransactionReceipt
   , withTimeout
+  , reportIfErrored
   ) where
 
 import Prelude
 import Control.Monad.Eff (Eff)
-import Control.Monad.Aff (Aff, Milliseconds(..), delay, forkAff, liftEff')
-import Control.Monad.Aff.Unsafe (unsafeCoerceAff)
+import Control.Monad.Aff (Aff, Milliseconds(..), delay, liftEff')
 import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as C
@@ -19,15 +18,15 @@ import Control.Monad.Eff.Exception (EXCEPTION, error)
 import Control.Monad.Except (throwError)
 import Control.Parallel (parOneOf)
 import Data.Array ((!!))
-import Data.Maybe (Maybe, maybe, fromJust)
+import Data.Maybe (maybe, fromJust)
 import Data.Either (Either(..))
-import Network.Ethereum.Web3 (ETH, Web3, HexString, Address, BigNumber, runWeb3)
+import Network.Ethereum.Web3 (ETH, Web3, HexString, Address, runWeb3)
 import Network.Ethereum.Web3.Api (eth_getAccounts, eth_getTransactionReceipt, net_version)
 import Network.Ethereum.Web3.Types (TransactionReceipt)
 import Network.Ethereum.Web3.Types.Provider (Provider, httpProvider)
 import Node.Process (lookupEnv)
 import Partial.Unsafe (unsafePartial)
-
+import Types (DeployConfig)
 
 -- | Make an http provider with address given by NODE_URL, falling back
 -- | to localhost.
@@ -38,12 +37,6 @@ makeProvider = unsafeCoerceEff $ do
   murl <- lookupEnv "NODE_URL"
   url <- maybe (pure "http://localhost:8545") pure murl
   httpProvider url
-
-type DeployConfig =
-  { networkId :: BigNumber
-  , primaryAccount :: Address
-  , provider :: Provider
-  }
 
 makeDeployConfig
   :: forall eff.
@@ -95,3 +88,16 @@ withTimeout maxTimeout action = do
         delay maxTimeout
         throwError $ error "TimeOut"
   parOneOf [action, timeout]
+
+reportIfErrored
+  :: forall err a eff.
+     Show err
+  => String
+  -> Either err a
+  -> Aff (console :: CONSOLE | eff) a
+reportIfErrored msg eRes =
+  case eRes of
+    Left err -> do
+      C.error msg
+      throwError <<< error <<< show $ err
+    Right res -> pure res

@@ -1,6 +1,7 @@
 module Deploy
-  ( defaultDeployContract
-  , writeDeployAddress
+  ( deployContractNoArgs
+  , deployContractWithArgs
+  , readDeployAddress
   ) where
 
 import Prelude
@@ -9,22 +10,26 @@ import Control.Monad.Aff (Aff, Milliseconds(..), liftEff', attempt)
 import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as C
+import Control.Monad.Aff.Unsafe (unsafeCoerceAff)
 import Control.Monad.Except (ExceptT(..), runExceptT, throwError)
-import Control.Monad.Eff.Exception (throw, error)
+import Control.Monad.Eff.Exception (throw)
 import Data.Argonaut (stringify, _Object, _String, jsonEmptyObject, (~>), (:=))
 import Data.Argonaut.Parser (jsonParser)
-import Data.Either (Either(..))
+import Data.Either (Either(..), either)
 import Data.Foreign.NullOrUndefined (unNullOrUndefined)
 import Data.Lens ((^?), (?~), (.~))
 import Data.Lens.Index (ix)
-import Data.Maybe (Maybe(..))
-import Network.Ethereum.Web3 (ETH, Web3, Address, BigNumber, HexString, mkHexString, defaultTransactionOptions, _from, _data, fromWei, _value, runWeb3)
+import Data.Maybe (Maybe(..), maybe)
+import Network.Ethereum.Web3 (ETH, Web3, Address, BigNumber, HexString, mkHexString, defaultTransactionOptions, _from, _data, fromWei, _value, runWeb3, mkAddress)
 import Network.Ethereum.Web3.Api (eth_sendTransaction)
+import Network.Ethereum.Web3.Types.Provider (Provider)
 import Data.Newtype (unwrap)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff (FS, readTextFile, writeTextFile)
 import Node.Path (FilePath)
-import Utils (DeployConfig, withTimeout, pollTransactionReceipt)
+import Utils (withTimeout, pollTransactionReceipt, reportIfErrored)
+import Types (DeployConfig, ContractConfig)
+
 
 -- | Fetch the bytecode from a solidity build artifact
 getBytecode
@@ -40,23 +45,16 @@ getBytecode filename = runExceptT $ do
 -- | Publish a contract based on the bytecode. Used for contracts with no constructor.
 defaultPublishContract
   :: forall eff.
-     FilePath
-  -- filename of contract artifact
+     HexString
+  -- ^ Contract bytecode
   -> Address
-  -- deploy from address
-  -> Web3 (fs :: FS, console :: CONSOLE | eff) HexString
-defaultPublishContract filename primaryAccount = do
-  ebytecode <- liftAff $ getBytecode filename
-  case ebytecode of
-    Left err -> do
-      liftAff $ C.error err
-      liftAff <<< liftEff' $ throw err
-    Right bytecode -> do
-      let txOpts = defaultTransactionOptions # _from ?~ primaryAccount
-                                             # _data ?~ bytecode
-                                             # _value ?~ fromWei zero
-      liftAff $ C.log $ "Deploying contract for " <> filename
-      eth_sendTransaction txOpts
+  -- ^ deploy from address
+  -> Web3 eff HexString
+defaultPublishContract bytecode primaryAccount = do
+  let txOpts = defaultTransactionOptions # _from ?~ primaryAccount
+                                         # _data ?~ bytecode
+                                         # _value ?~ fromWei zero
+  eth_sendTransaction txOpts
 
 -- | Write the "network object" for a given deployment on a network with
 -- | the given id.
@@ -77,37 +75,92 @@ writeDeployAddress filename deployAddress nid = runExceptT $ do
       artifactWithAddress = artifact # _Object <<< ix "networks" .~ networkObj
   liftAff $ writeTextFile UTF8 filename $ stringify artifactWithAddress
 
--- | 'defaultDeployContract' is what you want most of the time, especially if you're just trying
--- | to ship a contract out the door as fast as possible.
-defaultDeployContract
+readDeployAddress
+  :: forall eff.
+     FilePath
+  -- contract filepath
+  -> BigNumber
+  -- network id
+  -> Aff (fs :: FS | eff) Address
+readDeployAddress filepath nid = do
+  eAddr <- runExceptT $ do
+    artifact <- ExceptT $ jsonParser <$> readTextFile UTF8 filepath
+    let maddress = do
+          addrString <- artifact ^? _Object <<< ix "networks" <<< _Object <<< ix (show nid) <<< _Object <<< ix "address" <<< _String
+          mkAddress =<< mkHexString addrString
+    maddress ?? ("Couldn't find valid Deploy Address in artifact: " <> filepath)
+  either (liftEff' <<< throw) pure eAddr
+
+getPublishedContractAddress
+  :: forall eff.
+     HexString
+   -- ^ publishing transaction hash
+  -> Provider
+  -- ^ web3 connection
+  -> String
+  -- ^ contract name
+  -> Aff (eth :: ETH, console :: CONSOLE | eff) Address
+getPublishedContractAddress txHash provider name = do
+  C.log $ "Polling for TransactionReceipt: " <> show txHash
+  etxReceipt <- attempt $ withTimeout (Milliseconds $ 90.0 * 1000.0) (pollTransactionReceipt txHash provider)
+  case unNullOrUndefined <<< _.contractAddress <<< unwrap <$> etxReceipt of
+    Left err -> do
+      liftAff $ C.error $ "No Transaction Receipt found for deployment : " <> name <> " : " <> show txHash
+      liftAff $ throwError err
+    Right Nothing -> do
+      let missingMessage = "Didn't find contract address in Transaction Receipt for deployment: " <> name
+      liftAff $ C.error missingMessage
+      liftAff $ liftEff' $ throw missingMessage
+    Right (Just contractAddress) -> do
+      liftAff <<< C.log $ "Contract " <> name <> " deployed to address " <> show contractAddress
+      pure contractAddress
+
+-- | `deployContractNoArgs` grabs the bytecode from a build artifact and deploys it
+-- | from the primary account, writing the contract address to the artifact.
+deployContractNoArgs
+  :: forall eff.
+     DeployConfig
+  -> ContractConfig ()
+  -> Aff (eth :: ETH, console :: CONSOLE, fs :: FS | eff) Address
+deployContractNoArgs cfg@{provider, primaryAccount} {filepath, name} = do
+  bytecode <- do
+    ebc <- getBytecode filepath
+    reportIfErrored ("Couln't find contract bytecode in artifact " <> filepath) ebc
+  let deployAction =  defaultPublishContract bytecode primaryAccount
+  deployContractAndWriteToArtifact cfg filepath name deployAction
+
+-- | `deployContractWithArgs` grabs the bytecode from the artifact and uses the
+-- | args defined in the contract config to deploy, then writes the address
+-- | to the artifact.
+deployContractWithArgs
+  :: forall eff args.
+     DeployConfig
+  -> ContractConfig (deployArgs :: Maybe args)
+  -> (HexString -> args -> Web3 eff HexString)
+  -> Aff (eth :: ETH, console :: CONSOLE, fs :: FS | eff) Address
+deployContractWithArgs cfg@{provider, primaryAccount} {filepath, name, deployArgs} deployer = do
+  args <- maybe (liftEff' <<< throw $ "Couldn't validate args for contract deployment: " <> name) pure deployArgs
+  bytecode <- do
+    ebc <- getBytecode filepath
+    reportIfErrored ("Couln't find contract bytecode in artifact " <> filepath) ebc
+  deployContractAndWriteToArtifact cfg filepath name (deployer bytecode args)
+
+-- | The common deployment function for contracts with or without args.
+deployContractAndWriteToArtifact
   :: forall eff.
      DeployConfig
   -> FilePath
-  -> Aff (eth :: ETH, console :: CONSOLE, fs :: FS | eff) Unit
-defaultDeployContract {provider, networkId, primaryAccount} filename = do
-  econtractAddr <- runWeb3 provider $ do
-    txHash <- defaultPublishContract filename primaryAccount
-    liftAff $ C.log $ "Polling for TransactionReceipt: " <> show txHash
-    etxReceipt <- liftAff <<< attempt $ withTimeout (Milliseconds $ 90.0 * 1000.0) (pollTransactionReceipt txHash provider)
-    case unNullOrUndefined <<< _.contractAddress <<< unwrap <$> etxReceipt of
-      Left err -> do
-        liftAff $ C.error $ "No Transaction Receipt found for deployemt : " <> filename <> " : " <> show txHash
-        liftAff $ throwError err
-      Right Nothing -> do
-        let timeoutErrMsg = "Didn't find contract address in TransactionReceipt for deployment: " <> filename
-        liftAff $ C.error timeoutErrMsg
-        liftAff $ liftEff' $ throw timeoutErrMsg
-      Right (Just contractAddress) -> do
-        liftAff <<< C.log $ "Contract " <> filename <> " deployed to address " <> show contractAddress
-        pure contractAddress
-  case econtractAddr of
-    Left err -> do
-      C.error $ "Web3 error during contract deployment for " <> show filename <> " : " <> show err
-      liftEff' <<< throw $ show err
-    Right contractAddr -> do
-      eRes <- writeDeployAddress filename contractAddr networkId
-      case eRes of
-        Left err -> do
-          C.error $ "Failed to write deploy address to artifact " <> show filename <> " : " <> err
-          throwError $ error err
-        Right _ -> pure unit
+  -- ^ artifact filepath
+  -> String
+  -- ^ contract name
+  -> Web3 eff HexString
+  -- ^ deploy action returning txHash
+  -> Aff (eth :: ETH, console :: CONSOLE, fs :: FS | eff) Address
+deployContractAndWriteToArtifact {provider, networkId, primaryAccount} filepath name deployAction = do
+    C.log $ "Deploying contract " <> name
+    etxHash <- unsafeCoerceAff $ runWeb3 provider deployAction
+    txHash <- reportIfErrored ("Web3 error during contract deployment for " <> show name) etxHash
+    contractAddress <- getPublishedContractAddress txHash provider name
+    writeDeployAddress filepath contractAddress networkId >>= reportIfErrored ("Failed to write address for artifact " <> filepath)
+    pure contractAddress
+

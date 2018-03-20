@@ -5,6 +5,10 @@ contract SimpleStorage {
 
     event CountSet(uint _count);
 
+    function SimpleStorage(uint _count) public {
+        count = _count;
+    } 
+
     function setCount(uint _count) public {
         count = _count;
         CountSet(_count);
