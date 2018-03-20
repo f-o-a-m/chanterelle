@@ -32,14 +32,14 @@ import Types (DeployConfig, ContractConfig)
 
 
 -- | Fetch the bytecode from a solidity build artifact
-getBytecode
+getDeployedBytecode
   :: forall eff.
      FilePath
   -- ^ filename of contract artifact
   -> Aff (fs :: FS | eff) (Either String HexString)
-getBytecode filename = runExceptT $ do
+getDeployedBytecode filename = runExceptT $ do
   artifact <- ExceptT $ jsonParser <$> readTextFile UTF8 filename
-  bytecode <- (artifact ^? _Object <<< ix "bytecode" <<< _String) ?? "artifact missing 'bytecode' field."
+  bytecode <- (artifact ^? _Object <<< ix "deployedBytecode" <<< _String) ?? "artifact missing 'deployedBytecode' field."
   mkHexString bytecode ?? "bytecode not a valid hex string"
 
 -- | Publish a contract based on the bytecode. Used for contracts with no constructor.
@@ -124,7 +124,7 @@ deployContractNoArgs
   -> Aff (eth :: ETH, console :: CONSOLE, fs :: FS | eff) Address
 deployContractNoArgs cfg@{provider, primaryAccount} {filepath, name} = do
   bytecode <- do
-    ebc <- getBytecode filepath
+    ebc <- getDeployedBytecode filepath
     reportIfErrored ("Couln't find contract bytecode in artifact " <> filepath) ebc
   let deployAction =  defaultPublishContract bytecode primaryAccount
   deployContractAndWriteToArtifact cfg filepath name deployAction
@@ -141,7 +141,7 @@ deployContractWithArgs
 deployContractWithArgs cfg@{provider, primaryAccount} {filepath, name, deployArgs} deployer = do
   args <- maybe (liftEff' <<< throw $ "Couldn't validate args for contract deployment: " <> name) pure deployArgs
   bytecode <- do
-    ebc <- getBytecode filepath
+    ebc <- getDeployedBytecode filepath
     reportIfErrored ("Couln't find contract bytecode in artifact " <> filepath) ebc
   deployContractAndWriteToArtifact cfg filepath name (deployer bytecode args)
 
