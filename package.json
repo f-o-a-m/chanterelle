@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "postinstall": "bower i; npm run generator;",
+    "postinstall": "bower install",
     "generator": "pulp build --src-path generator -m Generator --to generator.js && node generator.js --abis build/contracts --dest src --truffle true; rm generator.js",
     "build": "pulp build",
     "test": "pulp test"

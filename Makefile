@@ -1,5 +1,3 @@
-.PHONY: install compile-contracts build deploy test
-
 NODE_URL ?= "http://localhost:8545"
 
 all: install
@@ -7,15 +5,15 @@ all: install
 install:
 	npm install
 
-compile-contracts:
+compile-contracts: install
 	truffle compile/
 	npm run generator;
 
-build:
+build: compile-contracts
 	pulp build
 
-deploy:
+deploy: build
 	pulp run
 
-test:
+test: deploy
 	npm run test
