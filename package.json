@@ -4,8 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "postinstall": "bower i; npm run generator;",
     "generator": "pulp build --src-path generator -m Generator --to generator.js && node generator.js --abis build/contracts --dest src --truffle true; rm generator.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "pulp build",
+    "test": "pulp test"
   },
   "author": "",
   "license": "ISC",
