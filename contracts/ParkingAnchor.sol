@@ -37,4 +37,8 @@ contract ParkingAnchor is Ownable, CSC {
           revert();
       }
   }
+
+  function transferBalanceToOwner() public onlyOwner() {
+      owner.transfer(this.balance);
+  }
 }
