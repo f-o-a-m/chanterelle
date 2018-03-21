@@ -8,3 +8,4 @@
 /.purs*
 /.psa*
 src/Contracts
+build/

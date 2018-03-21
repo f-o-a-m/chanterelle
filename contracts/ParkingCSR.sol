@@ -1,7 +1,8 @@
 pragma solidity ^0.4.13;
 
+import "zeppelin-solidity/contracts/ownership/Ownable.sol";
+
 import "./CSR.sol";
-import "./Ownable.sol";
 
 /*
   ParkingCSR is the spatial registry contract for the ParkingAuthority, and is owned

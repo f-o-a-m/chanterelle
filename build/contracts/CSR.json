@@ -6,20 +6,6 @@
       "inputs": [
         {
           "name": "csc",
-          "type": "address"
-        }
-      ],
-      "name": "register",
-      "outputs": [],
-      "payable": false,
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "constant": false,
-      "inputs": [
-        {
-          "name": "csc",
           "type": "bytes12"
         }
       ],
@@ -33,6 +19,20 @@
       "payable": false,
       "stateMutability": "nonpayable",
       "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "csc",
+          "type": "address"
+        }
+      ],
+      "name": "register",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
     }
   ],
   "bytecode": "0x",
@@ -40,10 +40,10 @@
   "sourceMap": "",
   "deployedSourceMap": "",
   "source": "pragma solidity ^0.4.13;\n\nimport \"./CSC.sol\";\n\n/*\n  A CSR is a registry (a lookup table), which maps a Crypto Spatial Cooridinate\n  (CSC) to its contract address. If you would like to register a CSC, use the\n  CSC's register method against the registery. The registry is in charge of making\n  sure this request makes sense before commiting the entry.\n*/\n\n\ncontract CSR {\n  function registry(bytes12 csc) public returns(address);\n  function register(CSC csc) public;\n}",
-  "sourcePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/CSR.sol",
+  "sourcePath": "/Users/kejace/devel/chanterelle/contracts/CSR.sol",
   "ast": {
     "attributes": {
-      "absolutePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/CSR.sol",
+      "absolutePath": "/Users/kejace/devel/chanterelle/contracts/CSR.sol",
       "exportedSymbols": {
         "CSR": [
           43
@@ -67,7 +67,7 @@
       {
         "attributes": {
           "SourceUnit": 28,
-          "absolutePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/CSC.sol",
+          "absolutePath": "/Users/kejace/devel/chanterelle/contracts/CSC.sol",
           "file": "./CSC.sol",
           "scope": 44,
           "symbolAliases": [
@@ -265,9 +265,9 @@
   },
   "compiler": {
     "name": "solc",
-    "version": "0.4.18+commit.9cf6e910.Emscripten.clang"
+    "version": "0.4.19+commit.c4cbbb05.Emscripten.clang"
   },
   "networks": {},
   "schemaVersion": "1.0.1",
-  "updatedAt": "2018-03-21T21:25:41.997Z"
+  "updatedAt": "2018-03-21T22:06:29.295Z"
 }
