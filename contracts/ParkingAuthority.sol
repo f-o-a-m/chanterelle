@@ -20,6 +20,11 @@ contract ParkingAuthority is Ownable {
     event RegisteredParkingAnchor(bytes12 csc, address addr, bytes8 geohash);
     event RegisterParkingUser(address accountAddress, address userAddress);
 
+    // Decide whether or not to give the user parking access to the zone. Mocked for now.
+    modifier shouldGiveAccess(bytes4 _zone) {
+      _;
+    }
+
     // Deploy a new parking authority.
     function ParkingAuthority() public Ownable() {
       parkingCSR = new ParkingCSR();
@@ -48,13 +53,10 @@ contract ParkingAuthority is Ownable {
         RegisterParkingUser(msg.sender, address(newUser));
     }
 
-    function shouldGiveAccess(User _user, bytes4 _zone) internal pure returns(bool) {
-      return true;
-    }
-
-    function addZone(bytes4 _zone) public {
+    // This function is called by a user when they want to add a zone to their listed of
+    // licensed zones.
+    function addZone(bytes4 _zone) public shouldGiveAccess(_zone) {
       User user = User(msg.sender);
-      require(shouldGiveAccess(user, _zone));
       user.addZone(_zone);
     }
 

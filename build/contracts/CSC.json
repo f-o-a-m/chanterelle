@@ -72,7 +72,7 @@
       },
       {
         "attributes": {
-          "SourceUnit": 472,
+          "SourceUnit": 462,
           "absolutePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/SpatialUtils.sol",
           "file": "./SpatialUtils.sol",
           "scope": 28,
@@ -327,7 +327,7 @@
                                   "isPure": false,
                                   "lValueRequested": false,
                                   "member_name": "computeCSC",
-                                  "referencedDeclaration": 470,
+                                  "referencedDeclaration": 460,
                                   "type": "function (bytes8,address) pure returns (bytes12)"
                                 },
                                 "children": [
@@ -337,7 +337,7 @@
                                       "overloadedDeclarations": [
                                         null
                                       ],
-                                      "referencedDeclaration": 471,
+                                      "referencedDeclaration": 461,
                                       "type": "type(library SpatialUtils)",
                                       "value": "SpatialUtils"
                                     },
@@ -404,7 +404,7 @@
                                       "overloadedDeclarations": [
                                         null
                                       ],
-                                      "referencedDeclaration": 643,
+                                      "referencedDeclaration": 655,
                                       "type": "contract CSC",
                                       "value": "this"
                                     },
@@ -458,5 +458,5 @@
   },
   "networks": {},
   "schemaVersion": "1.0.1",
-  "updatedAt": "2018-03-21T21:25:41.996Z"
+  "updatedAt": "2018-03-21T22:09:15.748Z"
 }

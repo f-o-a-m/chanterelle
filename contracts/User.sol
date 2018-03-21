@@ -23,34 +23,47 @@ contract User is Ownable {
 
     event CheckIn(address user, address anchor);
 
+    modifier senderIsParkingAuthority() {
+        ParkingAuthority authority = ParkingAuthority(msg.sender);
+        require(parkingAuthority == authority);
+        _;
+    }
+
+    modifier senderIsPendingAnchor() {
+        ParkingAnchor anchor = ParkingAnchor(msg.sender);
+        require(anchor == pendingAnchor);
+        _;
+    } 
+
+    // A user is created by a ParkingAuthorty.
     function User() public Ownable {
       parkingAuthority = ParkingAuthority(msg.sender);
     }
-    
+
+    // Set the pending anchor to indicate interest in using a ParkingAnchor
     function setPendingAnchor(ParkingAnchor _anchor) internal onlyOwner() {
         pendingAnchor = _anchor;
     }
 
+    // Pay a parking anchor for parking, assuming the user has access to their zone.
     function payForParking(ParkingAnchor _anchor) public payable onlyOwner() {
         setPendingAnchor(_anchor);
         _anchor.acceptPayment.value(msg.value)();
     }
-    
-    function setLastCheckIn() public {
+
+    function setLastCheckIn() public senderIsPendingAnchor() {
         ParkingAnchor anchor = ParkingAnchor(msg.sender);
-        require(anchor == pendingAnchor);
         lastCheckIn = anchor;
         lastCheckInBlock = block.number;
-        CheckIn(this, address(anchor));
+        CheckIn(this, msg.sender);
         pendingAnchor = ParkingAnchor(0);
     }
 
-    function addZone(bytes4 _zone) public {
-      require(msg.sender == address(parkingAuthority));
-      licensedZones[_zone] = true;
+    function addZone(bytes4 _zone) public senderIsParkingAuthority() {
+        licensedZones[_zone] = true;
     }
 
     function requestZone(bytes4 _zone) public onlyOwner {
-      parkingAuthority.addZone(_zone);
+        parkingAuthority.addZone(_zone);
     }
 }
