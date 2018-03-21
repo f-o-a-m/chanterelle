@@ -1,10 +1,8 @@
-# signal-contracts
-repo for contracts related to the FOAM signaling protocol
+# chanterelle
+<img src=https://github.com/f-o-a-m/purescript-web3/blob/master/purescript-web3-logo.png width="75">
 
 ## Overview
-This repo servers as the primary repo holding the FOAM solidity contracts and tests for the signaling protocol. It allows
-for deployment and testing to be written in purescript, hopefully freeing us from some of the nonsense we usually
-have to deal with when prototyping and deploying.
+This repo is meant to be a templated replacement to truffle. You can clone it and use it for development, deployment, and testing of solidity smart contracts. It uses truffle as a build tool, taking advantage of it's bundled compiler. However it allows for deployment and testing to be written in purescript, hopefully freeing us from some of the nonsense we ocassionally have to deal with when prototyping and deploying with truffle. We also recommend [cliquebait](https://github.com/f-o-a-m/cliquebait) as a replacement for testrpc. 
 
 ## Commands
 
