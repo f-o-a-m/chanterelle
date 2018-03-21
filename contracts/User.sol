@@ -9,7 +9,8 @@ pragma solidity ^0.4.13;
   to modify their parking priveledges, they must do this through the zone authority. 
 */
 
-import "./Ownable.sol";
+import "zeppelin-solidity/contracts/ownership/Ownable.sol";
+
 import "./ParkingAnchor.sol";
 import "./ParkingAuthority.sol";
 

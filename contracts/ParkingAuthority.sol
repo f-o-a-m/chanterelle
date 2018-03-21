@@ -7,7 +7,8 @@ pragma solidity ^0.4.13;
   two registries.
 */
 
-import "./Ownable.sol";
+import "zeppelin-solidity/contracts/ownership/Ownable.sol";
+
 import "./ParkingAnchor.sol";
 import "./FoamCSR.sol";
 import "./User.sol";

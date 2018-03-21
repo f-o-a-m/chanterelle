@@ -118,7 +118,7 @@
       },
       {
         "attributes": {
-          "SourceUnit": 463,
+          "SourceUnit": 497,
           "absolutePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/SpatialUtils.sol",
           "file": "./SpatialUtils.sol",
           "scope": 129,
@@ -430,7 +430,7 @@
                                           "overloadedDeclarations": [
                                             null
                                           ],
-                                          "referencedDeclaration": 643,
+                                          "referencedDeclaration": 733,
                                           "type": "msg",
                                           "value": "msg"
                                         },
@@ -481,7 +481,7 @@
                                       "overloadedDeclarations": [
                                         null
                                       ],
-                                      "referencedDeclaration": 646,
+                                      "referencedDeclaration": 736,
                                       "type": "function (bool) pure",
                                       "value": "require"
                                     },
@@ -536,7 +536,7 @@
                                               "isPure": false,
                                               "lValueRequested": false,
                                               "member_name": "computeCSC",
-                                              "referencedDeclaration": 461,
+                                              "referencedDeclaration": 495,
                                               "type": "function (bytes8,address) pure returns (bytes12)"
                                             },
                                             "children": [
@@ -546,7 +546,7 @@
                                                   "overloadedDeclarations": [
                                                     null
                                                   ],
-                                                  "referencedDeclaration": 462,
+                                                  "referencedDeclaration": 496,
                                                   "type": "type(library SpatialUtils)",
                                                   "value": "SpatialUtils"
                                                 },
@@ -633,7 +633,7 @@
                                                   "overloadedDeclarations": [
                                                     null
                                                   ],
-                                                  "referencedDeclaration": 643,
+                                                  "referencedDeclaration": 733,
                                                   "type": "msg",
                                                   "value": "msg"
                                                 },
@@ -754,7 +754,7 @@
                                           "overloadedDeclarations": [
                                             null
                                           ],
-                                          "referencedDeclaration": 643,
+                                          "referencedDeclaration": 733,
                                           "type": "msg",
                                           "value": "msg"
                                         },
@@ -853,7 +853,7 @@
                                           "overloadedDeclarations": [
                                             null
                                           ],
-                                          "referencedDeclaration": 643,
+                                          "referencedDeclaration": 733,
                                           "type": "msg",
                                           "value": "msg"
                                         },
@@ -1067,5 +1067,5 @@
   },
   "networks": {},
   "schemaVersion": "1.0.1",
-  "updatedAt": "2018-03-21T22:18:57.325Z"
+  "updatedAt": "2018-03-21T22:23:24.381Z"
 }
