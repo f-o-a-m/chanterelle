@@ -9,12 +9,12 @@ pragma solidity ^0.4.13;
 
 import "./Ownable.sol";
 import "./ParkingAnchor.sol";
-import "./ParkingCSR.sol";
+import "./FoamCSR.sol";
 import "./User.sol";
 
 contract ParkingAuthority is Ownable {
     
-    ParkingCSR public parkingCSR;
+    FoamCSR public parkingCSR;
     mapping(address => User) public members;
     
     event RegisteredParkingAnchor(bytes12 csc, address addr, bytes8 geohash);
@@ -26,8 +26,8 @@ contract ParkingAuthority is Ownable {
     }
 
     // Deploy a new parking authority.
-    function ParkingAuthority() public Ownable() {
-      parkingCSR = new ParkingCSR();
+    function ParkingAuthority(FoamCSR foamCSR) public Ownable() {
+      parkingCSR = foamCSR;
     }
 
     // A function user to verify a ParkingAnchor, currently mocked.
@@ -40,7 +40,7 @@ contract ParkingAuthority is Ownable {
     function deployParkingAnchor(bytes8 _geohash, bytes32 _anchorId) public onlyOwner() {
         if (validateParkingAnchor(_geohash, _anchorId) == true) {
             ParkingAnchor anchor = new ParkingAnchor(_geohash, _anchorId);
-            parkingCSR.register(anchor);
+            anchor.register(parkingCSR);
             RegisteredParkingAnchor(anchor.csc(), address(anchor), _geohash);
             anchor.transferOwnership(msg.sender);
         }

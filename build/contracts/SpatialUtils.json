@@ -36,7 +36,7 @@
       "absolutePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/SpatialUtils.sol",
       "exportedSymbols": {
         "SpatialUtils": [
-          461
+          462
         ]
       }
     },
@@ -50,7 +50,7 @@
             ".13"
           ]
         },
-        "id": 443,
+        "id": 444,
         "name": "PragmaDirective",
         "src": "0:24:6"
       },
@@ -66,10 +66,10 @@
           "documentation": null,
           "fullyImplemented": true,
           "linearizedBaseContracts": [
-            461
+            462
           ],
           "name": "SpatialUtils",
-          "scope": 462
+          "scope": 463
         },
         "children": [
           {
@@ -82,7 +82,7 @@
               ],
               "name": "computeCSC",
               "payable": false,
-              "scope": 461,
+              "scope": 462,
               "stateMutability": "pure",
               "superFunction": null,
               "visibility": "public"
@@ -94,7 +94,7 @@
                     "attributes": {
                       "constant": false,
                       "name": "geohash_arg",
-                      "scope": 460,
+                      "scope": 461,
                       "stateVariable": false,
                       "storageLocation": "default",
                       "type": "bytes8",
@@ -107,12 +107,12 @@
                           "name": "bytes8",
                           "type": "bytes8"
                         },
-                        "id": 444,
+                        "id": 445,
                         "name": "ElementaryTypeName",
                         "src": "159:6:6"
                       }
                     ],
-                    "id": 445,
+                    "id": 446,
                     "name": "VariableDeclaration",
                     "src": "159:18:6"
                   },
@@ -120,7 +120,7 @@
                     "attributes": {
                       "constant": false,
                       "name": "addr",
-                      "scope": 460,
+                      "scope": 461,
                       "stateVariable": false,
                       "storageLocation": "default",
                       "type": "address",
@@ -133,17 +133,17 @@
                           "name": "address",
                           "type": "address"
                         },
-                        "id": 446,
+                        "id": 447,
                         "name": "ElementaryTypeName",
                         "src": "179:7:6"
                       }
                     ],
-                    "id": 447,
+                    "id": 448,
                     "name": "VariableDeclaration",
                     "src": "179:12:6"
                   }
                 ],
-                "id": 448,
+                "id": 449,
                 "name": "ParameterList",
                 "src": "158:34:6"
               },
@@ -153,7 +153,7 @@
                     "attributes": {
                       "constant": false,
                       "name": "",
-                      "scope": 460,
+                      "scope": 461,
                       "stateVariable": false,
                       "storageLocation": "default",
                       "type": "bytes12",
@@ -166,17 +166,17 @@
                           "name": "bytes12",
                           "type": "bytes12"
                         },
-                        "id": 449,
+                        "id": 450,
                         "name": "ElementaryTypeName",
                         "src": "213:7:6"
                       }
                     ],
-                    "id": 450,
+                    "id": 451,
                     "name": "VariableDeclaration",
                     "src": "213:7:6"
                   }
                 ],
-                "id": 451,
+                "id": 452,
                 "name": "ParameterList",
                 "src": "212:9:6"
               },
@@ -184,7 +184,7 @@
                 "children": [
                   {
                     "attributes": {
-                      "functionReturnParameters": 451
+                      "functionReturnParameters": 452
                     },
                     "children": [
                       {
@@ -217,7 +217,7 @@
                               "type": "type(bytes12)",
                               "value": "bytes12"
                             },
-                            "id": 452,
+                            "id": 453,
                             "name": "ElementaryTypeNameExpression",
                             "src": "237:7:6"
                           },
@@ -251,11 +251,11 @@
                                   "overloadedDeclarations": [
                                     null
                                   ],
-                                  "referencedDeclaration": 636,
+                                  "referencedDeclaration": 637,
                                   "type": "function () pure returns (bytes32)",
                                   "value": "keccak256"
                                 },
-                                "id": 453,
+                                "id": 454,
                                 "name": "Identifier",
                                 "src": "245:9:6"
                               },
@@ -265,11 +265,11 @@
                                   "overloadedDeclarations": [
                                     null
                                   ],
-                                  "referencedDeclaration": 445,
+                                  "referencedDeclaration": 446,
                                   "type": "bytes8",
                                   "value": "geohash_arg"
                                 },
-                                "id": 454,
+                                "id": 455,
                                 "name": "Identifier",
                                 "src": "255:11:6"
                               },
@@ -279,46 +279,46 @@
                                   "overloadedDeclarations": [
                                     null
                                   ],
-                                  "referencedDeclaration": 447,
+                                  "referencedDeclaration": 448,
                                   "type": "address",
                                   "value": "addr"
                                 },
-                                "id": 455,
+                                "id": 456,
                                 "name": "Identifier",
                                 "src": "268:4:6"
                               }
                             ],
-                            "id": 456,
+                            "id": 457,
                             "name": "FunctionCall",
                             "src": "245:28:6"
                           }
                         ],
-                        "id": 457,
+                        "id": 458,
                         "name": "FunctionCall",
                         "src": "237:37:6"
                       }
                     ],
-                    "id": 458,
+                    "id": 459,
                     "name": "Return",
                     "src": "230:44:6"
                   }
                 ],
-                "id": 459,
+                "id": 460,
                 "name": "Block",
                 "src": "222:59:6"
               }
             ],
-            "id": 460,
+            "id": 461,
             "name": "FunctionDefinition",
             "src": "139:142:6"
           }
         ],
-        "id": 461,
+        "id": 462,
         "name": "ContractDefinition",
         "src": "107:176:6"
       }
     ],
-    "id": 462,
+    "id": 463,
     "name": "SourceUnit",
     "src": "0:283:6"
   },
@@ -328,5 +328,5 @@
   },
   "networks": {},
   "schemaVersion": "1.0.1",
-  "updatedAt": "2018-03-21T22:09:15.755Z"
+  "updatedAt": "2018-03-21T22:18:57.326Z"
 }

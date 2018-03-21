@@ -6,20 +6,6 @@
       "inputs": [
         {
           "name": "csc",
-          "type": "address"
-        }
-      ],
-      "name": "register",
-      "outputs": [],
-      "payable": false,
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "constant": false,
-      "inputs": [
-        {
-          "name": "csc",
           "type": "bytes12"
         }
       ],
@@ -33,20 +19,34 @@
       "payable": false,
       "stateMutability": "nonpayable",
       "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "csc",
+          "type": "bytes12"
+        }
+      ],
+      "name": "register",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
     }
   ],
   "bytecode": "0x",
   "deployedBytecode": "0x",
   "sourceMap": "",
   "deployedSourceMap": "",
-  "source": "pragma solidity ^0.4.13;\n\nimport \"./CSC.sol\";\n\n/*\n  A CSR is a registry (a lookup table), which maps a Crypto Spatial Cooridinate\n  (CSC) to its contract address. If you would like to register a CSC, use the\n  CSC's register method against the registery. The registry is in charge of making\n  sure this request makes sense before commiting the entry.\n*/\n\n\ncontract CSR {\n  function registry(bytes12 csc) public returns(address);\n  function register(CSC csc) public;\n}",
+  "source": "pragma solidity ^0.4.13;\n\n/*\n  A CSR is a registry (a lookup table), which maps a Crypto Spatial Cooridinate\n  (CSC) to its contract address. If you would like to register a CSC, use the\n  CSC's register method against the registery. The registry is in charge of making\n  sure this request makes sense before commiting the entry.\n*/\n\ncontract CSR {\n  function registry(bytes12 csc) public returns(address);\n  function register(bytes12 csc) public;\n}\n",
   "sourcePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/CSR.sol",
   "ast": {
     "attributes": {
       "absolutePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/CSR.sol",
       "exportedSymbols": {
         "CSR": [
-          43
+          61
         ]
       }
     },
@@ -60,24 +60,9 @@
             ".13"
           ]
         },
-        "id": 29,
+        "id": 48,
         "name": "PragmaDirective",
         "src": "0:24:1"
-      },
-      {
-        "attributes": {
-          "SourceUnit": 28,
-          "absolutePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/CSC.sol",
-          "file": "./CSC.sol",
-          "scope": 44,
-          "symbolAliases": [
-            null
-          ],
-          "unitAlias": ""
-        },
-        "id": 30,
-        "name": "ImportDirective",
-        "src": "26:19:1"
       },
       {
         "attributes": {
@@ -91,10 +76,10 @@
           "documentation": null,
           "fullyImplemented": false,
           "linearizedBaseContracts": [
-            43
+            61
           ],
           "name": "CSR",
-          "scope": 44
+          "scope": 62
         },
         "children": [
           {
@@ -108,7 +93,7 @@
               ],
               "name": "registry",
               "payable": false,
-              "scope": 43,
+              "scope": 61,
               "stateMutability": "nonpayable",
               "superFunction": null,
               "visibility": "public"
@@ -120,7 +105,7 @@
                     "attributes": {
                       "constant": false,
                       "name": "csc",
-                      "scope": 37,
+                      "scope": 55,
                       "stateVariable": false,
                       "storageLocation": "default",
                       "type": "bytes12",
@@ -133,19 +118,19 @@
                           "name": "bytes12",
                           "type": "bytes12"
                         },
-                        "id": 31,
+                        "id": 49,
                         "name": "ElementaryTypeName",
-                        "src": "391:7:1"
+                        "src": "369:7:1"
                       }
                     ],
-                    "id": 32,
+                    "id": 50,
                     "name": "VariableDeclaration",
-                    "src": "391:11:1"
+                    "src": "369:11:1"
                   }
                 ],
-                "id": 33,
+                "id": 51,
                 "name": "ParameterList",
-                "src": "390:13:1"
+                "src": "368:13:1"
               },
               {
                 "children": [
@@ -153,7 +138,7 @@
                     "attributes": {
                       "constant": false,
                       "name": "",
-                      "scope": 37,
+                      "scope": 55,
                       "stateVariable": false,
                       "storageLocation": "default",
                       "type": "address",
@@ -166,24 +151,24 @@
                           "name": "address",
                           "type": "address"
                         },
-                        "id": 34,
+                        "id": 52,
                         "name": "ElementaryTypeName",
-                        "src": "419:7:1"
+                        "src": "397:7:1"
                       }
                     ],
-                    "id": 35,
+                    "id": 53,
                     "name": "VariableDeclaration",
-                    "src": "419:7:1"
+                    "src": "397:7:1"
                   }
                 ],
-                "id": 36,
+                "id": 54,
                 "name": "ParameterList",
-                "src": "418:9:1"
+                "src": "396:9:1"
               }
             ],
-            "id": 37,
+            "id": 55,
             "name": "FunctionDefinition",
-            "src": "373:55:1"
+            "src": "351:55:1"
           },
           {
             "attributes": {
@@ -196,7 +181,7 @@
               ],
               "name": "register",
               "payable": false,
-              "scope": 43,
+              "scope": 61,
               "stateMutability": "nonpayable",
               "superFunction": null,
               "visibility": "public"
@@ -208,34 +193,32 @@
                     "attributes": {
                       "constant": false,
                       "name": "csc",
-                      "scope": 42,
+                      "scope": 60,
                       "stateVariable": false,
                       "storageLocation": "default",
-                      "type": "contract CSC",
+                      "type": "bytes12",
                       "value": null,
                       "visibility": "internal"
                     },
                     "children": [
                       {
                         "attributes": {
-                          "contractScope": null,
-                          "name": "CSC",
-                          "referencedDeclaration": 27,
-                          "type": "contract CSC"
+                          "name": "bytes12",
+                          "type": "bytes12"
                         },
-                        "id": 38,
-                        "name": "UserDefinedTypeName",
-                        "src": "449:3:1"
+                        "id": 56,
+                        "name": "ElementaryTypeName",
+                        "src": "427:7:1"
                       }
                     ],
-                    "id": 39,
+                    "id": 57,
                     "name": "VariableDeclaration",
-                    "src": "449:7:1"
+                    "src": "427:11:1"
                   }
                 ],
-                "id": 40,
+                "id": 58,
                 "name": "ParameterList",
-                "src": "448:9:1"
+                "src": "426:13:1"
               },
               {
                 "attributes": {
@@ -244,24 +227,24 @@
                   ]
                 },
                 "children": [],
-                "id": 41,
+                "id": 59,
                 "name": "ParameterList",
-                "src": "464:0:1"
+                "src": "446:0:1"
               }
             ],
-            "id": 42,
+            "id": 60,
             "name": "FunctionDefinition",
-            "src": "431:34:1"
+            "src": "409:38:1"
           }
         ],
-        "id": 43,
+        "id": 61,
         "name": "ContractDefinition",
-        "src": "356:111:1"
+        "src": "334:115:1"
       }
     ],
-    "id": 44,
+    "id": 62,
     "name": "SourceUnit",
-    "src": "0:467:1"
+    "src": "0:450:1"
   },
   "compiler": {
     "name": "solc",
@@ -269,5 +252,5 @@
   },
   "networks": {},
   "schemaVersion": "1.0.1",
-  "updatedAt": "2018-03-21T22:09:15.749Z"
+  "updatedAt": "2018-03-21T22:18:57.324Z"
 }
