@@ -18,5 +18,5 @@ build: src/
 deploy: output/
 	pulp run
 
-test: output/
+test:
 	npm run test
