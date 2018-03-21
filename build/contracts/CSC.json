@@ -16,20 +16,6 @@
       "type": "function"
     },
     {
-      "constant": false,
-      "inputs": [
-        {
-          "name": "csrAddress",
-          "type": "address"
-        }
-      ],
-      "name": "register",
-      "outputs": [],
-      "payable": false,
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
       "constant": true,
       "inputs": [],
       "name": "csc",
@@ -55,18 +41,18 @@
       "type": "constructor"
     }
   ],
-  "bytecode": "0x6060604052341561000f57600080fd5b6040516020806104cd83398101604052808051906020019091905050806000806101000a81548167ffffffffffffffff02191690837801000000000000000000000000000000000000000000000000900402179055506100a86000809054906101000a9004780100000000000000000000000000000000000000000000000002306100e864010000000002610278176401000000009004565b600060086101000a8154816bffffffffffffffffffffffff0219169083740100000000000000000000000000000000000000009004021790555050610181565b60008282604051808377ffffffffffffffffffffffffffffffffffffffffffffffff191677ffffffffffffffffffffffffffffffffffffffffffffffff191681526008018273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166c01000000000000000000000000028152601401925050506040518091039020905092915050565b61033d806101906000396000f300606060405260043610610057576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806308e44f881461005c5780634420e486146100bb578063d55c3ca3146100f4575b600080fd5b341561006757600080fd5b61006f61014b565b604051808277ffffffffffffffffffffffffffffffffffffffffffffffff191677ffffffffffffffffffffffffffffffffffffffffffffffff1916815260200191505060405180910390f35b34156100c657600080fd5b6100f2600480803573ffffffffffffffffffffffffffffffffffffffff16906020019091905050610175565b005b34156100ff57600080fd5b610107610251565b604051808273ffffffffffffffffffffffffffffffffffffffff191673ffffffffffffffffffffffffffffffffffffffff1916815260200191505060405180910390f35b6000809054906101000a900478010000000000000000000000000000000000000000000000000281565b60008190508073ffffffffffffffffffffffffffffffffffffffff1663c5f310c0600060089054906101000a900474010000000000000000000000000000000000000000026040518263ffffffff167c0100000000000000000000000000000000000000000000000000000000028152600401808273ffffffffffffffffffffffffffffffffffffffff191673ffffffffffffffffffffffffffffffffffffffff19168152602001915050600060405180830381600087803b151561023957600080fd5b6102c65a03f1151561024a57600080fd5b5050505050565b600060089054906101000a9004740100000000000000000000000000000000000000000281565b60008282604051808377ffffffffffffffffffffffffffffffffffffffffffffffff191677ffffffffffffffffffffffffffffffffffffffffffffffff191681526008018273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166c010000000000000000000000000281526014019250505060405180910390209050929150505600a165627a7a72305820011935d37a27535afa60349e4100a20ee498bc30110a7695538b467607941cb20029",
-  "deployedBytecode": "0x606060405260043610610057576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806308e44f881461005c5780634420e486146100bb578063d55c3ca3146100f4575b600080fd5b341561006757600080fd5b61006f61014b565b604051808277ffffffffffffffffffffffffffffffffffffffffffffffff191677ffffffffffffffffffffffffffffffffffffffffffffffff1916815260200191505060405180910390f35b34156100c657600080fd5b6100f2600480803573ffffffffffffffffffffffffffffffffffffffff16906020019091905050610175565b005b34156100ff57600080fd5b610107610251565b604051808273ffffffffffffffffffffffffffffffffffffffff191673ffffffffffffffffffffffffffffffffffffffff1916815260200191505060405180910390f35b6000809054906101000a900478010000000000000000000000000000000000000000000000000281565b60008190508073ffffffffffffffffffffffffffffffffffffffff1663c5f310c0600060089054906101000a900474010000000000000000000000000000000000000000026040518263ffffffff167c0100000000000000000000000000000000000000000000000000000000028152600401808273ffffffffffffffffffffffffffffffffffffffff191673ffffffffffffffffffffffffffffffffffffffff19168152602001915050600060405180830381600087803b151561023957600080fd5b6102c65a03f1151561024a57600080fd5b5050505050565b600060089054906101000a9004740100000000000000000000000000000000000000000281565b60008282604051808377ffffffffffffffffffffffffffffffffffffffffffffffff191677ffffffffffffffffffffffffffffffffffffffffffffffff191681526008018273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166c010000000000000000000000000281526014019250505060405180910390209050929150505600a165627a7a72305820011935d37a27535afa60349e4100a20ee498bc30110a7695538b467607941cb20029",
-  "sourceMap": "235:458:0:-;;;307:118;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;362:8;352:7;;:18;;;;;;;;;;;;;;;;;;;384:34;395:7;;;;;;;;;;;412:4;384:10;;;;;:34;;;:::i;:::-;378:3;;:40;;;;;;;;;;;;;;;;;;;307:118;235:458;;547:144;623:7;665:11;678:4;655:28;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;640:44;;547:144;;;;:::o;235:458::-;;;;;;;",
-  "deployedSourceMap": "235:458:0:-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;255:21;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;431:110;;;;;;;;;;;;;;;;;;;;;;;;;;;;282:18;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;255:21;;;;;;;;;;;;;:::o;431:110::-;484:7;498:10;484:25;;517:3;:12;;;530:3;;;;;;;;;;;517:17;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;431:110;;:::o;282:18::-;;;;;;;;;;;;;:::o;547:144::-;623:7;665:11;678:4;655:28;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;640:44;;547:144;;;;:::o",
-  "source": "pragma solidity ^0.4.13;\n\nimport \"./CSR.sol\";\n\n/*\n\n  CSC is an abstract class for anything that inherits a spatial coordinate, i.e.\n  a geohash. It has the ability to register its location in any Crypto Spatial\n  Registery (CSR).\n\n*/\n\ncontract CSC {\n\n    bytes8 public geohash;\n    bytes12 public csc;\n\n    function CSC(bytes8 _geohash) public {\n      geohash = _geohash;\n      csc = computeCSC(geohash, address(this));\n    }\n\n    function register(address csrAddress) public {\n      CSR csr = CSR(csrAddress);\n      csr.register(csc);\n    }\n\n    function computeCSC(bytes8 geohash_arg, address addr) internal pure returns(bytes12) {\n      return bytes12(keccak256(geohash_arg, addr));\n    }\n}\n",
+  "bytecode": "0x6060604052341561000f57600080fd5b60405160208061035183398101604052808051906020019091905050806000806101000a81548167ffffffffffffffff021916908378010000000000000000000000000000000000000000000000009004021790555073__SpatialUtils__________________________63d538a8c26000809054906101000a9004780100000000000000000000000000000000000000000000000002306000604051602001526040518363ffffffff167c0100000000000000000000000000000000000000000000000000000000028152600401808377ffffffffffffffffffffffffffffffffffffffffffffffff191677ffffffffffffffffffffffffffffffffffffffffffffffff191681526020018273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019250505060206040518083038186803b151561016857600080fd5b6102c65a03f4151561017957600080fd5b50505060405180519050600060086101000a8154816bffffffffffffffffffffffff0219169083740100000000000000000000000000000000000000009004021790555050610184806101cd6000396000f30060606040526004361061004c576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806308e44f8814610051578063d55c3ca3146100b0575b600080fd5b341561005c57600080fd5b610064610107565b604051808277ffffffffffffffffffffffffffffffffffffffffffffffff191677ffffffffffffffffffffffffffffffffffffffffffffffff1916815260200191505060405180910390f35b34156100bb57600080fd5b6100c3610131565b604051808273ffffffffffffffffffffffffffffffffffffffff191673ffffffffffffffffffffffffffffffffffffffff1916815260200191505060405180910390f35b6000809054906101000a900478010000000000000000000000000000000000000000000000000281565b600060089054906101000a90047401000000000000000000000000000000000000000002815600a165627a7a72305820fd85bc46cccbb04b412e25091ab614756364cc4eb949d32fce0c192673fcf6470029",
+  "deployedBytecode": "0x60606040526004361061004c576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806308e44f8814610051578063d55c3ca3146100b0575b600080fd5b341561005c57600080fd5b610064610107565b604051808277ffffffffffffffffffffffffffffffffffffffffffffffff191677ffffffffffffffffffffffffffffffffffffffffffffffff1916815260200191505060405180910390f35b34156100bb57600080fd5b6100c3610131565b604051808273ffffffffffffffffffffffffffffffffffffffff191673ffffffffffffffffffffffffffffffffffffffff1916815260200191505060405180910390f35b6000809054906101000a900478010000000000000000000000000000000000000000000000000281565b600060089054906101000a90047401000000000000000000000000000000000000000002815600a165627a7a72305820fd85bc46cccbb04b412e25091ab614756364cc4eb949d32fce0c192673fcf6470029",
+  "sourceMap": "244:206:0:-;;;316:131;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;371:8;361:7;;:18;;;;;;;;;;;;;;;;;;;393:12;:23;417:7;;;;;;;;;;;434:4;393:47;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;387:3;;:53;;;;;;;;;;;;;;;;;;;316:131;244:206;;;;;;",
+  "deployedSourceMap": "244:206:0:-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;264:21;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;291:18;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;264:21;;;;;;;;;;;;;:::o;291:18::-;;;;;;;;;;;;;:::o",
+  "source": "pragma solidity ^0.4.13;\n\nimport \"./SpatialUtils.sol\";\n\n/*\n\n  CSC is an abstract class for anything that inherits a spatial coordinate, i.e.\n  a geohash. It has the ability to register its location in any Crypto Spatial\n  Registery (CSR).\n\n*/\n\ncontract CSC {\n\n    bytes8 public geohash;\n    bytes12 public csc;\n\n    function CSC(bytes8 _geohash) public {\n      geohash = _geohash;\n      csc = SpatialUtils.computeCSC(geohash, address(this));\n    }\n\n}",
   "sourcePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/CSC.sol",
   "ast": {
     "attributes": {
       "absolutePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/CSC.sol",
       "exportedSymbols": {
         "CSC": [
-          61
+          27
         ]
       }
     },
@@ -86,10 +72,10 @@
       },
       {
         "attributes": {
-          "SourceUnit": 77,
-          "absolutePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/CSR.sol",
-          "file": "./CSR.sol",
-          "scope": 62,
+          "SourceUnit": 472,
+          "absolutePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/SpatialUtils.sol",
+          "file": "./SpatialUtils.sol",
+          "scope": 28,
           "symbolAliases": [
             null
           ],
@@ -97,7 +83,7 @@
         },
         "id": 2,
         "name": "ImportDirective",
-        "src": "26:19:0"
+        "src": "26:28:0"
       },
       {
         "attributes": {
@@ -111,17 +97,17 @@
           "documentation": null,
           "fullyImplemented": true,
           "linearizedBaseContracts": [
-            61
+            27
           ],
           "name": "CSC",
-          "scope": 62
+          "scope": 28
         },
         "children": [
           {
             "attributes": {
               "constant": false,
               "name": "geohash",
-              "scope": 61,
+              "scope": 27,
               "stateVariable": true,
               "storageLocation": "default",
               "type": "bytes8",
@@ -136,18 +122,18 @@
                 },
                 "id": 3,
                 "name": "ElementaryTypeName",
-                "src": "255:6:0"
+                "src": "264:6:0"
               }
             ],
             "id": 4,
             "name": "VariableDeclaration",
-            "src": "255:21:0"
+            "src": "264:21:0"
           },
           {
             "attributes": {
               "constant": false,
               "name": "csc",
-              "scope": 61,
+              "scope": 27,
               "stateVariable": true,
               "storageLocation": "default",
               "type": "bytes12",
@@ -162,12 +148,12 @@
                 },
                 "id": 5,
                 "name": "ElementaryTypeName",
-                "src": "282:7:0"
+                "src": "291:7:0"
               }
             ],
             "id": 6,
             "name": "VariableDeclaration",
-            "src": "282:18:0"
+            "src": "291:18:0"
           },
           {
             "attributes": {
@@ -179,7 +165,7 @@
               ],
               "name": "CSC",
               "payable": false,
-              "scope": 61,
+              "scope": 27,
               "stateMutability": "nonpayable",
               "superFunction": null,
               "visibility": "public"
@@ -191,7 +177,7 @@
                     "attributes": {
                       "constant": false,
                       "name": "_geohash",
-                      "scope": 25,
+                      "scope": 26,
                       "stateVariable": false,
                       "storageLocation": "default",
                       "type": "bytes8",
@@ -206,17 +192,17 @@
                         },
                         "id": 7,
                         "name": "ElementaryTypeName",
-                        "src": "320:6:0"
+                        "src": "329:6:0"
                       }
                     ],
                     "id": 8,
                     "name": "VariableDeclaration",
-                    "src": "320:15:0"
+                    "src": "329:15:0"
                   }
                 ],
                 "id": 9,
                 "name": "ParameterList",
-                "src": "319:17:0"
+                "src": "328:17:0"
               },
               {
                 "attributes": {
@@ -227,7 +213,7 @@
                 "children": [],
                 "id": 10,
                 "name": "ParameterList",
-                "src": "344:0:0"
+                "src": "353:0:0"
               },
               {
                 "children": [
@@ -256,7 +242,7 @@
                             },
                             "id": 11,
                             "name": "Identifier",
-                            "src": "352:7:0"
+                            "src": "361:7:0"
                           },
                           {
                             "attributes": {
@@ -270,17 +256,17 @@
                             },
                             "id": 12,
                             "name": "Identifier",
-                            "src": "362:8:0"
+                            "src": "371:8:0"
                           }
                         ],
                         "id": 13,
                         "name": "Assignment",
-                        "src": "352:18:0"
+                        "src": "361:18:0"
                       }
                     ],
                     "id": 14,
                     "name": "ExpressionStatement",
-                    "src": "352:18:0"
+                    "src": "361:18:0"
                   },
                   {
                     "children": [
@@ -307,7 +293,7 @@
                             },
                             "id": 15,
                             "name": "Identifier",
-                            "src": "378:3:0"
+                            "src": "387:3:0"
                           },
                           {
                             "attributes": {
@@ -336,16 +322,33 @@
                                       "typeString": "address"
                                     }
                                   ],
-                                  "overloadedDeclarations": [
-                                    null
-                                  ],
-                                  "referencedDeclaration": 60,
-                                  "type": "function (bytes8,address) pure returns (bytes12)",
-                                  "value": "computeCSC"
+                                  "isConstant": false,
+                                  "isLValue": false,
+                                  "isPure": false,
+                                  "lValueRequested": false,
+                                  "member_name": "computeCSC",
+                                  "referencedDeclaration": 470,
+                                  "type": "function (bytes8,address) pure returns (bytes12)"
                                 },
-                                "id": 16,
-                                "name": "Identifier",
-                                "src": "384:10:0"
+                                "children": [
+                                  {
+                                    "attributes": {
+                                      "argumentTypes": null,
+                                      "overloadedDeclarations": [
+                                        null
+                                      ],
+                                      "referencedDeclaration": 471,
+                                      "type": "type(library SpatialUtils)",
+                                      "value": "SpatialUtils"
+                                    },
+                                    "id": 16,
+                                    "name": "Identifier",
+                                    "src": "393:12:0"
+                                  }
+                                ],
+                                "id": 17,
+                                "name": "MemberAccess",
+                                "src": "393:23:0"
                               },
                               {
                                 "attributes": {
@@ -357,9 +360,9 @@
                                   "type": "bytes8",
                                   "value": "geohash"
                                 },
-                                "id": 17,
+                                "id": 18,
                                 "name": "Identifier",
-                                "src": "395:7:0"
+                                "src": "417:7:0"
                               },
                               {
                                 "attributes": {
@@ -380,7 +383,7 @@
                                     "attributes": {
                                       "argumentTypes": [
                                         {
-                                          "typeIdentifier": "t_contract$_CSC_$61",
+                                          "typeIdentifier": "t_contract$_CSC_$27",
                                           "typeString": "contract CSC"
                                         }
                                       ],
@@ -391,9 +394,9 @@
                                       "type": "type(address)",
                                       "value": "address"
                                     },
-                                    "id": 18,
+                                    "id": 19,
                                     "name": "ElementaryTypeNameExpression",
-                                    "src": "404:7:0"
+                                    "src": "426:7:0"
                                   },
                                   {
                                     "attributes": {
@@ -401,535 +404,53 @@
                                       "overloadedDeclarations": [
                                         null
                                       ],
-                                      "referencedDeclaration": 101,
+                                      "referencedDeclaration": 643,
                                       "type": "contract CSC",
                                       "value": "this"
                                     },
-                                    "id": 19,
+                                    "id": 20,
                                     "name": "Identifier",
-                                    "src": "412:4:0"
+                                    "src": "434:4:0"
                                   }
                                 ],
-                                "id": 20,
+                                "id": 21,
                                 "name": "FunctionCall",
-                                "src": "404:13:0"
+                                "src": "426:13:0"
                               }
                             ],
-                            "id": 21,
+                            "id": 22,
                             "name": "FunctionCall",
-                            "src": "384:34:0"
+                            "src": "393:47:0"
                           }
                         ],
-                        "id": 22,
+                        "id": 23,
                         "name": "Assignment",
-                        "src": "378:40:0"
+                        "src": "387:53:0"
                       }
                     ],
-                    "id": 23,
+                    "id": 24,
                     "name": "ExpressionStatement",
-                    "src": "378:40:0"
+                    "src": "387:53:0"
                   }
                 ],
-                "id": 24,
+                "id": 25,
                 "name": "Block",
-                "src": "344:81:0"
+                "src": "353:94:0"
               }
             ],
-            "id": 25,
+            "id": 26,
             "name": "FunctionDefinition",
-            "src": "307:118:0"
-          },
-          {
-            "attributes": {
-              "constant": false,
-              "implemented": true,
-              "isConstructor": false,
-              "modifiers": [
-                null
-              ],
-              "name": "register",
-              "payable": false,
-              "scope": 61,
-              "stateMutability": "nonpayable",
-              "superFunction": null,
-              "visibility": "public"
-            },
-            "children": [
-              {
-                "children": [
-                  {
-                    "attributes": {
-                      "constant": false,
-                      "name": "csrAddress",
-                      "scope": 43,
-                      "stateVariable": false,
-                      "storageLocation": "default",
-                      "type": "address",
-                      "value": null,
-                      "visibility": "internal"
-                    },
-                    "children": [
-                      {
-                        "attributes": {
-                          "name": "address",
-                          "type": "address"
-                        },
-                        "id": 26,
-                        "name": "ElementaryTypeName",
-                        "src": "449:7:0"
-                      }
-                    ],
-                    "id": 27,
-                    "name": "VariableDeclaration",
-                    "src": "449:18:0"
-                  }
-                ],
-                "id": 28,
-                "name": "ParameterList",
-                "src": "448:20:0"
-              },
-              {
-                "attributes": {
-                  "parameters": [
-                    null
-                  ]
-                },
-                "children": [],
-                "id": 29,
-                "name": "ParameterList",
-                "src": "476:0:0"
-              },
-              {
-                "children": [
-                  {
-                    "attributes": {
-                      "assignments": [
-                        31
-                      ]
-                    },
-                    "children": [
-                      {
-                        "attributes": {
-                          "constant": false,
-                          "name": "csr",
-                          "scope": 43,
-                          "stateVariable": false,
-                          "storageLocation": "default",
-                          "type": "contract CSR",
-                          "value": null,
-                          "visibility": "internal"
-                        },
-                        "children": [
-                          {
-                            "attributes": {
-                              "contractScope": null,
-                              "name": "CSR",
-                              "referencedDeclaration": 76,
-                              "type": "contract CSR"
-                            },
-                            "id": 30,
-                            "name": "UserDefinedTypeName",
-                            "src": "484:3:0"
-                          }
-                        ],
-                        "id": 31,
-                        "name": "VariableDeclaration",
-                        "src": "484:7:0"
-                      },
-                      {
-                        "attributes": {
-                          "argumentTypes": null,
-                          "isConstant": false,
-                          "isLValue": false,
-                          "isPure": false,
-                          "isStructConstructorCall": false,
-                          "lValueRequested": false,
-                          "names": [
-                            null
-                          ],
-                          "type": "contract CSR",
-                          "type_conversion": true
-                        },
-                        "children": [
-                          {
-                            "attributes": {
-                              "argumentTypes": [
-                                {
-                                  "typeIdentifier": "t_address",
-                                  "typeString": "address"
-                                }
-                              ],
-                              "overloadedDeclarations": [
-                                null
-                              ],
-                              "referencedDeclaration": 76,
-                              "type": "type(contract CSR)",
-                              "value": "CSR"
-                            },
-                            "id": 32,
-                            "name": "Identifier",
-                            "src": "494:3:0"
-                          },
-                          {
-                            "attributes": {
-                              "argumentTypes": null,
-                              "overloadedDeclarations": [
-                                null
-                              ],
-                              "referencedDeclaration": 27,
-                              "type": "address",
-                              "value": "csrAddress"
-                            },
-                            "id": 33,
-                            "name": "Identifier",
-                            "src": "498:10:0"
-                          }
-                        ],
-                        "id": 34,
-                        "name": "FunctionCall",
-                        "src": "494:15:0"
-                      }
-                    ],
-                    "id": 35,
-                    "name": "VariableDeclarationStatement",
-                    "src": "484:25:0"
-                  },
-                  {
-                    "children": [
-                      {
-                        "attributes": {
-                          "argumentTypes": null,
-                          "isConstant": false,
-                          "isLValue": false,
-                          "isPure": false,
-                          "isStructConstructorCall": false,
-                          "lValueRequested": false,
-                          "names": [
-                            null
-                          ],
-                          "type": "tuple()",
-                          "type_conversion": false
-                        },
-                        "children": [
-                          {
-                            "attributes": {
-                              "argumentTypes": [
-                                {
-                                  "typeIdentifier": "t_bytes12",
-                                  "typeString": "bytes12"
-                                }
-                              ],
-                              "isConstant": false,
-                              "isLValue": false,
-                              "isPure": false,
-                              "lValueRequested": false,
-                              "member_name": "register",
-                              "referencedDeclaration": 75,
-                              "type": "function (bytes12) external"
-                            },
-                            "children": [
-                              {
-                                "attributes": {
-                                  "argumentTypes": null,
-                                  "overloadedDeclarations": [
-                                    null
-                                  ],
-                                  "referencedDeclaration": 31,
-                                  "type": "contract CSR",
-                                  "value": "csr"
-                                },
-                                "id": 36,
-                                "name": "Identifier",
-                                "src": "517:3:0"
-                              }
-                            ],
-                            "id": 38,
-                            "name": "MemberAccess",
-                            "src": "517:12:0"
-                          },
-                          {
-                            "attributes": {
-                              "argumentTypes": null,
-                              "overloadedDeclarations": [
-                                null
-                              ],
-                              "referencedDeclaration": 6,
-                              "type": "bytes12",
-                              "value": "csc"
-                            },
-                            "id": 39,
-                            "name": "Identifier",
-                            "src": "530:3:0"
-                          }
-                        ],
-                        "id": 40,
-                        "name": "FunctionCall",
-                        "src": "517:17:0"
-                      }
-                    ],
-                    "id": 41,
-                    "name": "ExpressionStatement",
-                    "src": "517:17:0"
-                  }
-                ],
-                "id": 42,
-                "name": "Block",
-                "src": "476:65:0"
-              }
-            ],
-            "id": 43,
-            "name": "FunctionDefinition",
-            "src": "431:110:0"
-          },
-          {
-            "attributes": {
-              "constant": true,
-              "implemented": true,
-              "isConstructor": false,
-              "modifiers": [
-                null
-              ],
-              "name": "computeCSC",
-              "payable": false,
-              "scope": 61,
-              "stateMutability": "pure",
-              "superFunction": null,
-              "visibility": "internal"
-            },
-            "children": [
-              {
-                "children": [
-                  {
-                    "attributes": {
-                      "constant": false,
-                      "name": "geohash_arg",
-                      "scope": 60,
-                      "stateVariable": false,
-                      "storageLocation": "default",
-                      "type": "bytes8",
-                      "value": null,
-                      "visibility": "internal"
-                    },
-                    "children": [
-                      {
-                        "attributes": {
-                          "name": "bytes8",
-                          "type": "bytes8"
-                        },
-                        "id": 44,
-                        "name": "ElementaryTypeName",
-                        "src": "567:6:0"
-                      }
-                    ],
-                    "id": 45,
-                    "name": "VariableDeclaration",
-                    "src": "567:18:0"
-                  },
-                  {
-                    "attributes": {
-                      "constant": false,
-                      "name": "addr",
-                      "scope": 60,
-                      "stateVariable": false,
-                      "storageLocation": "default",
-                      "type": "address",
-                      "value": null,
-                      "visibility": "internal"
-                    },
-                    "children": [
-                      {
-                        "attributes": {
-                          "name": "address",
-                          "type": "address"
-                        },
-                        "id": 46,
-                        "name": "ElementaryTypeName",
-                        "src": "587:7:0"
-                      }
-                    ],
-                    "id": 47,
-                    "name": "VariableDeclaration",
-                    "src": "587:12:0"
-                  }
-                ],
-                "id": 48,
-                "name": "ParameterList",
-                "src": "566:34:0"
-              },
-              {
-                "children": [
-                  {
-                    "attributes": {
-                      "constant": false,
-                      "name": "",
-                      "scope": 60,
-                      "stateVariable": false,
-                      "storageLocation": "default",
-                      "type": "bytes12",
-                      "value": null,
-                      "visibility": "internal"
-                    },
-                    "children": [
-                      {
-                        "attributes": {
-                          "name": "bytes12",
-                          "type": "bytes12"
-                        },
-                        "id": 49,
-                        "name": "ElementaryTypeName",
-                        "src": "623:7:0"
-                      }
-                    ],
-                    "id": 50,
-                    "name": "VariableDeclaration",
-                    "src": "623:7:0"
-                  }
-                ],
-                "id": 51,
-                "name": "ParameterList",
-                "src": "622:9:0"
-              },
-              {
-                "children": [
-                  {
-                    "attributes": {
-                      "functionReturnParameters": 51
-                    },
-                    "children": [
-                      {
-                        "attributes": {
-                          "argumentTypes": null,
-                          "isConstant": false,
-                          "isLValue": false,
-                          "isPure": false,
-                          "isStructConstructorCall": false,
-                          "lValueRequested": false,
-                          "names": [
-                            null
-                          ],
-                          "type": "bytes12",
-                          "type_conversion": true
-                        },
-                        "children": [
-                          {
-                            "attributes": {
-                              "argumentTypes": [
-                                {
-                                  "typeIdentifier": "t_bytes32",
-                                  "typeString": "bytes32"
-                                }
-                              ],
-                              "isConstant": false,
-                              "isLValue": false,
-                              "isPure": true,
-                              "lValueRequested": false,
-                              "type": "type(bytes12)",
-                              "value": "bytes12"
-                            },
-                            "id": 52,
-                            "name": "ElementaryTypeNameExpression",
-                            "src": "647:7:0"
-                          },
-                          {
-                            "attributes": {
-                              "argumentTypes": null,
-                              "isConstant": false,
-                              "isLValue": false,
-                              "isPure": false,
-                              "isStructConstructorCall": false,
-                              "lValueRequested": false,
-                              "names": [
-                                null
-                              ],
-                              "type": "bytes32",
-                              "type_conversion": false
-                            },
-                            "children": [
-                              {
-                                "attributes": {
-                                  "argumentTypes": [
-                                    {
-                                      "typeIdentifier": "t_bytes8",
-                                      "typeString": "bytes8"
-                                    },
-                                    {
-                                      "typeIdentifier": "t_address",
-                                      "typeString": "address"
-                                    }
-                                  ],
-                                  "overloadedDeclarations": [
-                                    null
-                                  ],
-                                  "referencedDeclaration": 82,
-                                  "type": "function () pure returns (bytes32)",
-                                  "value": "keccak256"
-                                },
-                                "id": 53,
-                                "name": "Identifier",
-                                "src": "655:9:0"
-                              },
-                              {
-                                "attributes": {
-                                  "argumentTypes": null,
-                                  "overloadedDeclarations": [
-                                    null
-                                  ],
-                                  "referencedDeclaration": 45,
-                                  "type": "bytes8",
-                                  "value": "geohash_arg"
-                                },
-                                "id": 54,
-                                "name": "Identifier",
-                                "src": "665:11:0"
-                              },
-                              {
-                                "attributes": {
-                                  "argumentTypes": null,
-                                  "overloadedDeclarations": [
-                                    null
-                                  ],
-                                  "referencedDeclaration": 47,
-                                  "type": "address",
-                                  "value": "addr"
-                                },
-                                "id": 55,
-                                "name": "Identifier",
-                                "src": "678:4:0"
-                              }
-                            ],
-                            "id": 56,
-                            "name": "FunctionCall",
-                            "src": "655:28:0"
-                          }
-                        ],
-                        "id": 57,
-                        "name": "FunctionCall",
-                        "src": "647:37:0"
-                      }
-                    ],
-                    "id": 58,
-                    "name": "Return",
-                    "src": "640:44:0"
-                  }
-                ],
-                "id": 59,
-                "name": "Block",
-                "src": "632:59:0"
-              }
-            ],
-            "id": 60,
-            "name": "FunctionDefinition",
-            "src": "547:144:0"
+            "src": "316:131:0"
           }
         ],
-        "id": 61,
+        "id": 27,
         "name": "ContractDefinition",
-        "src": "235:458:0"
+        "src": "244:206:0"
       }
     ],
-    "id": 62,
+    "id": 28,
     "name": "SourceUnit",
-    "src": "0:694:0"
+    "src": "0:450:0"
   },
   "compiler": {
     "name": "solc",
@@ -937,5 +458,5 @@
   },
   "networks": {},
   "schemaVersion": "1.0.1",
-  "updatedAt": "2018-03-21T16:07:29.057Z"
+  "updatedAt": "2018-03-21T21:25:41.996Z"
 }

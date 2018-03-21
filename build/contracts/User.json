@@ -1,0 +1,2237 @@
+{
+  "contractName": "User",
+  "abi": [
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "lastCheckInBlock",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "_zone",
+          "type": "bytes4"
+        }
+      ],
+      "name": "requestZone",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "_zone",
+          "type": "bytes4"
+        }
+      ],
+      "name": "addZone",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "name": "licensedZones",
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "setLastCheckIn",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "parkingAuthority",
+      "outputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "pendingAnchor",
+      "outputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "_anchor",
+          "type": "address"
+        }
+      ],
+      "name": "payForParking",
+      "outputs": [],
+      "payable": true,
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "lastCheckIn",
+      "outputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "name": "anchor",
+          "type": "address"
+        }
+      ],
+      "name": "CheckIn",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    }
+  ],
+  "bytecode": "0x6060604052341561000f57600080fd5b336000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555033600460006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550610ae68061009f6000396000f3006060604052600436106100af576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806309b7d54a146100b4578063680197f3146100dd57806369f16b7d1461011f5780637dcf8dea14610161578063871ea452146101bb5780638da5cb5b146101d0578063aa6cdd9714610225578063b66fd5cc1461027a578063bc175cc9146102cf578063db78dabd146102fd578063f2fde38b14610352575b600080fd5b34156100bf57600080fd5b6100c761038b565b6040518082815260200191505060405180910390f35b34156100e857600080fd5b61011d60048080357bffffffffffffffffffffffffffffffffffffffffffffffffffffffff1916906020019091905050610391565b005b341561012a57600080fd5b61015f60048080357bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19169060200190919050506104d1565b005b341561016c57600080fd5b6101a160048080357bffffffffffffffffffffffffffffffffffffffffffffffffffffffff191690602001909190505061059a565b604051808215151515815260200191505060405180910390f35b34156101c657600080fd5b6101ce6105ba565b005b34156101db57600080fd5b6101e361073f565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b341561023057600080fd5b610238610764565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b341561028557600080fd5b61028d61078a565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b6102fb600480803573ffffffffffffffffffffffffffffffffffffffff169060200190919050506107b0565b005b341561030857600080fd5b6103106108a0565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b341561035d57600080fd5b610389600480803573ffffffffffffffffffffffffffffffffffffffff169060200190919050506108c6565b005b60025481565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161415156103ec57600080fd5b600460009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166369f16b7d826040518263ffffffff167c010000000000000000000000000000000000000000000000000000000002815260040180827bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19167bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19168152602001915050600060405180830381600087803b15156104ba57600080fd5b6102c65a03f115156104cb57600080fd5b50505050565b600460009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614151561052d57600080fd5b600160056000837bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19167bffffffffffffffffffffffffffffffffffffffffffffffffffffffff1916815260200190815260200160002060006101000a81548160ff02191690831515021790555050565b60056020528060005260406000206000915054906101000a900460ff1681565b6000339050600360009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614151561061b57600080fd5b80600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550436002819055507ff44d868c145e192ab2786eaa3827a434702c53e71182f67bb3915a85fe877f103082604051808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019250505060405180910390a16000600360006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b600460009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b600360009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614151561080b57600080fd5b61081481610a1b565b8073ffffffffffffffffffffffffffffffffffffffff1663ae0aba8c346000604051602001526040518263ffffffff167c01000000000000000000000000000000000000000000000000000000000281526004016020604051808303818588803b151561088057600080fd5b6125ee5a03f1151561089157600080fd5b50505050604051805190505050565b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614151561092157600080fd5b600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff161415151561095d57600080fd5b8073ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a3806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16141515610a7657600080fd5b80600360006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550505600a165627a7a723058200e2458391e018ff25ac3ee7deed0d0b8b2f31511ea5d6741d2e702aa59cd6ea70029",
+  "deployedBytecode": "0x6060604052600436106100af576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806309b7d54a146100b4578063680197f3146100dd57806369f16b7d1461011f5780637dcf8dea14610161578063871ea452146101bb5780638da5cb5b146101d0578063aa6cdd9714610225578063b66fd5cc1461027a578063bc175cc9146102cf578063db78dabd146102fd578063f2fde38b14610352575b600080fd5b34156100bf57600080fd5b6100c761038b565b6040518082815260200191505060405180910390f35b34156100e857600080fd5b61011d60048080357bffffffffffffffffffffffffffffffffffffffffffffffffffffffff1916906020019091905050610391565b005b341561012a57600080fd5b61015f60048080357bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19169060200190919050506104d1565b005b341561016c57600080fd5b6101a160048080357bffffffffffffffffffffffffffffffffffffffffffffffffffffffff191690602001909190505061059a565b604051808215151515815260200191505060405180910390f35b34156101c657600080fd5b6101ce6105ba565b005b34156101db57600080fd5b6101e361073f565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b341561023057600080fd5b610238610764565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b341561028557600080fd5b61028d61078a565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b6102fb600480803573ffffffffffffffffffffffffffffffffffffffff169060200190919050506107b0565b005b341561030857600080fd5b6103106108a0565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b341561035d57600080fd5b610389600480803573ffffffffffffffffffffffffffffffffffffffff169060200190919050506108c6565b005b60025481565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161415156103ec57600080fd5b600460009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166369f16b7d826040518263ffffffff167c010000000000000000000000000000000000000000000000000000000002815260040180827bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19167bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19168152602001915050600060405180830381600087803b15156104ba57600080fd5b6102c65a03f115156104cb57600080fd5b50505050565b600460009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614151561052d57600080fd5b600160056000837bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19167bffffffffffffffffffffffffffffffffffffffffffffffffffffffff1916815260200190815260200160002060006101000a81548160ff02191690831515021790555050565b60056020528060005260406000206000915054906101000a900460ff1681565b6000339050600360009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614151561061b57600080fd5b80600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550436002819055507ff44d868c145e192ab2786eaa3827a434702c53e71182f67bb3915a85fe877f103082604051808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019250505060405180910390a16000600360006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b600460009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b600360009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614151561080b57600080fd5b61081481610a1b565b8073ffffffffffffffffffffffffffffffffffffffff1663ae0aba8c346000604051602001526040518263ffffffff167c01000000000000000000000000000000000000000000000000000000000281526004016020604051808303818588803b151561088057600080fd5b6125ee5a03f1151561089157600080fd5b50505050604051805190505050565b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614151561092157600080fd5b600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff161415151561095d57600080fd5b8073ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a3806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16141515610a7657600080fd5b80600360006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550505600a165627a7a723058200e2458391e018ff25ac3ee7deed0d0b8b2f31511ea5d6741d2e702aa59cd6ea70029",
+  "sourceMap": "527:1230:7:-;;;822:93;;;;;;;;508:10:2;500:5;;:18;;;;;;;;;;;;;;;;;;897:10:7;861:16;;:47;;;;;;;;;;;;;;;;;;527:1230;;;;;;",
+  "deployedSourceMap": "527:1230:7:-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;601:28;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1657:98;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1515:136;;;;;;;;;;;;;;;;;;;;;;;;;;;;;721:44;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1216:293;;;;;;;;;;;;;;237:20:2;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;675:40:7;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;635:34;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1041:165;;;;;;;;;;;;;;;;;;;;563:32;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;831:169:2;;;;;;;;;;;;;;;;;;;;;;;;;;;;601:28:7;;;;:::o;1657:98::-;652:5:2;;;;;;;;;;;638:19;;:10;:19;;;630:28;;;;;;;;1717:16:7;;;;;;;;;;;:24;;;1742:5;1717:31;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1657:98;:::o;1515:136::-;1591:16;;;;;;;;;;;1569:39;;:10;:39;;;1561:48;;;;;;;;1640:4;1617:13;:20;1631:5;1617:20;;;;;;;;;;;;;;;;;;:27;;;;;;;;;;;;;;;;;;1515:136;:::o;721:44::-;;;;;;;;;;;;;;;;;;;;;;:::o;1216:293::-;1259:20;1296:10;1259:48;;1335:13;;;;;;;;;;;1325:23;;:6;:23;;;1317:32;;;;;;;;1373:6;1359:11;;:20;;;;;;;;;;;;;;;;;;1408:12;1389:16;:31;;;;1430:30;1438:4;1452:6;1430:30;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1500:1;1470:13;;:32;;;;;;;;;;;;;;;;;;1216:293;:::o;237:20:2:-;;;;;;;;;;;;;:::o;675:40:7:-;;;;;;;;;;;;;:::o;635:34::-;;;;;;;;;;;;;:::o;1041:165::-;652:5:2;;;;;;;;;;;638:19;;:10;:19;;;630:28;;;;;;;;1124:25:7;1141:7;1124:16;:25::i;:::-;1159:7;:21;;;1187:9;1159:40;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1041:165;:::o;563:32::-;;;;;;;;;;;;;:::o;831:169:2:-;652:5;;;;;;;;;;;638:19;;:10;:19;;;630:28;;;;;;;;927:1;907:22;;:8;:22;;;;899:31;;;;;;;;964:8;936:37;;957:5;;;;;;;;;;;936:37;;;;;;;;;;;;987:8;979:5;;:16;;;;;;;;;;;;;;;;;;831:169;:::o;925:110:7:-;652:5:2;;;;;;;;;;;638:19;;:10;:19;;;630:28;;;;;;;;1021:7:7;1005:13;;:23;;;;;;;;;;;;;;;;;;925:110;:::o",
+  "source": "pragma solidity ^0.4.13;\n\n/*\n  A User is the proxy contract for an ethereum account that wants to use the ParkingAuthority's\n  services. If they sign up through the authority (which is the only way), they will be given\n  exclusive ownership over their account.\n\n  They use this account to pay for parking in the zones they are allowed. If they want\n  to modify their parking priveledges, they must do this through the zone authority. \n*/\n\nimport \"./Ownable.sol\";\nimport \"./ParkingAnchor.sol\";\nimport \"./ParkingAuthority.sol\";\n\ncontract User is Ownable {\n    \n    ParkingAnchor public lastCheckIn;\n    uint public lastCheckInBlock;\n    ParkingAnchor public pendingAnchor;\n    ParkingAuthority public parkingAuthority;\n    mapping(bytes4 => bool) public licensedZones;\n\n    event CheckIn(address user, address anchor);\n\n    function User() public Ownable {\n      parkingAuthority = ParkingAuthority(msg.sender);\n    }\n    \n    function setPendingAnchor(ParkingAnchor _anchor) internal onlyOwner() {\n        pendingAnchor = _anchor;\n    }\n\n    function payForParking(ParkingAnchor _anchor) public payable onlyOwner() {\n        setPendingAnchor(_anchor);\n        _anchor.acceptPayment.value(msg.value)();\n    }\n    \n    function setLastCheckIn() public {\n        ParkingAnchor anchor = ParkingAnchor(msg.sender);\n        require(anchor == pendingAnchor);\n        lastCheckIn = anchor;\n        lastCheckInBlock = block.number;\n        CheckIn(this, address(anchor));\n        pendingAnchor = ParkingAnchor(0);\n    }\n\n    function addZone(bytes4 _zone) public {\n      require(msg.sender == address(parkingAuthority));\n      licensedZones[_zone] = true;\n    }\n\n    function requestZone(bytes4 _zone) public onlyOwner {\n      parkingAuthority.addZone(_zone);\n    }\n}",
+  "sourcePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/User.sol",
+  "ast": {
+    "attributes": {
+      "absolutePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/User.sol",
+      "exportedSymbols": {
+        "User": [
+          618
+        ]
+      }
+    },
+    "children": [
+      {
+        "attributes": {
+          "literals": [
+            "solidity",
+            "^",
+            "0.4",
+            ".13"
+          ]
+        },
+        "id": 473,
+        "name": "PragmaDirective",
+        "src": "0:24:7"
+      },
+      {
+        "attributes": {
+          "SourceUnit": 100,
+          "absolutePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/Ownable.sol",
+          "file": "./Ownable.sol",
+          "scope": 619,
+          "symbolAliases": [
+            null
+          ],
+          "unitAlias": ""
+        },
+        "id": 474,
+        "name": "ImportDirective",
+        "src": "439:23:7"
+      },
+      {
+        "attributes": {
+          "SourceUnit": 201,
+          "absolutePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/ParkingAnchor.sol",
+          "file": "./ParkingAnchor.sol",
+          "scope": 619,
+          "symbolAliases": [
+            null
+          ],
+          "unitAlias": ""
+        },
+        "id": 475,
+        "name": "ImportDirective",
+        "src": "463:29:7"
+      },
+      {
+        "attributes": {
+          "SourceUnit": 368,
+          "absolutePath": "/Users/martyall/code/foam/foam.contracts.deux/contracts/ParkingAuthority.sol",
+          "file": "./ParkingAuthority.sol",
+          "scope": 619,
+          "symbolAliases": [
+            null
+          ],
+          "unitAlias": ""
+        },
+        "id": 476,
+        "name": "ImportDirective",
+        "src": "493:32:7"
+      },
+      {
+        "attributes": {
+          "contractDependencies": [
+            99
+          ],
+          "contractKind": "contract",
+          "documentation": null,
+          "fullyImplemented": true,
+          "linearizedBaseContracts": [
+            618,
+            99
+          ],
+          "name": "User",
+          "scope": 619
+        },
+        "children": [
+          {
+            "attributes": {
+              "arguments": [
+                null
+              ]
+            },
+            "children": [
+              {
+                "attributes": {
+                  "contractScope": null,
+                  "name": "Ownable",
+                  "referencedDeclaration": 99,
+                  "type": "contract Ownable"
+                },
+                "id": 477,
+                "name": "UserDefinedTypeName",
+                "src": "544:7:7"
+              }
+            ],
+            "id": 478,
+            "name": "InheritanceSpecifier",
+            "src": "544:7:7"
+          },
+          {
+            "attributes": {
+              "constant": false,
+              "name": "lastCheckIn",
+              "scope": 618,
+              "stateVariable": true,
+              "storageLocation": "default",
+              "type": "contract ParkingAnchor",
+              "value": null,
+              "visibility": "public"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "contractScope": null,
+                  "name": "ParkingAnchor",
+                  "referencedDeclaration": 200,
+                  "type": "contract ParkingAnchor"
+                },
+                "id": 479,
+                "name": "UserDefinedTypeName",
+                "src": "563:13:7"
+              }
+            ],
+            "id": 480,
+            "name": "VariableDeclaration",
+            "src": "563:32:7"
+          },
+          {
+            "attributes": {
+              "constant": false,
+              "name": "lastCheckInBlock",
+              "scope": 618,
+              "stateVariable": true,
+              "storageLocation": "default",
+              "type": "uint256",
+              "value": null,
+              "visibility": "public"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "name": "uint",
+                  "type": "uint256"
+                },
+                "id": 481,
+                "name": "ElementaryTypeName",
+                "src": "601:4:7"
+              }
+            ],
+            "id": 482,
+            "name": "VariableDeclaration",
+            "src": "601:28:7"
+          },
+          {
+            "attributes": {
+              "constant": false,
+              "name": "pendingAnchor",
+              "scope": 618,
+              "stateVariable": true,
+              "storageLocation": "default",
+              "type": "contract ParkingAnchor",
+              "value": null,
+              "visibility": "public"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "contractScope": null,
+                  "name": "ParkingAnchor",
+                  "referencedDeclaration": 200,
+                  "type": "contract ParkingAnchor"
+                },
+                "id": 483,
+                "name": "UserDefinedTypeName",
+                "src": "635:13:7"
+              }
+            ],
+            "id": 484,
+            "name": "VariableDeclaration",
+            "src": "635:34:7"
+          },
+          {
+            "attributes": {
+              "constant": false,
+              "name": "parkingAuthority",
+              "scope": 618,
+              "stateVariable": true,
+              "storageLocation": "default",
+              "type": "contract ParkingAuthority",
+              "value": null,
+              "visibility": "public"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "contractScope": null,
+                  "name": "ParkingAuthority",
+                  "referencedDeclaration": 367,
+                  "type": "contract ParkingAuthority"
+                },
+                "id": 485,
+                "name": "UserDefinedTypeName",
+                "src": "675:16:7"
+              }
+            ],
+            "id": 486,
+            "name": "VariableDeclaration",
+            "src": "675:40:7"
+          },
+          {
+            "attributes": {
+              "constant": false,
+              "name": "licensedZones",
+              "scope": 618,
+              "stateVariable": true,
+              "storageLocation": "default",
+              "type": "mapping(bytes4 => bool)",
+              "value": null,
+              "visibility": "public"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "type": "mapping(bytes4 => bool)"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "name": "bytes4",
+                      "type": "bytes4"
+                    },
+                    "id": 487,
+                    "name": "ElementaryTypeName",
+                    "src": "729:6:7"
+                  },
+                  {
+                    "attributes": {
+                      "name": "bool",
+                      "type": "bool"
+                    },
+                    "id": 488,
+                    "name": "ElementaryTypeName",
+                    "src": "739:4:7"
+                  }
+                ],
+                "id": 489,
+                "name": "Mapping",
+                "src": "721:23:7"
+              }
+            ],
+            "id": 490,
+            "name": "VariableDeclaration",
+            "src": "721:44:7"
+          },
+          {
+            "attributes": {
+              "anonymous": false,
+              "name": "CheckIn"
+            },
+            "children": [
+              {
+                "children": [
+                  {
+                    "attributes": {
+                      "constant": false,
+                      "indexed": false,
+                      "name": "user",
+                      "scope": 496,
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "type": "address",
+                      "value": null,
+                      "visibility": "internal"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "name": "address",
+                          "type": "address"
+                        },
+                        "id": 491,
+                        "name": "ElementaryTypeName",
+                        "src": "786:7:7"
+                      }
+                    ],
+                    "id": 492,
+                    "name": "VariableDeclaration",
+                    "src": "786:12:7"
+                  },
+                  {
+                    "attributes": {
+                      "constant": false,
+                      "indexed": false,
+                      "name": "anchor",
+                      "scope": 496,
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "type": "address",
+                      "value": null,
+                      "visibility": "internal"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "name": "address",
+                          "type": "address"
+                        },
+                        "id": 493,
+                        "name": "ElementaryTypeName",
+                        "src": "800:7:7"
+                      }
+                    ],
+                    "id": 494,
+                    "name": "VariableDeclaration",
+                    "src": "800:14:7"
+                  }
+                ],
+                "id": 495,
+                "name": "ParameterList",
+                "src": "785:30:7"
+              }
+            ],
+            "id": 496,
+            "name": "EventDefinition",
+            "src": "772:44:7"
+          },
+          {
+            "attributes": {
+              "constant": false,
+              "implemented": true,
+              "isConstructor": true,
+              "name": "User",
+              "payable": false,
+              "scope": 618,
+              "stateMutability": "nonpayable",
+              "superFunction": null,
+              "visibility": "public"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "parameters": [
+                    null
+                  ]
+                },
+                "children": [],
+                "id": 497,
+                "name": "ParameterList",
+                "src": "835:2:7"
+              },
+              {
+                "attributes": {
+                  "parameters": [
+                    null
+                  ]
+                },
+                "children": [],
+                "id": 500,
+                "name": "ParameterList",
+                "src": "853:0:7"
+              },
+              {
+                "attributes": {
+                  "arguments": [
+                    null
+                  ]
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "argumentTypes": null,
+                      "overloadedDeclarations": [
+                        null
+                      ],
+                      "referencedDeclaration": 99,
+                      "type": "type(contract Ownable)",
+                      "value": "Ownable"
+                    },
+                    "id": 498,
+                    "name": "Identifier",
+                    "src": "845:7:7"
+                  }
+                ],
+                "id": 499,
+                "name": "ModifierInvocation",
+                "src": "845:7:7"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "attributes": {
+                          "argumentTypes": null,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "operator": "=",
+                          "type": "contract ParkingAuthority"
+                        },
+                        "children": [
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 486,
+                              "type": "contract ParkingAuthority",
+                              "value": "parkingAuthority"
+                            },
+                            "id": 501,
+                            "name": "Identifier",
+                            "src": "861:16:7"
+                          },
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "isStructConstructorCall": false,
+                              "lValueRequested": false,
+                              "names": [
+                                null
+                              ],
+                              "type": "contract ParkingAuthority",
+                              "type_conversion": true
+                            },
+                            "children": [
+                              {
+                                "attributes": {
+                                  "argumentTypes": [
+                                    {
+                                      "typeIdentifier": "t_address",
+                                      "typeString": "address"
+                                    }
+                                  ],
+                                  "overloadedDeclarations": [
+                                    null
+                                  ],
+                                  "referencedDeclaration": 367,
+                                  "type": "type(contract ParkingAuthority)",
+                                  "value": "ParkingAuthority"
+                                },
+                                "id": 502,
+                                "name": "Identifier",
+                                "src": "880:16:7"
+                              },
+                              {
+                                "attributes": {
+                                  "argumentTypes": null,
+                                  "isConstant": false,
+                                  "isLValue": false,
+                                  "isPure": false,
+                                  "lValueRequested": false,
+                                  "member_name": "sender",
+                                  "referencedDeclaration": null,
+                                  "type": "address"
+                                },
+                                "children": [
+                                  {
+                                    "attributes": {
+                                      "argumentTypes": null,
+                                      "overloadedDeclarations": [
+                                        null
+                                      ],
+                                      "referencedDeclaration": 630,
+                                      "type": "msg",
+                                      "value": "msg"
+                                    },
+                                    "id": 503,
+                                    "name": "Identifier",
+                                    "src": "897:3:7"
+                                  }
+                                ],
+                                "id": 504,
+                                "name": "MemberAccess",
+                                "src": "897:10:7"
+                              }
+                            ],
+                            "id": 505,
+                            "name": "FunctionCall",
+                            "src": "880:28:7"
+                          }
+                        ],
+                        "id": 506,
+                        "name": "Assignment",
+                        "src": "861:47:7"
+                      }
+                    ],
+                    "id": 507,
+                    "name": "ExpressionStatement",
+                    "src": "861:47:7"
+                  }
+                ],
+                "id": 508,
+                "name": "Block",
+                "src": "853:62:7"
+              }
+            ],
+            "id": 509,
+            "name": "FunctionDefinition",
+            "src": "822:93:7"
+          },
+          {
+            "attributes": {
+              "constant": false,
+              "implemented": true,
+              "isConstructor": false,
+              "name": "setPendingAnchor",
+              "payable": false,
+              "scope": 618,
+              "stateMutability": "nonpayable",
+              "superFunction": null,
+              "visibility": "internal"
+            },
+            "children": [
+              {
+                "children": [
+                  {
+                    "attributes": {
+                      "constant": false,
+                      "name": "_anchor",
+                      "scope": 521,
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "type": "contract ParkingAnchor",
+                      "value": null,
+                      "visibility": "internal"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "contractScope": null,
+                          "name": "ParkingAnchor",
+                          "referencedDeclaration": 200,
+                          "type": "contract ParkingAnchor"
+                        },
+                        "id": 510,
+                        "name": "UserDefinedTypeName",
+                        "src": "951:13:7"
+                      }
+                    ],
+                    "id": 511,
+                    "name": "VariableDeclaration",
+                    "src": "951:21:7"
+                  }
+                ],
+                "id": 512,
+                "name": "ParameterList",
+                "src": "950:23:7"
+              },
+              {
+                "attributes": {
+                  "parameters": [
+                    null
+                  ]
+                },
+                "children": [],
+                "id": 515,
+                "name": "ParameterList",
+                "src": "995:0:7"
+              },
+              {
+                "attributes": {
+                  "arguments": [
+                    null
+                  ]
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "argumentTypes": null,
+                      "overloadedDeclarations": [
+                        null
+                      ],
+                      "referencedDeclaration": 73,
+                      "type": "modifier ()",
+                      "value": "onlyOwner"
+                    },
+                    "id": 513,
+                    "name": "Identifier",
+                    "src": "983:9:7"
+                  }
+                ],
+                "id": 514,
+                "name": "ModifierInvocation",
+                "src": "983:11:7"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "attributes": {
+                          "argumentTypes": null,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "operator": "=",
+                          "type": "contract ParkingAnchor"
+                        },
+                        "children": [
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 484,
+                              "type": "contract ParkingAnchor",
+                              "value": "pendingAnchor"
+                            },
+                            "id": 516,
+                            "name": "Identifier",
+                            "src": "1005:13:7"
+                          },
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 511,
+                              "type": "contract ParkingAnchor",
+                              "value": "_anchor"
+                            },
+                            "id": 517,
+                            "name": "Identifier",
+                            "src": "1021:7:7"
+                          }
+                        ],
+                        "id": 518,
+                        "name": "Assignment",
+                        "src": "1005:23:7"
+                      }
+                    ],
+                    "id": 519,
+                    "name": "ExpressionStatement",
+                    "src": "1005:23:7"
+                  }
+                ],
+                "id": 520,
+                "name": "Block",
+                "src": "995:40:7"
+              }
+            ],
+            "id": 521,
+            "name": "FunctionDefinition",
+            "src": "925:110:7"
+          },
+          {
+            "attributes": {
+              "constant": false,
+              "implemented": true,
+              "isConstructor": false,
+              "name": "payForParking",
+              "payable": true,
+              "scope": 618,
+              "stateMutability": "payable",
+              "superFunction": null,
+              "visibility": "public"
+            },
+            "children": [
+              {
+                "children": [
+                  {
+                    "attributes": {
+                      "constant": false,
+                      "name": "_anchor",
+                      "scope": 543,
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "type": "contract ParkingAnchor",
+                      "value": null,
+                      "visibility": "internal"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "contractScope": null,
+                          "name": "ParkingAnchor",
+                          "referencedDeclaration": 200,
+                          "type": "contract ParkingAnchor"
+                        },
+                        "id": 522,
+                        "name": "UserDefinedTypeName",
+                        "src": "1064:13:7"
+                      }
+                    ],
+                    "id": 523,
+                    "name": "VariableDeclaration",
+                    "src": "1064:21:7"
+                  }
+                ],
+                "id": 524,
+                "name": "ParameterList",
+                "src": "1063:23:7"
+              },
+              {
+                "attributes": {
+                  "parameters": [
+                    null
+                  ]
+                },
+                "children": [],
+                "id": 527,
+                "name": "ParameterList",
+                "src": "1114:0:7"
+              },
+              {
+                "attributes": {
+                  "arguments": [
+                    null
+                  ]
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "argumentTypes": null,
+                      "overloadedDeclarations": [
+                        null
+                      ],
+                      "referencedDeclaration": 73,
+                      "type": "modifier ()",
+                      "value": "onlyOwner"
+                    },
+                    "id": 525,
+                    "name": "Identifier",
+                    "src": "1102:9:7"
+                  }
+                ],
+                "id": 526,
+                "name": "ModifierInvocation",
+                "src": "1102:11:7"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "attributes": {
+                          "argumentTypes": null,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "isStructConstructorCall": false,
+                          "lValueRequested": false,
+                          "names": [
+                            null
+                          ],
+                          "type": "tuple()",
+                          "type_conversion": false
+                        },
+                        "children": [
+                          {
+                            "attributes": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_contract$_ParkingAnchor_$200",
+                                  "typeString": "contract ParkingAnchor"
+                                }
+                              ],
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 521,
+                              "type": "function (contract ParkingAnchor)",
+                              "value": "setPendingAnchor"
+                            },
+                            "id": 528,
+                            "name": "Identifier",
+                            "src": "1124:16:7"
+                          },
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 523,
+                              "type": "contract ParkingAnchor",
+                              "value": "_anchor"
+                            },
+                            "id": 529,
+                            "name": "Identifier",
+                            "src": "1141:7:7"
+                          }
+                        ],
+                        "id": 530,
+                        "name": "FunctionCall",
+                        "src": "1124:25:7"
+                      }
+                    ],
+                    "id": 531,
+                    "name": "ExpressionStatement",
+                    "src": "1124:25:7"
+                  },
+                  {
+                    "children": [
+                      {
+                        "attributes": {
+                          "argumentTypes": null,
+                          "arguments": [
+                            null
+                          ],
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "isStructConstructorCall": false,
+                          "lValueRequested": false,
+                          "names": [
+                            null
+                          ],
+                          "type": "bool",
+                          "type_conversion": false
+                        },
+                        "children": [
+                          {
+                            "attributes": {
+                              "argumentTypes": [
+                                null
+                              ],
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "isStructConstructorCall": false,
+                              "lValueRequested": false,
+                              "names": [
+                                null
+                              ],
+                              "type": "function () payable external returns (bool)",
+                              "type_conversion": false
+                            },
+                            "children": [
+                              {
+                                "attributes": {
+                                  "argumentTypes": [
+                                    {
+                                      "typeIdentifier": "t_uint256",
+                                      "typeString": "uint256"
+                                    }
+                                  ],
+                                  "isConstant": false,
+                                  "isLValue": false,
+                                  "isPure": false,
+                                  "lValueRequested": false,
+                                  "member_name": "value",
+                                  "referencedDeclaration": null,
+                                  "type": "function (uint256) returns (function () payable external returns (bool))"
+                                },
+                                "children": [
+                                  {
+                                    "attributes": {
+                                      "argumentTypes": null,
+                                      "isConstant": false,
+                                      "isLValue": false,
+                                      "isPure": false,
+                                      "lValueRequested": false,
+                                      "member_name": "acceptPayment",
+                                      "referencedDeclaration": 199,
+                                      "type": "function () payable external returns (bool)"
+                                    },
+                                    "children": [
+                                      {
+                                        "attributes": {
+                                          "argumentTypes": null,
+                                          "overloadedDeclarations": [
+                                            null
+                                          ],
+                                          "referencedDeclaration": 523,
+                                          "type": "contract ParkingAnchor",
+                                          "value": "_anchor"
+                                        },
+                                        "id": 532,
+                                        "name": "Identifier",
+                                        "src": "1159:7:7"
+                                      }
+                                    ],
+                                    "id": 535,
+                                    "name": "MemberAccess",
+                                    "src": "1159:21:7"
+                                  }
+                                ],
+                                "id": 536,
+                                "name": "MemberAccess",
+                                "src": "1159:27:7"
+                              },
+                              {
+                                "attributes": {
+                                  "argumentTypes": null,
+                                  "isConstant": false,
+                                  "isLValue": false,
+                                  "isPure": false,
+                                  "lValueRequested": false,
+                                  "member_name": "value",
+                                  "referencedDeclaration": null,
+                                  "type": "uint256"
+                                },
+                                "children": [
+                                  {
+                                    "attributes": {
+                                      "argumentTypes": null,
+                                      "overloadedDeclarations": [
+                                        null
+                                      ],
+                                      "referencedDeclaration": 630,
+                                      "type": "msg",
+                                      "value": "msg"
+                                    },
+                                    "id": 537,
+                                    "name": "Identifier",
+                                    "src": "1187:3:7"
+                                  }
+                                ],
+                                "id": 538,
+                                "name": "MemberAccess",
+                                "src": "1187:9:7"
+                              }
+                            ],
+                            "id": 539,
+                            "name": "FunctionCall",
+                            "src": "1159:38:7"
+                          }
+                        ],
+                        "id": 540,
+                        "name": "FunctionCall",
+                        "src": "1159:40:7"
+                      }
+                    ],
+                    "id": 541,
+                    "name": "ExpressionStatement",
+                    "src": "1159:40:7"
+                  }
+                ],
+                "id": 542,
+                "name": "Block",
+                "src": "1114:92:7"
+              }
+            ],
+            "id": 543,
+            "name": "FunctionDefinition",
+            "src": "1041:165:7"
+          },
+          {
+            "attributes": {
+              "constant": false,
+              "implemented": true,
+              "isConstructor": false,
+              "modifiers": [
+                null
+              ],
+              "name": "setLastCheckIn",
+              "payable": false,
+              "scope": 618,
+              "stateMutability": "nonpayable",
+              "superFunction": null,
+              "visibility": "public"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "parameters": [
+                    null
+                  ]
+                },
+                "children": [],
+                "id": 544,
+                "name": "ParameterList",
+                "src": "1239:2:7"
+              },
+              {
+                "attributes": {
+                  "parameters": [
+                    null
+                  ]
+                },
+                "children": [],
+                "id": 545,
+                "name": "ParameterList",
+                "src": "1249:0:7"
+              },
+              {
+                "children": [
+                  {
+                    "attributes": {
+                      "assignments": [
+                        547
+                      ]
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "constant": false,
+                          "name": "anchor",
+                          "scope": 582,
+                          "stateVariable": false,
+                          "storageLocation": "default",
+                          "type": "contract ParkingAnchor",
+                          "value": null,
+                          "visibility": "internal"
+                        },
+                        "children": [
+                          {
+                            "attributes": {
+                              "contractScope": null,
+                              "name": "ParkingAnchor",
+                              "referencedDeclaration": 200,
+                              "type": "contract ParkingAnchor"
+                            },
+                            "id": 546,
+                            "name": "UserDefinedTypeName",
+                            "src": "1259:13:7"
+                          }
+                        ],
+                        "id": 547,
+                        "name": "VariableDeclaration",
+                        "src": "1259:20:7"
+                      },
+                      {
+                        "attributes": {
+                          "argumentTypes": null,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "isStructConstructorCall": false,
+                          "lValueRequested": false,
+                          "names": [
+                            null
+                          ],
+                          "type": "contract ParkingAnchor",
+                          "type_conversion": true
+                        },
+                        "children": [
+                          {
+                            "attributes": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              ],
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 200,
+                              "type": "type(contract ParkingAnchor)",
+                              "value": "ParkingAnchor"
+                            },
+                            "id": 548,
+                            "name": "Identifier",
+                            "src": "1282:13:7"
+                          },
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "lValueRequested": false,
+                              "member_name": "sender",
+                              "referencedDeclaration": null,
+                              "type": "address"
+                            },
+                            "children": [
+                              {
+                                "attributes": {
+                                  "argumentTypes": null,
+                                  "overloadedDeclarations": [
+                                    null
+                                  ],
+                                  "referencedDeclaration": 630,
+                                  "type": "msg",
+                                  "value": "msg"
+                                },
+                                "id": 549,
+                                "name": "Identifier",
+                                "src": "1296:3:7"
+                              }
+                            ],
+                            "id": 550,
+                            "name": "MemberAccess",
+                            "src": "1296:10:7"
+                          }
+                        ],
+                        "id": 551,
+                        "name": "FunctionCall",
+                        "src": "1282:25:7"
+                      }
+                    ],
+                    "id": 552,
+                    "name": "VariableDeclarationStatement",
+                    "src": "1259:48:7"
+                  },
+                  {
+                    "children": [
+                      {
+                        "attributes": {
+                          "argumentTypes": null,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "isStructConstructorCall": false,
+                          "lValueRequested": false,
+                          "names": [
+                            null
+                          ],
+                          "type": "tuple()",
+                          "type_conversion": false
+                        },
+                        "children": [
+                          {
+                            "attributes": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_bool",
+                                  "typeString": "bool"
+                                }
+                              ],
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 633,
+                              "type": "function (bool) pure",
+                              "value": "require"
+                            },
+                            "id": 553,
+                            "name": "Identifier",
+                            "src": "1317:7:7"
+                          },
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "commonType": {
+                                "typeIdentifier": "t_contract$_ParkingAnchor_$200",
+                                "typeString": "contract ParkingAnchor"
+                              },
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "lValueRequested": false,
+                              "operator": "==",
+                              "type": "bool"
+                            },
+                            "children": [
+                              {
+                                "attributes": {
+                                  "argumentTypes": null,
+                                  "overloadedDeclarations": [
+                                    null
+                                  ],
+                                  "referencedDeclaration": 547,
+                                  "type": "contract ParkingAnchor",
+                                  "value": "anchor"
+                                },
+                                "id": 554,
+                                "name": "Identifier",
+                                "src": "1325:6:7"
+                              },
+                              {
+                                "attributes": {
+                                  "argumentTypes": null,
+                                  "overloadedDeclarations": [
+                                    null
+                                  ],
+                                  "referencedDeclaration": 484,
+                                  "type": "contract ParkingAnchor",
+                                  "value": "pendingAnchor"
+                                },
+                                "id": 555,
+                                "name": "Identifier",
+                                "src": "1335:13:7"
+                              }
+                            ],
+                            "id": 556,
+                            "name": "BinaryOperation",
+                            "src": "1325:23:7"
+                          }
+                        ],
+                        "id": 557,
+                        "name": "FunctionCall",
+                        "src": "1317:32:7"
+                      }
+                    ],
+                    "id": 558,
+                    "name": "ExpressionStatement",
+                    "src": "1317:32:7"
+                  },
+                  {
+                    "children": [
+                      {
+                        "attributes": {
+                          "argumentTypes": null,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "operator": "=",
+                          "type": "contract ParkingAnchor"
+                        },
+                        "children": [
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 480,
+                              "type": "contract ParkingAnchor",
+                              "value": "lastCheckIn"
+                            },
+                            "id": 559,
+                            "name": "Identifier",
+                            "src": "1359:11:7"
+                          },
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 547,
+                              "type": "contract ParkingAnchor",
+                              "value": "anchor"
+                            },
+                            "id": 560,
+                            "name": "Identifier",
+                            "src": "1373:6:7"
+                          }
+                        ],
+                        "id": 561,
+                        "name": "Assignment",
+                        "src": "1359:20:7"
+                      }
+                    ],
+                    "id": 562,
+                    "name": "ExpressionStatement",
+                    "src": "1359:20:7"
+                  },
+                  {
+                    "children": [
+                      {
+                        "attributes": {
+                          "argumentTypes": null,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "operator": "=",
+                          "type": "uint256"
+                        },
+                        "children": [
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 482,
+                              "type": "uint256",
+                              "value": "lastCheckInBlock"
+                            },
+                            "id": 563,
+                            "name": "Identifier",
+                            "src": "1389:16:7"
+                          },
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "lValueRequested": false,
+                              "member_name": "number",
+                              "referencedDeclaration": null,
+                              "type": "uint256"
+                            },
+                            "children": [
+                              {
+                                "attributes": {
+                                  "argumentTypes": null,
+                                  "overloadedDeclarations": [
+                                    null
+                                  ],
+                                  "referencedDeclaration": 622,
+                                  "type": "block",
+                                  "value": "block"
+                                },
+                                "id": 564,
+                                "name": "Identifier",
+                                "src": "1408:5:7"
+                              }
+                            ],
+                            "id": 565,
+                            "name": "MemberAccess",
+                            "src": "1408:12:7"
+                          }
+                        ],
+                        "id": 566,
+                        "name": "Assignment",
+                        "src": "1389:31:7"
+                      }
+                    ],
+                    "id": 567,
+                    "name": "ExpressionStatement",
+                    "src": "1389:31:7"
+                  },
+                  {
+                    "children": [
+                      {
+                        "attributes": {
+                          "argumentTypes": null,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "isStructConstructorCall": false,
+                          "lValueRequested": false,
+                          "names": [
+                            null
+                          ],
+                          "type": "tuple()",
+                          "type_conversion": false
+                        },
+                        "children": [
+                          {
+                            "attributes": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_contract$_User_$618",
+                                  "typeString": "contract User"
+                                },
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              ],
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 496,
+                              "type": "function (address,address)",
+                              "value": "CheckIn"
+                            },
+                            "id": 568,
+                            "name": "Identifier",
+                            "src": "1430:7:7"
+                          },
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 653,
+                              "type": "contract User",
+                              "value": "this"
+                            },
+                            "id": 569,
+                            "name": "Identifier",
+                            "src": "1438:4:7"
+                          },
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "isStructConstructorCall": false,
+                              "lValueRequested": false,
+                              "names": [
+                                null
+                              ],
+                              "type": "address",
+                              "type_conversion": true
+                            },
+                            "children": [
+                              {
+                                "attributes": {
+                                  "argumentTypes": [
+                                    {
+                                      "typeIdentifier": "t_contract$_ParkingAnchor_$200",
+                                      "typeString": "contract ParkingAnchor"
+                                    }
+                                  ],
+                                  "isConstant": false,
+                                  "isLValue": false,
+                                  "isPure": true,
+                                  "lValueRequested": false,
+                                  "type": "type(address)",
+                                  "value": "address"
+                                },
+                                "id": 570,
+                                "name": "ElementaryTypeNameExpression",
+                                "src": "1444:7:7"
+                              },
+                              {
+                                "attributes": {
+                                  "argumentTypes": null,
+                                  "overloadedDeclarations": [
+                                    null
+                                  ],
+                                  "referencedDeclaration": 547,
+                                  "type": "contract ParkingAnchor",
+                                  "value": "anchor"
+                                },
+                                "id": 571,
+                                "name": "Identifier",
+                                "src": "1452:6:7"
+                              }
+                            ],
+                            "id": 572,
+                            "name": "FunctionCall",
+                            "src": "1444:15:7"
+                          }
+                        ],
+                        "id": 573,
+                        "name": "FunctionCall",
+                        "src": "1430:30:7"
+                      }
+                    ],
+                    "id": 574,
+                    "name": "ExpressionStatement",
+                    "src": "1430:30:7"
+                  },
+                  {
+                    "children": [
+                      {
+                        "attributes": {
+                          "argumentTypes": null,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "operator": "=",
+                          "type": "contract ParkingAnchor"
+                        },
+                        "children": [
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 484,
+                              "type": "contract ParkingAnchor",
+                              "value": "pendingAnchor"
+                            },
+                            "id": 575,
+                            "name": "Identifier",
+                            "src": "1470:13:7"
+                          },
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "isStructConstructorCall": false,
+                              "lValueRequested": false,
+                              "names": [
+                                null
+                              ],
+                              "type": "contract ParkingAnchor",
+                              "type_conversion": true
+                            },
+                            "children": [
+                              {
+                                "attributes": {
+                                  "argumentTypes": [
+                                    {
+                                      "typeIdentifier": "t_rational_0_by_1",
+                                      "typeString": "int_const 0"
+                                    }
+                                  ],
+                                  "overloadedDeclarations": [
+                                    null
+                                  ],
+                                  "referencedDeclaration": 200,
+                                  "type": "type(contract ParkingAnchor)",
+                                  "value": "ParkingAnchor"
+                                },
+                                "id": 576,
+                                "name": "Identifier",
+                                "src": "1486:13:7"
+                              },
+                              {
+                                "attributes": {
+                                  "argumentTypes": null,
+                                  "hexvalue": "30",
+                                  "isConstant": false,
+                                  "isLValue": false,
+                                  "isPure": true,
+                                  "lValueRequested": false,
+                                  "subdenomination": null,
+                                  "token": "number",
+                                  "type": "int_const 0",
+                                  "value": "0"
+                                },
+                                "id": 577,
+                                "name": "Literal",
+                                "src": "1500:1:7"
+                              }
+                            ],
+                            "id": 578,
+                            "name": "FunctionCall",
+                            "src": "1486:16:7"
+                          }
+                        ],
+                        "id": 579,
+                        "name": "Assignment",
+                        "src": "1470:32:7"
+                      }
+                    ],
+                    "id": 580,
+                    "name": "ExpressionStatement",
+                    "src": "1470:32:7"
+                  }
+                ],
+                "id": 581,
+                "name": "Block",
+                "src": "1249:260:7"
+              }
+            ],
+            "id": 582,
+            "name": "FunctionDefinition",
+            "src": "1216:293:7"
+          },
+          {
+            "attributes": {
+              "constant": false,
+              "implemented": true,
+              "isConstructor": false,
+              "modifiers": [
+                null
+              ],
+              "name": "addZone",
+              "payable": false,
+              "scope": 618,
+              "stateMutability": "nonpayable",
+              "superFunction": null,
+              "visibility": "public"
+            },
+            "children": [
+              {
+                "children": [
+                  {
+                    "attributes": {
+                      "constant": false,
+                      "name": "_zone",
+                      "scope": 603,
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "type": "bytes4",
+                      "value": null,
+                      "visibility": "internal"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "name": "bytes4",
+                          "type": "bytes4"
+                        },
+                        "id": 583,
+                        "name": "ElementaryTypeName",
+                        "src": "1532:6:7"
+                      }
+                    ],
+                    "id": 584,
+                    "name": "VariableDeclaration",
+                    "src": "1532:12:7"
+                  }
+                ],
+                "id": 585,
+                "name": "ParameterList",
+                "src": "1531:14:7"
+              },
+              {
+                "attributes": {
+                  "parameters": [
+                    null
+                  ]
+                },
+                "children": [],
+                "id": 586,
+                "name": "ParameterList",
+                "src": "1553:0:7"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "attributes": {
+                          "argumentTypes": null,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "isStructConstructorCall": false,
+                          "lValueRequested": false,
+                          "names": [
+                            null
+                          ],
+                          "type": "tuple()",
+                          "type_conversion": false
+                        },
+                        "children": [
+                          {
+                            "attributes": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_bool",
+                                  "typeString": "bool"
+                                }
+                              ],
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 633,
+                              "type": "function (bool) pure",
+                              "value": "require"
+                            },
+                            "id": 587,
+                            "name": "Identifier",
+                            "src": "1561:7:7"
+                          },
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "commonType": {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              },
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "lValueRequested": false,
+                              "operator": "==",
+                              "type": "bool"
+                            },
+                            "children": [
+                              {
+                                "attributes": {
+                                  "argumentTypes": null,
+                                  "isConstant": false,
+                                  "isLValue": false,
+                                  "isPure": false,
+                                  "lValueRequested": false,
+                                  "member_name": "sender",
+                                  "referencedDeclaration": null,
+                                  "type": "address"
+                                },
+                                "children": [
+                                  {
+                                    "attributes": {
+                                      "argumentTypes": null,
+                                      "overloadedDeclarations": [
+                                        null
+                                      ],
+                                      "referencedDeclaration": 630,
+                                      "type": "msg",
+                                      "value": "msg"
+                                    },
+                                    "id": 588,
+                                    "name": "Identifier",
+                                    "src": "1569:3:7"
+                                  }
+                                ],
+                                "id": 589,
+                                "name": "MemberAccess",
+                                "src": "1569:10:7"
+                              },
+                              {
+                                "attributes": {
+                                  "argumentTypes": null,
+                                  "isConstant": false,
+                                  "isLValue": false,
+                                  "isPure": false,
+                                  "isStructConstructorCall": false,
+                                  "lValueRequested": false,
+                                  "names": [
+                                    null
+                                  ],
+                                  "type": "address",
+                                  "type_conversion": true
+                                },
+                                "children": [
+                                  {
+                                    "attributes": {
+                                      "argumentTypes": [
+                                        {
+                                          "typeIdentifier": "t_contract$_ParkingAuthority_$367",
+                                          "typeString": "contract ParkingAuthority"
+                                        }
+                                      ],
+                                      "isConstant": false,
+                                      "isLValue": false,
+                                      "isPure": true,
+                                      "lValueRequested": false,
+                                      "type": "type(address)",
+                                      "value": "address"
+                                    },
+                                    "id": 590,
+                                    "name": "ElementaryTypeNameExpression",
+                                    "src": "1583:7:7"
+                                  },
+                                  {
+                                    "attributes": {
+                                      "argumentTypes": null,
+                                      "overloadedDeclarations": [
+                                        null
+                                      ],
+                                      "referencedDeclaration": 486,
+                                      "type": "contract ParkingAuthority",
+                                      "value": "parkingAuthority"
+                                    },
+                                    "id": 591,
+                                    "name": "Identifier",
+                                    "src": "1591:16:7"
+                                  }
+                                ],
+                                "id": 592,
+                                "name": "FunctionCall",
+                                "src": "1583:25:7"
+                              }
+                            ],
+                            "id": 593,
+                            "name": "BinaryOperation",
+                            "src": "1569:39:7"
+                          }
+                        ],
+                        "id": 594,
+                        "name": "FunctionCall",
+                        "src": "1561:48:7"
+                      }
+                    ],
+                    "id": 595,
+                    "name": "ExpressionStatement",
+                    "src": "1561:48:7"
+                  },
+                  {
+                    "children": [
+                      {
+                        "attributes": {
+                          "argumentTypes": null,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "operator": "=",
+                          "type": "bool"
+                        },
+                        "children": [
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "isConstant": false,
+                              "isLValue": true,
+                              "isPure": false,
+                              "lValueRequested": true,
+                              "type": "bool"
+                            },
+                            "children": [
+                              {
+                                "attributes": {
+                                  "argumentTypes": null,
+                                  "overloadedDeclarations": [
+                                    null
+                                  ],
+                                  "referencedDeclaration": 490,
+                                  "type": "mapping(bytes4 => bool)",
+                                  "value": "licensedZones"
+                                },
+                                "id": 596,
+                                "name": "Identifier",
+                                "src": "1617:13:7"
+                              },
+                              {
+                                "attributes": {
+                                  "argumentTypes": null,
+                                  "overloadedDeclarations": [
+                                    null
+                                  ],
+                                  "referencedDeclaration": 584,
+                                  "type": "bytes4",
+                                  "value": "_zone"
+                                },
+                                "id": 597,
+                                "name": "Identifier",
+                                "src": "1631:5:7"
+                              }
+                            ],
+                            "id": 598,
+                            "name": "IndexAccess",
+                            "src": "1617:20:7"
+                          },
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "hexvalue": "74727565",
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "lValueRequested": false,
+                              "subdenomination": null,
+                              "token": "bool",
+                              "type": "bool",
+                              "value": "true"
+                            },
+                            "id": 599,
+                            "name": "Literal",
+                            "src": "1640:4:7"
+                          }
+                        ],
+                        "id": 600,
+                        "name": "Assignment",
+                        "src": "1617:27:7"
+                      }
+                    ],
+                    "id": 601,
+                    "name": "ExpressionStatement",
+                    "src": "1617:27:7"
+                  }
+                ],
+                "id": 602,
+                "name": "Block",
+                "src": "1553:98:7"
+              }
+            ],
+            "id": 603,
+            "name": "FunctionDefinition",
+            "src": "1515:136:7"
+          },
+          {
+            "attributes": {
+              "constant": false,
+              "implemented": true,
+              "isConstructor": false,
+              "name": "requestZone",
+              "payable": false,
+              "scope": 618,
+              "stateMutability": "nonpayable",
+              "superFunction": null,
+              "visibility": "public"
+            },
+            "children": [
+              {
+                "children": [
+                  {
+                    "attributes": {
+                      "constant": false,
+                      "name": "_zone",
+                      "scope": 617,
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "type": "bytes4",
+                      "value": null,
+                      "visibility": "internal"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "name": "bytes4",
+                          "type": "bytes4"
+                        },
+                        "id": 604,
+                        "name": "ElementaryTypeName",
+                        "src": "1678:6:7"
+                      }
+                    ],
+                    "id": 605,
+                    "name": "VariableDeclaration",
+                    "src": "1678:12:7"
+                  }
+                ],
+                "id": 606,
+                "name": "ParameterList",
+                "src": "1677:14:7"
+              },
+              {
+                "attributes": {
+                  "parameters": [
+                    null
+                  ]
+                },
+                "children": [],
+                "id": 609,
+                "name": "ParameterList",
+                "src": "1709:0:7"
+              },
+              {
+                "attributes": {
+                  "arguments": [
+                    null
+                  ]
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "argumentTypes": null,
+                      "overloadedDeclarations": [
+                        null
+                      ],
+                      "referencedDeclaration": 73,
+                      "type": "modifier ()",
+                      "value": "onlyOwner"
+                    },
+                    "id": 607,
+                    "name": "Identifier",
+                    "src": "1699:9:7"
+                  }
+                ],
+                "id": 608,
+                "name": "ModifierInvocation",
+                "src": "1699:9:7"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "attributes": {
+                          "argumentTypes": null,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "isStructConstructorCall": false,
+                          "lValueRequested": false,
+                          "names": [
+                            null
+                          ],
+                          "type": "tuple()",
+                          "type_conversion": false
+                        },
+                        "children": [
+                          {
+                            "attributes": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_bytes4",
+                                  "typeString": "bytes4"
+                                }
+                              ],
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "lValueRequested": false,
+                              "member_name": "addZone",
+                              "referencedDeclaration": 366,
+                              "type": "function (bytes4) external"
+                            },
+                            "children": [
+                              {
+                                "attributes": {
+                                  "argumentTypes": null,
+                                  "overloadedDeclarations": [
+                                    null
+                                  ],
+                                  "referencedDeclaration": 486,
+                                  "type": "contract ParkingAuthority",
+                                  "value": "parkingAuthority"
+                                },
+                                "id": 610,
+                                "name": "Identifier",
+                                "src": "1717:16:7"
+                              }
+                            ],
+                            "id": 612,
+                            "name": "MemberAccess",
+                            "src": "1717:24:7"
+                          },
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 605,
+                              "type": "bytes4",
+                              "value": "_zone"
+                            },
+                            "id": 613,
+                            "name": "Identifier",
+                            "src": "1742:5:7"
+                          }
+                        ],
+                        "id": 614,
+                        "name": "FunctionCall",
+                        "src": "1717:31:7"
+                      }
+                    ],
+                    "id": 615,
+                    "name": "ExpressionStatement",
+                    "src": "1717:31:7"
+                  }
+                ],
+                "id": 616,
+                "name": "Block",
+                "src": "1709:46:7"
+              }
+            ],
+            "id": 617,
+            "name": "FunctionDefinition",
+            "src": "1657:98:7"
+          }
+        ],
+        "id": 618,
+        "name": "ContractDefinition",
+        "src": "527:1230:7"
+      }
+    ],
+    "id": 619,
+    "name": "SourceUnit",
+    "src": "0:1757:7"
+  },
+  "compiler": {
+    "name": "solc",
+    "version": "0.4.18+commit.9cf6e910.Emscripten.clang"
+  },
+  "networks": {},
+  "schemaVersion": "1.0.1",
+  "updatedAt": "2018-03-21T21:25:42.000Z"
+}

@@ -1,6 +1,6 @@
 pragma solidity ^0.4.13;
 
-import "./CSR.sol";
+import "./SpatialUtils.sol";
 
 /*
 
@@ -17,15 +17,7 @@ contract CSC {
 
     function CSC(bytes8 _geohash) public {
       geohash = _geohash;
-      csc = computeCSC(geohash, address(this));
+      csc = SpatialUtils.computeCSC(geohash, address(this));
     }
 
-    function register(address csrAddress) public {
-      CSR csr = CSR(csrAddress);
-      csr.register(csc);
-    }
-
-    function computeCSC(bytes8 geohash_arg, address addr) internal pure returns(bytes12) {
-      return bytes12(keccak256(geohash_arg, addr));
-    }
 }
