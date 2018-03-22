@@ -24,14 +24,14 @@ contract User is Ownable {
 
     event CheckIn(address user, address anchor);
 
-    modifier senderIsParkingAuthority() {
+    modifier callerIsParkingAuthority() {
         ParkingAuthority authority = ParkingAuthority(msg.sender);
         require(parkingAuthority == authority);
         _;
     }
 
     // make sure the sender of this message is the valid pendingAnchor.
-    modifier senderIsPendingAnchor() {
+    modifier callerIsPendingAnchor() {
         require(parkingAuthority.anchors(msg.sender));
         ParkingAnchor anchor = ParkingAnchor(msg.sender);
         require(anchor == pendingAnchor);
@@ -57,7 +57,7 @@ contract User is Ownable {
 
     // the pendingAnchor will call this function to complete the CheckIn and to set the
     // pendingAnchor to null.
-    function setLastCheckIn() public senderIsPendingAnchor() {
+    function setLastCheckIn() public callerIsPendingAnchor() {
         ParkingAnchor anchor = ParkingAnchor(msg.sender);
         lastCheckIn = anchor;
         lastCheckInBlock = block.number;
@@ -66,7 +66,7 @@ contract User is Ownable {
     }
 
     // The parking authority calls this function to modify the set of licensedZones.
-    function addZone(bytes4 _zone) public senderIsParkingAuthority() {
+    function addZone(bytes4 _zone) public callerIsParkingAuthority() {
         licensedZones[_zone] = true;
     }
 

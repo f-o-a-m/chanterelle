@@ -17,13 +17,18 @@ contract ParkingAuthority is Ownable {
     
     FoamCSR public parkingCSR;
     mapping(address => bool) public anchors;
-    mapping(address => User) public members;
+    mapping(address => bool) public users;
     
     event RegisteredParkingAnchor(bytes12 csc, address addr, bytes8 geohash);
     event RegisterParkingUser(address accountAddress, address userAddress);
 
     // Decide whether or not to give the user parking access to the zone. Mocked for now.
     modifier shouldGiveAccess(bytes4 _zone) {
+      _;
+    }
+
+    modifier callerIsUser() {
+      require(users[msg.sender]);
       _;
     }
 
@@ -43,6 +48,7 @@ contract ParkingAuthority is Ownable {
         if (validateParkingAnchor(_geohash, _anchorId) == true) {
             ParkingAnchor anchor = new ParkingAnchor(_geohash, _anchorId);
             anchor.register(parkingCSR);
+            anchors[address(anchor)] = true;
             RegisteredParkingAnchor(anchor.csc(), address(anchor), _geohash);
             anchor.transferOwnership(msg.sender);
         }
@@ -52,12 +58,13 @@ contract ParkingAuthority is Ownable {
     function registerUser() public onlyOwner() {
         User newUser = new User();
         newUser.transferOwnership(msg.sender);
+        users[address(newUser)] = true;
         RegisterParkingUser(msg.sender, address(newUser));
     }
 
     // This function is called by a user when they want to add a zone to their listed of
     // licensed zones.
-    function addZone(bytes4 _zone) public shouldGiveAccess(_zone) {
+    function addZone(bytes4 _zone) public shouldGiveAccess(_zone) callerIsUser() {
       User user = User(msg.sender);
       user.addZone(_zone);
     }

@@ -15,20 +15,25 @@ import "./ParkingAuthority.sol";
 contract ParkingAnchor is Ownable, CSC {
 
   bytes32 public anchorId;
-  ParkingAuthority public anchorAuthority;
+  ParkingAuthority public parkingAuthority;
 
   event PaymentAccepted(address anchor, address user);
 
+  modifier callerIsUser() {
+    require(parkingAuthority.users(msg.sender));
+    _;
+  }
+
   function ParkingAnchor(bytes8 _geohash, bytes32 _anchorId) public CSC(_geohash) Ownable() {  
     anchorId = _anchorId;
-    anchorAuthority = ParkingAuthority(msg.sender);
+    parkingAuthority = ParkingAuthority(msg.sender);
   }
 
   // note that beacuse we are looking up the user from the ParkingAuthority, we can be sure
   // they exist and we deployed by the authority.
-  function acceptPayment() public payable returns(bool) {
+  function acceptPayment() public payable callerIsUser() returns(bool) {
+      User user = User(msg.sender);
       bytes4 anchorZone = bytes4(geohash);
-      User user = anchorAuthority.members(msg.sender);
       require(msg.value > 0);
       
       if (user.licensedZones(anchorZone) && user.pendingAnchor() == this) {
