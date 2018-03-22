@@ -1,7 +1,7 @@
 module Main where
 
 import Prelude
-import Control.Monad.Aff (launchAff)
+import Control.Monad.Aff (launchAff, liftEff')
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Data.Lens ((?~))
@@ -12,16 +12,23 @@ import Node.FS.Aff (FS)
 import Partial.Unsafe (unsafePartial)
 
 import Contracts.SimpleStorage as SimpleStorage
+import Contracts.ParkingAuthority as ParkingAuthority
 
-import Deploy (deployContractWithArgs)
-import Utils (makeDeployConfig)
-import ContractConfig (simpleStorageConfig)
+import Deploy (deployContractWithArgs, deployContractNoArgs)
+import Utils (makeDeployConfig, validateDeployArgs)
+import ContractConfig (simpleStorageConfig, foamCSRConfig, makeParkingAuthorityConfig)
 
+
+-- | TODO: This passing of config indicates a ReaderMonad
 main :: forall e. Eff (eth :: ETH, console :: CONSOLE, fs :: FS | e) Unit
 main = void <<< launchAff $ do
-  cfg <- makeDeployConfig
-  let bigGasLimit = unsafePartial fromJust $ parseBigNumber decimal "900000"
-      txOpts = defaultTransactionOptions # _from ?~ cfg.primaryAccount
+  deployCfg <- makeDeployConfig
+  let bigGasLimit = unsafePartial fromJust $ parseBigNumber decimal "9000000"
+      txOpts = defaultTransactionOptions # _from ?~ deployCfg.primaryAccount
                                          # _gas ?~ bigGasLimit
-  _ <- deployContractWithArgs cfg simpleStorageConfig $ SimpleStorage.constructor txOpts
+  ssConfig <- liftEff' $ validateDeployArgs simpleStorageConfig
+  _ <- deployContractWithArgs deployCfg ssConfig $ SimpleStorage.constructor txOpts
+  foamCSR <- deployContractNoArgs deployCfg foamCSRConfig txOpts
+  let parkingAuthorityConfig = makeParkingAuthorityConfig {foamCSR}
+  _ <- deployContractWithArgs deployCfg parkingAuthorityConfig $ ParkingAuthority.constructor txOpts
   pure unit

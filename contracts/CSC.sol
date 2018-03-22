@@ -11,7 +11,7 @@ import "./CSR.sol";
 
 */
 
-contract CSC {
+contract CSC is SpatialUtils {
     bytes8 public geohash;
     bytes12 public csc;
 
