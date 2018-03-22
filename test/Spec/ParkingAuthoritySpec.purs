@@ -72,6 +72,8 @@ parkingAuthoritySpec deployConfig = do
                       pure {eventOwner: owner, actualOwner: owner'}
       eventOwner `shouldEqual` actualOwner
 
+
+-- This test should create a user, have them request a zone, and see that the ZoneGranted event fires
 -- TODO: make a separate requestZone function, we might need this in more than one place
 --  it "can create a user and that user can request more zones from the authority" do
 --    {parkingAuthority} <- liftAff $ buildParkingAuthorityConfig deployConfig.networkId
