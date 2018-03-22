@@ -5,17 +5,23 @@ import "./CSC.sol";
 import "./SpatialUtils.sol";
 
 contract FoamCSR is SpatialUtils {
-  mapping(bytes12 => address) public registry;
+  mapping(bytes12 => address) CSCRegistry;
 
-  function register(bytes12 csc) public {
-    if (registry[csc] == 0) {
-      CSC caller = CSC(msg.sender);
-      require(computeCSC(caller.geohash(), msg.sender) == csc);
+  event RegisterCSC(address indexed callerAddress, bytes12 csc, address cscAddress, bytes8 cscGeohash);
 
-      registry[csc] = msg.sender;
-      RegisterCSC(csc, msg.sender, caller.geohash());
-    }
+  function registry(bytes12 csc) public returns(address) {
+      return CSCRegistry[csc];
   }
 
-  event RegisterCSC(bytes12 csc, address addr, bytes8 geohash);
+  function register(CSC newCsc) public {
+    bytes12 csc = newCsc.csc();
+    if (CSCRegistry[csc] == 0) {
+      address cscAddr = address(newCsc);
+      bytes8 geohash = newCsc.geohash();
+      bytes12 computedCSC = SpatialUtils.computeCSC(geohash, cscAddr);
+      require(computedCSC == csc);
+      CSCRegistry[csc] = cscAddr;
+      RegisterCSC(msg.sender, csc, cscAddr, geohash);
+    }
+  }
 }

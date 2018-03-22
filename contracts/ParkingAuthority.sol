@@ -47,7 +47,7 @@ contract ParkingAuthority is Ownable {
     function deployParkingAnchor(bytes8 _geohash, bytes32 _anchorId) public onlyOwner() {
         if (validateParkingAnchor(_geohash, _anchorId) == true) {
             ParkingAnchor anchor = new ParkingAnchor(_geohash, _anchorId);
-            anchor.register(parkingCSR);
+            parkingCSR.register(anchor);
             anchors[address(anchor)] = true;
             RegisteredParkingAnchor(msg.sender, address(anchor), _geohash, _anchorId);
             anchor.transferOwnership(msg.sender);
