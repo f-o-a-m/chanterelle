@@ -30,7 +30,9 @@ contract User is Ownable {
         _;
     }
 
+    // make sure the sender of this message is the valid pendingAnchor.
     modifier senderIsPendingAnchor() {
+        require(parkingAuthority.anchors(msg.sender));
         ParkingAnchor anchor = ParkingAnchor(msg.sender);
         require(anchor == pendingAnchor);
         _;
@@ -46,12 +48,15 @@ contract User is Ownable {
         pendingAnchor = _anchor;
     }
 
-    // Pay a parking anchor for parking, assuming the user has access to their zone.
+    // Pay a valid parking anchor for parking, assuming the user has access to their zone.
     function payForParking(ParkingAnchor _anchor) public payable onlyOwner() {
+        require(parkingAuthority.anchors(address(_anchor)));
         setPendingAnchor(_anchor);
         _anchor.acceptPayment.value(msg.value)();
     }
 
+    // the pendingAnchor will call this function to complete the CheckIn and to set the
+    // pendingAnchor to null.
     function setLastCheckIn() public senderIsPendingAnchor() {
         ParkingAnchor anchor = ParkingAnchor(msg.sender);
         lastCheckIn = anchor;
@@ -60,10 +65,13 @@ contract User is Ownable {
         pendingAnchor = ParkingAnchor(0);
     }
 
+    // The parking authority calls this function to modify the set of licensedZones.
     function addZone(bytes4 _zone) public senderIsParkingAuthority() {
         licensedZones[_zone] = true;
     }
 
+    // the owner of the User contract can propose to the ParkingAuthority to add
+    // a zone to their set of licensedZones.
     function requestZone(bytes4 _zone) public onlyOwner {
         parkingAuthority.addZone(_zone);
     }

@@ -16,6 +16,7 @@ import "./User.sol";
 contract ParkingAuthority is Ownable {
     
     FoamCSR public parkingCSR;
+    mapping(address => bool) public anchors;
     mapping(address => User) public members;
     
     event RegisteredParkingAnchor(bytes12 csc, address addr, bytes8 geohash);

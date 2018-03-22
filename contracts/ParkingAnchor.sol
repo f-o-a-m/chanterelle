@@ -23,7 +23,9 @@ contract ParkingAnchor is Ownable, CSC {
     anchorId = _anchorId;
     anchorAuthority = ParkingAuthority(msg.sender);
   }
-    
+
+  // note that beacuse we are looking up the user from the ParkingAuthority, we can be sure
+  // they exist and we deployed by the authority.
   function acceptPayment() public payable returns(bool) {
       bytes4 anchorZone = bytes4(geohash);
       User user = anchorAuthority.members(msg.sender);
@@ -38,6 +40,7 @@ contract ParkingAnchor is Ownable, CSC {
       }
   }
 
+  // transfer all ether accumulated in parking fees to the owner of this contract.
   function transferBalanceToOwner() public onlyOwner() {
       owner.transfer(this.balance);
   }
