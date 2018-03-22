@@ -52,8 +52,14 @@ parkingAuthoritySpec deployConfig = do
       ecsr <- runWeb3 deployConfig.provider $ ParkingAuthority.parkingCSR txOpts Latest
       ecsr `shouldEqual` (Right (Right parkingAuthorityConfig.deployArgs.foamCSR))
 
-    it "can deploy users" do
-      pending "call "
+  pending "call the registerUser function on the ParkingAuthority from accounts[2], capture the RegisterParkingUser event, check the owner of the new User contract is accounts[2]"
+
+  pending "call the registerParkingAnchor function on the ParkingAuthority from accounts[2], capture the RegisterParkingAnchor event, check the owner of the new Anchor contract is accounts[2]"
+
+
+  pending "create user, request Zone, check that zone gets added"
+
+  pending "create user, create anchor, user requests zone relevant for anchor, user pays for parking, CheckIn event fires, pending anchor is reset."
 
 --      account2 <- unsafePartial fromJust <<< runWeb3 deployConfig.provider $ (!! 2) <$> eth_accounts
 --      parkingAuthorityConfig <- buildParkingAuthorityConfig
