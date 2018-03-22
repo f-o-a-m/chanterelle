@@ -23,6 +23,7 @@ contract User is Ownable {
     mapping(bytes4 => bool) public licensedZones;
 
     event CheckIn(address user, address anchor);
+    event ZoneGranted(bytes4 zone);
 
     modifier callerIsParkingAuthority() {
         ParkingAuthority authority = ParkingAuthority(msg.sender);
@@ -68,6 +69,7 @@ contract User is Ownable {
     // The parking authority calls this function to modify the set of licensedZones.
     function addZone(bytes4 _zone) public callerIsParkingAuthority() {
         licensedZones[_zone] = true;
+        ZoneGranted(_zone);
     }
 
     // the owner of the User contract can propose to the ParkingAuthority to add
