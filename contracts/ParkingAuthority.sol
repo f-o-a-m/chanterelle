@@ -19,8 +19,8 @@ contract ParkingAuthority is Ownable {
     mapping(address => bool) public anchors;
     mapping(address => bool) public users;
     
-    event RegisteredParkingAnchor(bytes12 csc, address addr, bytes8 geohash);
-    event RegisterParkingUser(address accountAddress, address userAddress);
+    event RegisteredParkingAnchor(address owner, address anchor, bytes8 geohash, bytes32 anchorId);
+    event RegisterParkingUser(address owner, address user);
 
     // Decide whether or not to give the user parking access to the zone. Mocked for now.
     modifier shouldGiveAccess(bytes4 _zone) {
@@ -49,7 +49,7 @@ contract ParkingAuthority is Ownable {
             ParkingAnchor anchor = new ParkingAnchor(_geohash, _anchorId);
             anchor.register(parkingCSR);
             anchors[address(anchor)] = true;
-            RegisteredParkingAnchor(anchor.csc(), address(anchor), _geohash);
+            RegisteredParkingAnchor(msg.sender, address(anchor), _geohash, _anchorId);
             anchor.transferOwnership(msg.sender);
         }
     }
