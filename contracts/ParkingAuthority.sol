@@ -44,18 +44,22 @@ contract ParkingAuthority is Ownable {
 
     // Deploy a ParkingAnchor at the given geohash with the given anchorId. Transfer ownership of the
     // anchor to the sender of the transaction.
-    function deployParkingAnchor(bytes8 _geohash, bytes32 _anchorId) public onlyOwner() {
-        if (validateParkingAnchor(_geohash, _anchorId) == true) {
-            ParkingAnchor anchor = new ParkingAnchor(_geohash, _anchorId);
-            parkingCSR.register(anchor);
-            anchors[address(anchor)] = true;
-            RegisteredParkingAnchor(msg.sender, address(anchor), _geohash, _anchorId);
-            anchor.transferOwnership(msg.sender);
-        }
+    function registerParkingAnchor(bytes8 _geohash, bytes32 _anchorId) public {
+        require(validateParkingAnchor(_geohash, _anchorId));
+        ParkingAnchor anchor = new ParkingAnchor(_geohash, _anchorId);
+        parkingCSR.register(anchor);
+        anchors[address(anchor)] = true;
+        RegisteredParkingAnchor(msg.sender, address(anchor), _geohash, _anchorId);
+        anchor.transferOwnership(msg.sender);
+    }
+
+    function validateUserApplication(address _applicant) internal pure returns(bool) {
+      return true;
     }
 
     // Create a new user and transer ownership of the account to the message sender.
-    function registerUser() public onlyOwner() {
+    function registerUser() public {
+        require(validateUserApplication(msg.sender));
         User newUser = new User();
         newUser.transferOwnership(msg.sender);
         users[address(newUser)] = true;

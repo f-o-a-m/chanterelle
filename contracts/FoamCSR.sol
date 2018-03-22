@@ -9,7 +9,7 @@ contract FoamCSR is SpatialUtils {
 
   event RegisterCSC(address indexed callerAddress, bytes12 csc, address cscAddress, bytes8 cscGeohash);
 
-  function registry(bytes12 csc) public returns(address) {
+  function registry(bytes12 csc) public view returns(address) {
       return CSCRegistry[csc];
   }
 

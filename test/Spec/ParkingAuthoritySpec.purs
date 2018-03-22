@@ -17,7 +17,7 @@ import Data.Maybe (Maybe(..), fromJust)
 import Network.Ethereum.Web3 (ETH, Address, BigNumber, runWeb3, EventAction(..), event, embed, eventFilter, uIntNFromBigNumber, _from, _to, defaultTransactionOptions, ChainCursor(..))
 import Node.FS.Aff (FS)
 import Partial.Unsafe (unsafePartial)
-import Test.Spec (Spec, describe, it)
+import Test.Spec (Spec, describe, it, pending)
 import Test.Spec.Assertions (shouldEqual)
 import Type.Prelude (Proxy(..))
 import Deploy (readDeployAddress)
@@ -51,3 +51,11 @@ parkingAuthoritySpec deployConfig = do
       let txOpts = defaultTransactionOptions # _to ?~ parkingAuthorityAddress
       ecsr <- runWeb3 deployConfig.provider $ ParkingAuthority.parkingCSR txOpts Latest
       ecsr `shouldEqual` (Right (Right parkingAuthorityConfig.deployArgs.foamCSR))
+
+    it "can deploy users" do
+      pending "call "
+
+--      account2 <- unsafePartial fromJust <<< runWeb3 deployConfig.provider $ (!! 2) <$> eth_accounts
+--      parkingAuthorityConfig <- buildParkingAuthorityConfig
+--      <- 
+--      let txOpts = 
