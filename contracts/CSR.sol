@@ -10,6 +10,6 @@ import "./CSC.sol";
 */
 
 contract CSR {
-  function registry(bytes12 csc) public returns(address);
-  function register(CSC csc) public;
+    function registry(bytes12 csc) public returns(address);
+    function register(CSC csc) public;
 }

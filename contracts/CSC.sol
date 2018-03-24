@@ -16,8 +16,8 @@ contract CSC is SpatialUtils {
     bytes12 public csc;
 
     function CSC(bytes8 _geohash) public {
-      geohash = _geohash;
-      csc = SpatialUtils.computeCSC(geohash, address(this));
+        geohash = _geohash;
+        csc = SpatialUtils.computeCSC(geohash, address(this));
     }
 
 }
