@@ -15,10 +15,10 @@ import Control.Monad.Reader.Class (ask)
 import Contracts.SimpleStorage as SimpleStorage
 import Contracts.ParkingAuthority as ParkingAuthority
 
-import Deploy (deployContractWithArgs, deployContractNoArgs, runDeployM)
+import Deploy (deployContractWithArgs, deployContractNoArgs)
 import Utils (makeDeployConfig, validateDeployArgs)
 import ContractConfig (simpleStorageConfig, foamCSRConfig, makeParkingAuthorityConfig)
-import Types (DeployConfig(..))
+import Types (DeployConfig(..), runDeployM)
 
 
 -- | TODO: This passing of config indicates a ReaderMonad

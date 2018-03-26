@@ -2,23 +2,18 @@ module Deploy
   ( deployContractNoArgs
   , deployContractWithArgs
   , readDeployAddress
-  , DeployM
-  , runDeployM
   ) where
 
 import Prelude
 import Control.Error.Util ((??))
 import Control.Monad.Aff (Aff, Milliseconds(..), liftEff', attempt)
-import Control.Monad.Aff.Class (class MonadAff, liftAff)
+import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as C
 import Control.Monad.Aff.Unsafe (unsafeCoerceAff)
-import Control.Monad.Error.Class (class MonadThrow)
-import Control.Monad.Eff.Class (class MonadEff)
 import Control.Monad.Except (ExceptT(..), runExceptT, throwError)
 import Control.Monad.Eff.Exception (throw)
-import Control.Monad.Reader (ReaderT, runReaderT)
-import Control.Monad.Reader.Class (class MonadAsk, ask)
+import Control.Monad.Reader.Class (ask)
 import Data.Argonaut (stringify, _Object, _String, jsonEmptyObject, (~>), (:=))
 import Data.Argonaut.Parser (jsonParser)
 import Data.Either (Either(..), either)
@@ -37,7 +32,7 @@ import Node.FS.Aff (FS, readTextFile, writeTextFile)
 import Node.Path (FilePath)
 import Partial.Unsafe (unsafePartial)
 import Utils (withTimeout, pollTransactionReceipt, reportIfErrored)
-import Types (DeployConfig(..), ContractConfig)
+import Types (DeployM, DeployConfig(..), ContractConfig)
 
 
 -- | Fetch the bytecode from a solidity build artifact
@@ -172,22 +167,4 @@ deployContractAndWriteToArtifact filepath name deployAction = do
       contractAddress <- getPublishedContractAddress txHash provider name
       writeDeployAddress filepath contractAddress networkId >>= reportIfErrored ("Failed to write address for artifact " <> filepath)
       pure contractAddress
-
---------------------------------------------------------------------------------
--- | DeployM
---------------------------------------------------------------------------------
-
-newtype DeployM eff a = DeployM (ReaderT DeployConfig (Aff (eth :: ETH, fs :: FS, console :: CONSOLE | eff)) a)
-
-runDeployM :: forall eff a. DeployM eff a -> DeployConfig -> Aff (fs :: FS, console :: CONSOLE, eth :: ETH | eff) a
-runDeployM (DeployM deploy) = runReaderT deploy
-
-derive newtype instance functorDeployM :: Functor (DeployM eff)
-derive newtype instance applyDeployM :: Apply (DeployM eff)
-derive newtype instance applicativeDeployM :: Applicative (DeployM eff)
-derive newtype instance bindDeployM :: Bind (DeployM eff)
-derive newtype instance monadDeployM :: Monad (DeployM eff)
-derive newtype instance monadAskDeployM :: MonadAsk DeployConfig (DeployM eff)
-derive newtype instance monadEffDeployM :: MonadEff (eth :: ETH, fs :: FS, console :: CONSOLE | eff) (DeployM eff)
-derive newtype instance monadAffDeployM :: MonadAff (eth :: ETH, fs :: FS, console :: CONSOLE | eff) (DeployM eff)
 
