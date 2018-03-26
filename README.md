@@ -1,4 +1,4 @@
-# chanterelle
+# chanterelle -- build tool with example application
 <img src=https://github.com/f-o-a-m/purescript-web3/blob/master/purescript-web3-logo.png width="75">
 
 ## Parking DOA
