@@ -2,17 +2,17 @@ module ParkingAuthoritySpec (parkingAuthoritySpec) where
 
 
 import Prelude
-import Contracts.ParkingAuthority as ParkingAuthority
-import Contracts.User as User
-import Data.ByteString as BS
+
 import ContractConfig (foamCSRConfig, makeParkingAuthorityConfig)
-import Contracts.ParkingAuthority (RegisterParkingUser(..))
-import Contracts.User (ZoneGranted(..))
+import Contracts.ParkingAnchor as ParkingAnchor
+import Contracts.ParkingAuthority as PA
+import Contracts.User as User
 import Control.Monad.Aff (Aff)
 import Control.Monad.Aff.AVar (AVAR, makeEmptyVar, putVar, takeVar)
 import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Aff.Console (CONSOLE, log)
 import Data.Array ((!!))
+import Data.ByteString as BS
 import Data.Either (Either(..))
 import Data.Lens.Setter ((?~))
 import Data.Maybe (Maybe(..))
@@ -20,9 +20,10 @@ import Data.Record (insert)
 import Data.Symbol (SProxy(..))
 import Data.Tuple (Tuple(..))
 import Deploy (readDeployAddress)
-import Network.Ethereum.Web3 (class EventFilter, Address, BigNumber, ChainCursor(..), D4, ETH, EventAction(..), Web3, _from, _gas, _to, decimal, defaultTransactionOptions, event, eventFilter, forkWeb3', parseBigNumber, runWeb3)
+import Network.Ethereum.Web3 (class EventFilter, EventAction(..), event, eventFilter, forkWeb3', runWeb3)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
-import Network.Ethereum.Web3.Solidity (class DecodeEvent, BytesN, fromByteString)
+import Network.Ethereum.Web3.Solidity (class DecodeEvent, BytesN, D2, D3, D4, D8, type (:&), fromByteString)
+import Network.Ethereum.Web3.Types (Address, BigNumber, ChainCursor(..), ETH, Web3, _from, _gas, _to, decimal, defaultTransactionOptions, parseBigNumber, sha3, unHex)
 import Node.FS.Aff (FS)
 import Partial.Unsafe (unsafeCrashWith)
 import Test.Spec (Spec, describe, it, pending)
@@ -63,75 +64,114 @@ parkingAuthoritySpec deployConfig = do
       parkingAuthorityConfig <- buildParkingAuthorityConfig deployConfig.networkId
       parkingAuthorityAddress <- readDeployAddress parkingAuthorityConfig.filepath deployConfig.networkId
       let txOpts = defaultTransactionOptions # _to ?~ parkingAuthorityAddress
-      ecsr <- run $ ParkingAuthority.parkingCSR txOpts Latest
+      ecsr <- run $ PA.parkingCSR txOpts Latest
       ecsr `shouldEqual` (Right parkingAuthorityConfig.deployArgs.foamCSR)
 
   describe "User Registration" do
     it "can register a user and that user is owned by the right account" $ run do
-      accounts <- eth_getAccounts
-      let
-        account1 = case accounts !! 1 of
-          Just x -> x
-          Nothing -> unsafeCrashWith "accounts is empty"
-      {owner, user} <- registerUser account1 deployConfig
-      let txOpts = defaultTransactionOptions # _from ?~ account1
-                                              # _to ?~ user
-      actualOwner <- User.owner txOpts Latest <#> case _ of
-        Right x -> x
-        Left err -> unsafeCrashWith $ "expected Right in `User.owner`, got error" <> show err
-
-      liftAff $ owner `shouldEqual` actualOwner
+      void $ createUser deployConfig 1
 
 
     it "can create a user and that user can request more zones from the authority" $ run do
-      {parkingAuthority} <- liftAff $ buildParkingAuthorityConfig deployConfig.networkId
-      accounts <- eth_getAccounts
+      {user, owner} <- createUser deployConfig 1
       let
-        account1 = case accounts !! 1 of
-          Just x -> x
-          Nothing -> unsafeCrashWith "accounts is empty"
-      {owner, user} <- registerUser account1 deployConfig
-      let 
         zone :: BytesN D4
         zone = case fromByteString =<< BS.fromString "01234567" BS.Hex of
           Just x -> x
           Nothing -> unsafeCrashWith "01234567 should result in valid BytesN D4"
-        txOpts = defaultTransactionOptions # _from ?~ account1
-                                            # _gas ?~ bigGasLimit
-                                            # _to ?~ user
-      Tuple txHash (ZoneGranted {zone: eventZone}) <- takeEvent (Proxy :: Proxy ZoneGranted) user 
+        txOpts = defaultTransactionOptions # _from ?~ owner
+                                           # _gas ?~ bigGasLimit
+                                           # _to ?~ user
+      Tuple txHash (User.ZoneGranted {zone: eventZone}) <- takeEvent (Proxy :: Proxy User.ZoneGranted) user
         $ User.requestZone txOpts { _zone: zone }
       liftAff $ zone `shouldEqual` eventZone
 
+    it "can create an anchor, and that anchor is owned by the right account" $ run do
+      let _anchorId = case fromByteString =<< BS.fromString (unHex $ sha3 "I'm an anchor!") BS.Hex of
+            Just x -> x
+            Nothing -> unsafeCrashWith "anchorId should result in valid BytesN 32"
+          _geohash = case fromByteString =<< BS.fromString ("0123456701234567") BS.Hex of
+            Just x -> x
+            Nothing -> unsafeCrashWith "anchorId should result in valid BytesN 8"
+      void $ createParkingAnchor deployConfig 2 {_geohash, _anchorId}
 
-  pending "create anchor, check that it has the correct owner" 
-  pending "call the registerParkingAnchor function on the ParkingAuthority from accounts[2], capture the RegisterParkingAnchor event, check the owner of the new Anchor contract is accounts[2]"
+
+  pending "call the registerParkingAnchor function on the PA from accounts[2], capture the RegisterParkingAnchor event, check the owner of the new Anchor contract is accounts[2]"
   pending "create user, create anchor, user requests zone relevant for anchor, user pays for parking, CheckIn event fires, pending anchor is reset."
 
+
+--------------------------------------------------------------------------------
+-- | SetupTests
+--------------------------------------------------------------------------------
+-- Setup tests are like sub-tests, they create and account (either user or parking) and
+-- return all the necessary information about that account to use it in another test
+
+createUser
+  :: forall eff.
+     DeployConfig
+  -> Int
+  -- ^ the index of the account to use for transactions
+  -> Web3 (fs :: FS, avar :: AVAR, console :: CONSOLE | eff) {owner :: Address, user :: Address}
+createUser deployConfig accountIndex = do
+  accounts <- eth_getAccounts
+  let
+    account = case accounts !! accountIndex of
+      Just x -> x
+      Nothing -> unsafeCrashWith $ "no index " <> show accountIndex <> "in accounts"
+  {owner, user} <- registerUser account deployConfig
+  let txOpts = defaultTransactionOptions # _from ?~ account
+                                         # _to ?~ user
+  actualOwner <- User.owner txOpts Latest <#> case _ of
+    Right x -> x
+    Left err -> unsafeCrashWith $ "expected Right in `User.owner`, got error" <> show err
+  liftAff $ owner `shouldEqual` actualOwner
+  liftAff $ owner `shouldEqual` account
+  pure {owner, user}
+
+createParkingAnchor
+  :: forall eff.
+     DeployConfig
+  -> Int
+  -- ^ the index for the account to use for transactions
+  -> {_geohash :: BytesN D8, _anchorId :: BytesN (D3 :& D2)}
+  -> Web3 (fs :: FS, console :: CONSOLE, avar :: AVAR | eff) {owner :: Address, anchor :: Address, anchorId :: BytesN (D3 :& D2) , geohash :: BytesN D8}
+createParkingAnchor deployConfig accountIndex args = do
+  accounts <- eth_getAccounts
+  let
+    account = case accounts !! accountIndex of
+      Just x -> x
+      Nothing -> unsafeCrashWith $ "no index " <> show accountIndex <> "in accounts"
+  {owner, anchor, geohash, anchorId} <- registerAnchor account args deployConfig
+  let txOpts = defaultTransactionOptions # _from ?~ account
+                                         # _to ?~ anchor
+  actualOwner <- ParkingAnchor.owner txOpts Latest <#> case _ of
+    Right x -> x
+    Left err -> unsafeCrashWith $ "expected Right in `ParkingAnchor.owner`, got error" <> show err
+
+  liftAff $ owner `shouldEqual` actualOwner
+  liftAff $ owner `shouldEqual` account
+  pure {owner, anchor, anchorId, geohash}
+
+
 takeEvent
-  :: forall eff a ev i ni
-  . DecodeEvent i ni ev
+  :: forall eff a ev i ni.
+     DecodeEvent i ni ev
+  => Show ev
   => EventFilter ev
   => Proxy ev
   -> Address
   -> Web3 (console :: CONSOLE, avar :: AVAR | eff) a
   -> Web3 (console :: CONSOLE, avar :: AVAR | eff) (Tuple a ev)
-takeEvent prx addrs ef' = do
+takeEvent prx addrs web3Action = do
   var <- liftAff $ makeEmptyVar
-  _ <- forkWeb3' do 
-    liftAff $ log "event filter forked"
+  _ <- forkWeb3' do
     event (eventFilter prx addrs) $ \e -> do
-      liftAff $ log "got event"
+      liftAff <<< log $ "Received Event: " <> show e
       _ <- liftAff $ putVar e var
       pure TerminateEvent
-    liftAff $ log "event filter terminated"
-  liftAff $ log "invoke event producing effect"
-  efRes <- ef'
-  liftAff $ log "taking event"
+  efRes <- web3Action
   event <- liftAff $ takeVar var
-  liftAff $ log "event has been taken"
   pure $ Tuple efRes event
-      
 
 
 registerUser
@@ -145,12 +185,29 @@ registerUser fromAccount {provider, networkId} = do
   let txOpts = defaultTransactionOptions # _from ?~ fromAccount
                                          # _gas ?~ bigGasLimit
                                          # _to ?~ parkingAuthority
-  Tuple _ (RegisterParkingUser ev) <- takeEvent (Proxy :: Proxy RegisterParkingUser) parkingAuthority do 
-      txHash <- ParkingAuthority.registerUser txOpts
+  Tuple _ (PA.RegisterParkingUser ev) <- takeEvent (Proxy :: Proxy PA.RegisterParkingUser) parkingAuthority do
+      txHash <- PA.registerUser txOpts
       liftAff <<< log $ "Registered User " <> show fromAccount <> ", Transaction Hash:" <> show txHash
+  pure ev
+
+registerAnchor
+  :: forall eff.
+     Address
+  -- ^ from address
+  -> {_geohash :: BytesN D8, _anchorId :: BytesN (D3 :& D2)}
+  -> DeployConfig
+  -> Web3 (fs :: FS, console :: CONSOLE, avar :: AVAR | eff) {owner :: Address, anchor :: Address, anchorId :: BytesN (D3 :& D2) , geohash :: BytesN D8}
+registerAnchor fromAccount args {provider, networkId} = do
+  {parkingAuthority} <- liftAff $ buildParkingAuthorityConfig networkId
+  let txOpts = defaultTransactionOptions # _from ?~ fromAccount
+                                         # _gas ?~ bigGasLimit
+                                         # _to ?~ parkingAuthority
+  Tuple _ (PA.RegisteredParkingAnchor ev) <- takeEvent (Proxy :: Proxy PA.RegisteredParkingAnchor) parkingAuthority do
+    txHash <- PA.registerParkingAnchor txOpts args
+    liftAff <<< log $ "Registered Anchor " <> show fromAccount <> ", Transaction Hash:" <> show txHash
   pure ev
 
 bigGasLimit :: BigNumber
 bigGasLimit = case parseBigNumber decimal "9000000" of
   Just x -> x
-  Nothing -> unsafeCrashWith "expected to get big number from 9000000 not it failed"
+  Nothing -> unsafeCrashWith "expected to get big number from 9000000 but it failed"
