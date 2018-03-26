@@ -19,10 +19,11 @@ import Data.Either (Either(..), either)
 import Data.Foreign.NullOrUndefined (unNullOrUndefined)
 import Data.Lens ((^?), (?~), (%~))
 import Data.Lens.Index (ix)
-import Data.Maybe (Maybe, maybe, isNothing, fromJust)
+import Data.Maybe (isNothing, fromJust)
 import Data.StrMap as M
-import Network.Ethereum.Web3 (ETH, Web3, Address, BigNumber, HexString, mkHexString, defaultTransactionOptions, _from, _data, fromWei, _value, runWeb3, mkAddress)
+import Network.Ethereum.Web3 (ETH, Web3, Address, BigNumber, HexString, TransactionOptions, mkHexString, _data, fromWei, _value, runWeb3, mkAddress)
 import Network.Ethereum.Web3.Api (eth_sendTransaction)
+import Network.Ethereum.Web3.Types (NoPay)
 import Network.Ethereum.Web3.Types.Provider (Provider)
 import Data.Newtype (unwrap)
 import Node.Encoding (Encoding(UTF8))
@@ -47,16 +48,13 @@ getBytecode filename = runExceptT $ do
 -- | Publish a contract based on the bytecode. Used for contracts with no constructor.
 defaultPublishContract
   :: forall eff.
-     HexString
+     TransactionOptions NoPay
+  -> HexString
   -- ^ Contract bytecode
-  -> Address
-  -- ^ deploy from address
   -> Web3 eff HexString
-defaultPublishContract bytecode primaryAccount = do
-  let txOpts = defaultTransactionOptions # _from ?~ primaryAccount
-                                         # _data ?~ bytecode
-                                         # _value ?~ fromWei zero
-  eth_sendTransaction txOpts
+defaultPublishContract txOpts bytecode =
+  eth_sendTransaction $ txOpts # _data ?~ bytecode
+                               # _value ?~ fromWei zero
 
 -- | Write the "network object" for a given deployment on a network with
 -- | the given id.
@@ -125,12 +123,13 @@ deployContractNoArgs
   :: forall eff.
      DeployConfig
   -> ContractConfig ()
+  -> TransactionOptions NoPay
   -> Aff (eth :: ETH, console :: CONSOLE, fs :: FS | eff) Address
-deployContractNoArgs cfg@{provider, primaryAccount} {filepath, name} = do
+deployContractNoArgs cfg@{provider} {filepath, name} txOpts = do
   bytecode <- do
     ebc <- getBytecode filepath
     reportIfErrored ("Couln't find contract bytecode in artifact " <> filepath) ebc
-  let deployAction =  defaultPublishContract bytecode primaryAccount
+  let deployAction =  defaultPublishContract txOpts bytecode
   deployContractAndWriteToArtifact cfg filepath name deployAction
 
 -- | `deployContractWithArgs` grabs the bytecode from the artifact and uses the
@@ -139,15 +138,14 @@ deployContractNoArgs cfg@{provider, primaryAccount} {filepath, name} = do
 deployContractWithArgs
   :: forall eff args.
      DeployConfig
-  -> ContractConfig (deployArgs :: Maybe args)
+  -> ContractConfig (deployArgs :: args)
   -> (HexString -> args -> Web3 eff HexString)
   -> Aff (eth :: ETH, console :: CONSOLE, fs :: FS | eff) Address
 deployContractWithArgs cfg@{provider, primaryAccount} {filepath, name, deployArgs} deployer = do
-  args <- maybe (liftEff' <<< throw $ "Couldn't validate args for contract deployment: " <> name) pure deployArgs
   bytecode <- do
     ebc <- getBytecode filepath
     reportIfErrored ("Couln't find contract bytecode in artifact " <> filepath) ebc
-  deployContractAndWriteToArtifact cfg filepath name (deployer bytecode args)
+  deployContractAndWriteToArtifact cfg filepath name (deployer bytecode deployArgs)
 
 -- | The common deployment function for contracts with or without args.
 deployContractAndWriteToArtifact

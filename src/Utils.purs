@@ -5,6 +5,7 @@ module Utils
   , pollTransactionReceipt
   , withTimeout
   , reportIfErrored
+  , validateDeployArgs
   ) where
 
 import Prelude
@@ -14,11 +15,11 @@ import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as C
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
-import Control.Monad.Eff.Exception (EXCEPTION, error)
+import Control.Monad.Eff.Exception (EXCEPTION, error, throw)
 import Control.Monad.Except (throwError)
 import Control.Parallel (parOneOf)
 import Data.Array ((!!))
-import Data.Maybe (maybe, fromJust)
+import Data.Maybe (Maybe, maybe, fromJust)
 import Data.Either (Either(..))
 import Network.Ethereum.Web3 (ETH, Web3, HexString, Address, runWeb3)
 import Network.Ethereum.Web3.Api (eth_getAccounts, eth_getTransactionReceipt, net_version)
@@ -26,7 +27,7 @@ import Network.Ethereum.Web3.Types (TransactionReceipt)
 import Network.Ethereum.Web3.Types.Provider (Provider, httpProvider)
 import Node.Process (lookupEnv)
 import Partial.Unsafe (unsafePartial)
-import Types (DeployConfig)
+import Types (DeployConfig, ContractConfig)
 
 -- | Make an http provider with address given by NODE_URL, falling back
 -- | to localhost.
@@ -101,3 +102,11 @@ reportIfErrored msg eRes =
       C.error msg
       throwError <<< error <<< show $ err
     Right res -> pure res
+
+validateDeployArgs
+  :: forall args eff.
+     ContractConfig (deployArgs :: Maybe args)
+  -> Eff (exception :: EXCEPTION | eff) (ContractConfig (deployArgs :: args))
+validateDeployArgs cfg = do
+  args <- maybe (throw $ "Couldn't validate args for contract deployment: " <> cfg.name) pure cfg.deployArgs
+  pure cfg {deployArgs = args}

@@ -15,6 +15,7 @@ import Node.FS.Aff (FS)
 import Utils (makeDeployConfig)
 
 import SimpleStorageSpec (simpleStorageSpec)
+import ParkingAuthoritySpec (parkingAuthoritySpec)
 
 main
   :: forall e.
@@ -29,3 +30,4 @@ main = void <<< launchAff $ do
   deployConfig <- makeDeployConfig
   liftEff $ run' defaultConfig {timeout = Just (60 * 1000)} [consoleReporter] do
     simpleStorageSpec deployConfig
+    parkingAuthoritySpec deployConfig

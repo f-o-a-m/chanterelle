@@ -7,4 +7,5 @@
 /.psc*
 /.purs*
 /.psa*
-src/Contracts
+/src/Contracts
+/build/contracts/*.json
