@@ -2,17 +2,23 @@ module Deploy
   ( deployContractNoArgs
   , deployContractWithArgs
   , readDeployAddress
+  , DeployM
+  , runDeployM
   ) where
 
 import Prelude
 import Control.Error.Util ((??))
 import Control.Monad.Aff (Aff, Milliseconds(..), liftEff', attempt)
-import Control.Monad.Aff.Class (liftAff)
+import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as C
 import Control.Monad.Aff.Unsafe (unsafeCoerceAff)
+import Control.Monad.Error.Class (class MonadThrow)
+import Control.Monad.Eff.Class (class MonadEff)
 import Control.Monad.Except (ExceptT(..), runExceptT, throwError)
 import Control.Monad.Eff.Exception (throw)
+import Control.Monad.Reader (ReaderT, runReaderT)
+import Control.Monad.Reader.Class (class MonadAsk, ask)
 import Data.Argonaut (stringify, _Object, _String, jsonEmptyObject, (~>), (:=))
 import Data.Argonaut.Parser (jsonParser)
 import Data.Either (Either(..), either)
@@ -31,7 +37,7 @@ import Node.FS.Aff (FS, readTextFile, writeTextFile)
 import Node.Path (FilePath)
 import Partial.Unsafe (unsafePartial)
 import Utils (withTimeout, pollTransactionReceipt, reportIfErrored)
-import Types (DeployConfig, ContractConfig)
+import Types (DeployConfig(..), ContractConfig)
 
 
 -- | Fetch the bytecode from a solidity build artifact
@@ -43,7 +49,7 @@ getBytecode
 getBytecode filename = runExceptT $ do
   artifact <- ExceptT $ jsonParser <$> readTextFile UTF8 filename
   bytecode <- (artifact ^? _Object <<< ix "bytecode" <<< _String) ?? "artifact missing 'bytecode' field."
-  mkHexString bytecode ?? "bytecode not a valid hex string"
+  mkHexString bytecode ?? "bytecode not a valid hex) string"
 
 -- | Publish a contract based on the bytecode. Used for contracts with no constructor.
 defaultPublishContract
@@ -121,48 +127,67 @@ getPublishedContractAddress txHash provider name = do
 -- | from the primary account, writing the contract address to the artifact.
 deployContractNoArgs
   :: forall eff.
-     DeployConfig
-  -> ContractConfig ()
+     ContractConfig ()
   -> TransactionOptions NoPay
-  -> Aff (eth :: ETH, console :: CONSOLE, fs :: FS | eff) Address
-deployContractNoArgs cfg@{provider} {filepath, name} txOpts = do
-  bytecode <- do
+  -> DeployM eff Address
+deployContractNoArgs {filepath, name} txOpts = do
+  cfg@(DeployConfig {provider}) <- ask
+  bytecode <- liftAff do
     ebc <- getBytecode filepath
     reportIfErrored ("Couln't find contract bytecode in artifact " <> filepath) ebc
   let deployAction =  defaultPublishContract txOpts bytecode
-  deployContractAndWriteToArtifact cfg filepath name deployAction
+  deployContractAndWriteToArtifact filepath name deployAction
 
 -- | `deployContractWithArgs` grabs the bytecode from the artifact and uses the
 -- | args defined in the contract config to deploy, then writes the address
 -- | to the artifact.
 deployContractWithArgs
   :: forall eff args.
-     DeployConfig
-  -> ContractConfig (deployArgs :: args)
+     ContractConfig (deployArgs :: args)
   -> (HexString -> args -> Web3 eff HexString)
-  -> Aff (eth :: ETH, console :: CONSOLE, fs :: FS | eff) Address
-deployContractWithArgs cfg@{provider, primaryAccount} {filepath, name, deployArgs} deployer = do
-  bytecode <- do
+  -> DeployM eff Address
+deployContractWithArgs {filepath, name, deployArgs} deployer = do
+  cfg@(DeployConfig {provider, primaryAccount}) <- ask
+  bytecode <- liftAff do
     ebc <- getBytecode filepath
     reportIfErrored ("Couln't find contract bytecode in artifact " <> filepath) ebc
-  deployContractAndWriteToArtifact cfg filepath name (deployer bytecode deployArgs)
+  deployContractAndWriteToArtifact filepath name (deployer bytecode deployArgs)
 
 -- | The common deployment function for contracts with or without args.
 deployContractAndWriteToArtifact
   :: forall eff.
-     DeployConfig
-  -> FilePath
+     FilePath
   -- ^ artifact filepath
   -> String
   -- ^ contract name
   -> Web3 eff HexString
   -- ^ deploy action returning txHash
-  -> Aff (eth :: ETH, console :: CONSOLE, fs :: FS | eff) Address
-deployContractAndWriteToArtifact {provider, networkId, primaryAccount} filepath name deployAction = do
-    C.log $ "Deploying contract " <> name
-    etxHash <- unsafeCoerceAff $ runWeb3 provider deployAction
-    txHash <- reportIfErrored ("Web3 error during contract deployment for " <> show name) etxHash
-    contractAddress <- getPublishedContractAddress txHash provider name
-    writeDeployAddress filepath contractAddress networkId >>= reportIfErrored ("Failed to write address for artifact " <> filepath)
-    pure contractAddress
+  -> DeployM eff Address
+deployContractAndWriteToArtifact filepath name deployAction = do
+    (DeployConfig {provider, networkId, primaryAccount}) <- ask
+    liftAff $ do
+      C.log $ "Deploying contract " <> name
+      etxHash <- unsafeCoerceAff $ runWeb3 provider deployAction
+      txHash <- reportIfErrored ("Web3 error during contract deployment for " <> show name) etxHash
+      contractAddress <- getPublishedContractAddress txHash provider name
+      writeDeployAddress filepath contractAddress networkId >>= reportIfErrored ("Failed to write address for artifact " <> filepath)
+      pure contractAddress
+
+--------------------------------------------------------------------------------
+-- | DeployM
+--------------------------------------------------------------------------------
+
+newtype DeployM eff a = DeployM (ReaderT DeployConfig (Aff (eth :: ETH, fs :: FS, console :: CONSOLE | eff)) a)
+
+runDeployM :: forall eff a. DeployM eff a -> DeployConfig -> Aff (fs :: FS, console :: CONSOLE, eth :: ETH | eff) a
+runDeployM (DeployM deploy) = runReaderT deploy
+
+derive newtype instance functorDeployM :: Functor (DeployM eff)
+derive newtype instance applyDeployM :: Apply (DeployM eff)
+derive newtype instance applicativeDeployM :: Applicative (DeployM eff)
+derive newtype instance bindDeployM :: Bind (DeployM eff)
+derive newtype instance monadDeployM :: Monad (DeployM eff)
+derive newtype instance monadAskDeployM :: MonadAsk DeployConfig (DeployM eff)
+derive newtype instance monadEffDeployM :: MonadEff (eth :: ETH, fs :: FS, console :: CONSOLE | eff) (DeployM eff)
+derive newtype instance monadAffDeployM :: MonadAff (eth :: ETH, fs :: FS, console :: CONSOLE | eff) (DeployM eff)
 

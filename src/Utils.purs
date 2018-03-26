@@ -27,7 +27,7 @@ import Network.Ethereum.Web3.Types (TransactionReceipt)
 import Network.Ethereum.Web3.Types.Provider (Provider, httpProvider)
 import Node.Process (lookupEnv)
 import Partial.Unsafe (unsafePartial)
-import Types (DeployConfig, ContractConfig)
+import Types (DeployConfig(..), ContractConfig)
 
 -- | Make an http provider with address given by NODE_URL, falling back
 -- | to localhost.
@@ -47,7 +47,7 @@ makeDeployConfig = do
   econfig <- runWeb3 provider $ do
     primaryAccount <- unsafePartial getPrimaryAccount
     networkId <- net_version
-    pure {provider, primaryAccount, networkId}
+    pure $ DeployConfig {provider, primaryAccount, networkId}
   case econfig of
     Left err -> do
       C.error $ "Couldn't create DeployConfig: " <> show err

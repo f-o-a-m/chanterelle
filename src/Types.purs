@@ -1,5 +1,5 @@
 module Types
-  ( DeployConfig
+  ( DeployConfig(..)
   , ContractConfig
   ) where
 
@@ -9,11 +9,11 @@ import Node.Path (FilePath)
 
 
 -- | primary deployment configuration
-type DeployConfig =
-  { networkId :: BigNumber
-  , primaryAccount :: Address
-  , provider :: Provider
-  }
+newtype DeployConfig =
+  DeployConfig { networkId :: BigNumber
+               , primaryAccount :: Address
+               , provider :: Provider
+               }
 
 -- | configuration for deployment of a single contract
 type ContractConfig args =
