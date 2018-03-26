@@ -24,13 +24,14 @@ import Deploy (readDeployAddress)
 import Network.Ethereum.Web3 (class EventFilter, EventAction(..), event, eventFilter, forkWeb3', runWeb3)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
 import Network.Ethereum.Web3.Solidity (class DecodeEvent, BytesN, D2, D3, D4, D8, type (:&), fromByteString)
-import Network.Ethereum.Web3.Types (Address, BigNumber, ChainCursor(..), ETH, Web3, _from, _gas, _to, decimal, _value, defaultTransactionOptions, parseBigNumber, sha3, unHex, embed, fromWei)
+import Network.Ethereum.Web3.Types (Address, BigNumber, ChainCursor(..), TransactionReceipt(..), ETH, Web3, _from, _gas, _to, decimal, _value, defaultTransactionOptions, parseBigNumber, sha3, unHex, embed, fromWei)
 import Node.FS.Aff (FS)
 import Partial.Unsafe (unsafeCrashWith)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Type.Prelude (Proxy(..))
 import Types (DeployConfig, ContractConfig)
+import Utils (pollTransactionReceipt)
 
 
 buildParkingAuthorityConfig
@@ -96,7 +97,7 @@ parkingAuthoritySpec deployConfig = do
             Nothing -> unsafeCrashWith "geohash should result in valid BytesN 8"
       void $ createParkingAnchor deployConfig 2 {_geohash, _anchorId}
 
-    it "can create a user and an anchor, the user requests permission at the anchor, then parks there" $ run do
+    it "can create a user and an anchor, the user requests permission at the anchor, then parks there, but not another zone" $ run do
       userResult <- createUser deployConfig 1
       let _anchorId = case fromByteString =<< BS.fromString (unHex $ sha3 "I'm an anchor!") BS.Hex of
             Just x -> x
@@ -120,6 +121,22 @@ parkingAuthoritySpec deployConfig = do
         User.payForParking parkingReqOpts {_anchor: parkingAnchorResult.anchor}
       liftAff $ user `shouldEqual` userResult.user
       liftAff $ anchor `shouldEqual` parkingAnchorResult.anchor
+
+      badUserResult <- createUser deployConfig 3
+      let
+        badZone :: BytesN D4
+        badZone = case fromByteString =<< BS.fromString "00000000" BS.Hex of
+          Just x -> x
+          Nothing -> unsafeCrashWith "zone should result in valid BytesN D4"
+
+        badTxOpts = defaultTransactionOptions # _from ?~ badUserResult.owner
+                                              # _gas ?~ bigGasLimit
+                                              # _to ?~ badUserResult.user
+                                              # _value ?~ fromWei (embed 1)
+      badHash <- User.payForParking badTxOpts {_anchor: parkingAnchorResult.anchor}
+      (TransactionReceipt txReceipt) <- liftAff $ pollTransactionReceipt badHash deployConfig.provider
+      liftAff $ txReceipt.status `shouldEqual` "0x0"
+
 
 
 --------------------------------------------------------------------------------
