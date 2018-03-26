@@ -24,21 +24,21 @@ contract ParkingAuthority is Ownable {
 
     // Decide whether or not to give the user parking access to the zone. Mocked for now.
     modifier shouldGiveAccess(bytes4 _zone) {
-      _;
+        _;
     }
 
     modifier callerIsUser() {
-      require(users[msg.sender]);
-      _;
+        require(users[msg.sender]);
+        _;
     }
 
     // Deploy a new parking authority.
     function ParkingAuthority(FoamCSR foamCSR) public Ownable() {
-      parkingCSR = foamCSR;
+        parkingCSR = foamCSR;
     }
 
     // A function user to verify a ParkingAnchor, currently mocked.
-    function validateParkingAnchor(bytes8 _geohash, bytes32 _anchorId) internal pure returns(bool) {
+    function validateParkingAnchor(bytes8 /* _geohash */, bytes32 /* _anchorId */) internal pure returns(bool) {
         return true;
     }
 
@@ -53,8 +53,8 @@ contract ParkingAuthority is Ownable {
         anchor.transferOwnership(msg.sender);
     }
 
-    function validateUserApplication(address _applicant) internal pure returns(bool) {
-      return true;
+    function validateUserApplication(address /* _applicant */) internal pure returns(bool) {
+        return true;
     }
 
     // Create a new user and transer ownership of the account to the message sender.
@@ -69,8 +69,8 @@ contract ParkingAuthority is Ownable {
     // This function is called by a user when they want to add a zone to their listed of
     // licensed zones.
     function addZone(bytes4 _zone) public shouldGiveAccess(_zone) callerIsUser() {
-      User user = User(msg.sender);
-      user.addZone(_zone);
+        User user = User(msg.sender);
+        user.addZone(_zone);
     }
 
 }

@@ -41,7 +41,7 @@ contract User is Ownable {
 
     // A user is created by a ParkingAuthorty.
     function User() public Ownable {
-      parkingAuthority = ParkingAuthority(msg.sender);
+        parkingAuthority = ParkingAuthority(msg.sender);
     }
 
     // Set the pending anchor to indicate interest in using a ParkingAnchor
