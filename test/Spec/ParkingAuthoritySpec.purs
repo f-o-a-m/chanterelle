@@ -17,16 +17,17 @@ import Data.Either (Either(..))
 import Data.Lens.Setter ((?~))
 import Data.Maybe (Maybe(..))
 import Data.Record (insert)
+import Data.String (take)
 import Data.Symbol (SProxy(..))
 import Data.Tuple (Tuple(..))
 import Deploy (readDeployAddress)
 import Network.Ethereum.Web3 (class EventFilter, EventAction(..), event, eventFilter, forkWeb3', runWeb3)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
 import Network.Ethereum.Web3.Solidity (class DecodeEvent, BytesN, D2, D3, D4, D8, type (:&), fromByteString)
-import Network.Ethereum.Web3.Types (Address, BigNumber, ChainCursor(..), ETH, Web3, _from, _gas, _to, decimal, defaultTransactionOptions, parseBigNumber, sha3, unHex)
+import Network.Ethereum.Web3.Types (Address, BigNumber, ChainCursor(..), ETH, Web3, _from, _gas, _to, decimal, _value, defaultTransactionOptions, parseBigNumber, sha3, unHex, embed, fromWei)
 import Node.FS.Aff (FS)
 import Partial.Unsafe (unsafeCrashWith)
-import Test.Spec (Spec, describe, it, pending)
+import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Type.Prelude (Proxy(..))
 import Types (DeployConfig, ContractConfig)
@@ -67,7 +68,7 @@ parkingAuthoritySpec deployConfig = do
       ecsr <- run $ PA.parkingCSR txOpts Latest
       ecsr `shouldEqual` (Right parkingAuthorityConfig.deployArgs.foamCSR)
 
-  describe "User Registration" do
+  describe "App Flow" do
     it "can register a user and that user is owned by the right account" $ run do
       void $ createUser deployConfig 1
 
@@ -78,11 +79,11 @@ parkingAuthoritySpec deployConfig = do
         zone :: BytesN D4
         zone = case fromByteString =<< BS.fromString "01234567" BS.Hex of
           Just x -> x
-          Nothing -> unsafeCrashWith "01234567 should result in valid BytesN D4"
+          Nothing -> unsafeCrashWith "zone should result in valid BytesN D4"
         txOpts = defaultTransactionOptions # _from ?~ owner
                                            # _gas ?~ bigGasLimit
                                            # _to ?~ user
-      Tuple txHash (User.ZoneGranted {zone: eventZone}) <- takeEvent (Proxy :: Proxy User.ZoneGranted) user
+      Tuple _ (User.ZoneGranted {zone: eventZone}) <- takeEvent (Proxy :: Proxy User.ZoneGranted) user
         $ User.requestZone txOpts { _zone: zone }
       liftAff $ zone `shouldEqual` eventZone
 
@@ -92,12 +93,33 @@ parkingAuthoritySpec deployConfig = do
             Nothing -> unsafeCrashWith "anchorId should result in valid BytesN 32"
           _geohash = case fromByteString =<< BS.fromString ("0123456701234567") BS.Hex of
             Just x -> x
-            Nothing -> unsafeCrashWith "anchorId should result in valid BytesN 8"
+            Nothing -> unsafeCrashWith "geohash should result in valid BytesN 8"
       void $ createParkingAnchor deployConfig 2 {_geohash, _anchorId}
 
-
-  pending "call the registerParkingAnchor function on the PA from accounts[2], capture the RegisterParkingAnchor event, check the owner of the new Anchor contract is accounts[2]"
-  pending "create user, create anchor, user requests zone relevant for anchor, user pays for parking, CheckIn event fires, pending anchor is reset."
+    it "can create a user and an anchor, the user requests permission at the anchor, then parks there" $ run do
+      userResult <- createUser deployConfig 1
+      let _anchorId = case fromByteString =<< BS.fromString (unHex $ sha3 "I'm an anchor!") BS.Hex of
+            Just x -> x
+            Nothing -> unsafeCrashWith "anchorId should result in valid BytesN 32"
+          geohashString = "0123456701234567"
+          _geohash = case fromByteString =<< BS.fromString geohashString BS.Hex of
+            Just x -> x
+            Nothing -> unsafeCrashWith "geohash should result in valid BytesN 8"
+      parkingAnchorResult <- createParkingAnchor deployConfig 2 {_geohash, _anchorId}
+      let
+        zoneStr = take 8 geohashString
+        zone = case fromByteString =<< BS.fromString zoneStr BS.Hex of
+          Just x -> x
+          Nothing -> unsafeCrashWith "zone should result in valid BytesN D4"
+        txOpts = defaultTransactionOptions # _from ?~ userResult.owner
+                                           # _gas ?~ bigGasLimit
+                                           # _to ?~ userResult.user
+      _ <- takeEvent (Proxy :: Proxy User.ZoneGranted) userResult.user $ User.requestZone txOpts { _zone: zone }
+      let parkingReqOpts = txOpts # _value ?~ (fromWei $ embed 1)
+      Tuple _ (User.CheckIn {user, anchor}) <- takeEvent (Proxy :: Proxy User.CheckIn) userResult.user $
+        User.payForParking parkingReqOpts {_anchor: parkingAnchorResult.anchor}
+      liftAff $ user `shouldEqual` userResult.user
+      liftAff $ anchor `shouldEqual` parkingAnchorResult.anchor
 
 
 --------------------------------------------------------------------------------
@@ -141,7 +163,7 @@ createParkingAnchor deployConfig accountIndex args = do
     account = case accounts !! accountIndex of
       Just x -> x
       Nothing -> unsafeCrashWith $ "no index " <> show accountIndex <> "in accounts"
-  {owner, anchor, geohash, anchorId} <- registerAnchor account args deployConfig
+  res@{owner, anchor, geohash, anchorId} <- registerAnchor account args deployConfig
   let txOpts = defaultTransactionOptions # _from ?~ account
                                          # _to ?~ anchor
   actualOwner <- ParkingAnchor.owner txOpts Latest <#> case _ of
@@ -150,7 +172,9 @@ createParkingAnchor deployConfig accountIndex args = do
 
   liftAff $ owner `shouldEqual` actualOwner
   liftAff $ owner `shouldEqual` account
-  pure {owner, anchor, anchorId, geohash}
+  liftAff $ geohash `shouldEqual` args._geohash
+  liftAff $ anchorId `shouldEqual` args._anchorId
+  pure res
 
 
 takeEvent
