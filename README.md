@@ -5,6 +5,8 @@
 
 The Parking DOA is an a set of smart contracts that encapsulate a _User_, representing an account which is granted permission to park in certains geographical zones, and a _ParkingAnchor_, representing an account which has the ability to accept payment for parking in certain zones. These accounts are deployed by a central authority called the _ParkingAuthority_ , which is a governing contract in charge of account managament and contains the logic for altering account permissions.
 
+For more information about how to use the contracts, see [this README](https://github.com/f-o-a-m/chanterelle/blob/master/sequence-diagrams/README.md), or look at the contracts in the `/contracts` directory. You can find the tests in `/test` that verify their behaviour.
+
 ## Build/Deploy Overview
 This repo is meant to be a templated replacement to truffle. You can clone it and use it for development, deployment, and testing of solidity smart contracts. It uses truffle as a build tool, taking advantage of it's bundled compiler. However it allows for deployment and testing to be written in purescript, hopefully freeing us from some of the nonsense we ocassionally have to deal with when prototyping and deploying with truffle. We also recommend [cliquebait](https://github.com/f-o-a-m/cliquebait) as a replacement for testrpc. 
 
