@@ -18,7 +18,7 @@ import Data.Array ((!!))
 import Data.ByteString as BS
 import Data.Either (Either(..))
 import Data.Lens.Setter ((?~))
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromJust)
 import Data.Record (insert)
 import Data.String (take)
 import Data.Symbol (SProxy(..))
@@ -27,10 +27,10 @@ import Deploy (readDeployAddress)
 import Network.Ethereum.Web3 (class EventFilter, EventAction(..), event, eventFilter, forkWeb3', runWeb3)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
 import Network.Ethereum.Web3.Solidity (class DecodeEvent, BytesN, D2, D3, D4, D8, type (:&), fromByteString)
-import Network.Ethereum.Web3.Types (Address, BigNumber, ChainCursor(..), TransactionReceipt(..), ETH, Web3, _from, _gas, _to, decimal, _value, defaultTransactionOptions, parseBigNumber, sha3, unHex, embed, fromWei)
+import Network.Ethereum.Web3.Types (Address, BigNumber, ChainCursor(..), TransactionReceipt(..), ETH, Web3, _from, _gas, _to, decimal, _value, defaultTransactionOptions, mkAddress, mkHexString, parseBigNumber, sha3, unHex, embed, fromWei)
 import Node.FS.Aff (FS)
 import Node.Process as NP
-import Partial.Unsafe (unsafeCrashWith)
+import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Reporter.Console (consoleReporter)
 import Test.Spec.Runner (PROCESS, run', defaultConfig)
@@ -38,6 +38,7 @@ import Test.Spec.Assertions (shouldEqual)
 import Type.Prelude (Proxy(..))
 import Types (DeployConfig(..), ContractConfig, logDeployError)
 import Utils (makeDeployConfig, pollTransactionReceipt)
+
 
 main
   :: forall e.
@@ -67,19 +68,20 @@ parkingAuthoritySpec deployCfg@(DeployConfig deployConfig) = do
       Right x -> x
       Left err -> unsafeCrashWith $ "expected Right in `run`, got error" <> show err
 
-  --  it "has the correct foamCSR contract" do
-  --    parkingAuthorityConfig <- buildParkingAuthorityConfig deployConfig.networkId
-  --    let txOpts = defaultTransactionOptions # _to ?~ parkingAuthorityConfig.parkingAuthority
-  --    ecsr <- run $ PA.parkingCSR txOpts Latest
-  --    ecsr `shouldEqual` (Right parkingAuthorityConfig.deployArgs.foamCSR)
+  describe "Testing basic functionality of the parking authority" do
+    it "has the correct foamCSR contract" do
+      parkingAuthorityConfig <- buildParkingAuthorityConfig deployConfig.networkId
+      let txOpts = defaultTransactionOptions # _to ?~ parkingAuthorityConfig.parkingAuthority
+      ecsr <- run $ PA.parkingCSR txOpts Latest
+      ecsr `shouldEqual` (Right parkingAuthorityConfig.deployArgs.foamCSR)
 
   describe "App Flow" do
     it "can register a user and that user is owned by the right account" $ run do
-      void $ createUser deployCfg 0
+      void $ createUser deployCfg 1
 
 
     it "can create a user and that user can request more zones from the authority" $ run do
-      {user, owner} <- createUser deployCfg 0
+      {user, owner} <- createUser deployCfg 1
       let
         zone :: BytesN D4
         zone = case fromByteString =<< BS.fromString "01234567" BS.Hex of
@@ -99,7 +101,7 @@ parkingAuthoritySpec deployCfg@(DeployConfig deployConfig) = do
           _geohash = case fromByteString =<< BS.fromString ("0123456701234567") BS.Hex of
             Just x -> x
             Nothing -> unsafeCrashWith "geohash should result in valid BytesN 8"
-      void $ createParkingAnchor deployCfg 0 {_geohash, _anchorId}
+      void $ createParkingAnchor deployCfg 2 {_geohash, _anchorId}
 
 
 --------------------------------------------------------------------------------
@@ -220,11 +222,8 @@ buildParkingAuthorityConfig
   :: forall eff.
      BigNumber
   -> Aff (fs :: FS | eff) (ContractConfig (deployArgs :: {foamCSR :: Address}, parkingAuthority :: Address))
-buildParkingAuthorityConfig networkId= do
-  efoamCSRAddress <- runExceptT $ readDeployAddress foamCSRConfig.filepath networkId
-  let foamCSRAddress = case efoamCSRAddress of
-        Right x -> x
-        Left err -> unsafeCrashWith $ "Expected FoamCSR Address in artifact, got error" <> show err
+buildParkingAuthorityConfig networkId = do
+  let foamCSRAddress = unsafePartial fromJust $ mkAddress =<< mkHexString "0x606c977259D39b51D199Bda969C59A5ceD682531"
   let parkingAuthorityConfig = makeParkingAuthorityConfig {foamCSR : foamCSRAddress}
   eparkingAuthorityAddress <- runExceptT $ readDeployAddress parkingAuthorityConfig.filepath networkId
   let parkingAuthorityAddress = case eparkingAuthorityAddress of
