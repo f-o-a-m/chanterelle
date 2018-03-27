@@ -9,72 +9,82 @@ module Utils
   ) where
 
 import Prelude
-import Control.Monad.Eff (Eff)
-import Control.Monad.Aff (Aff, Milliseconds(..), delay, liftEff')
-import Control.Monad.Aff.Class (liftAff)
+import Control.Monad.Eff.Class (class MonadEff, liftEff)
+import Control.Monad.Aff (Aff, Milliseconds(..), delay)
+import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as C
-import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
-import Control.Monad.Eff.Exception (EXCEPTION, error, throw)
-import Control.Monad.Except (throwError)
+import Control.Monad.Eff.Exception (error, try)
+import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Parallel (parOneOf)
 import Data.Array ((!!))
-import Data.Maybe (Maybe, maybe, fromJust)
+import Data.Maybe (Maybe(..), maybe)
 import Data.Either (Either(..))
 import Network.Ethereum.Web3 (ETH, Web3, HexString, Address, runWeb3)
 import Network.Ethereum.Web3.Api (eth_getAccounts, eth_getTransactionReceipt, net_version)
-import Network.Ethereum.Web3.Types (TransactionReceipt)
+import Network.Ethereum.Web3.Types (TransactionReceipt, Web3Error(NullError))
 import Network.Ethereum.Web3.Types.Provider (Provider, httpProvider)
-import Node.Process (lookupEnv)
-import Partial.Unsafe (unsafePartial)
-import Types (DeployConfig, ContractConfig)
+import Node.Process (PROCESS, lookupEnv)
+import Types (DeployError(..), DeployConfig(..), ContractConfig)
 
 -- | Make an http provider with address given by NODE_URL, falling back
 -- | to localhost.
 makeProvider
-  :: forall eff.
-     Eff (eth :: ETH, exception :: EXCEPTION | eff) Provider
-makeProvider = unsafeCoerceEff $ do
-  murl <- lookupEnv "NODE_URL"
-  url <- maybe (pure "http://localhost:8545") pure murl
-  httpProvider url
+  :: forall eff m.
+     MonadEff (eth :: ETH, process :: PROCESS | eff) m
+  => MonadThrow DeployError m
+  => m Provider
+makeProvider = do
+  eProvider <- liftEff do
+    murl <- lookupEnv "NODE_URL"
+    url <- maybe (pure "http://localhost:8545") pure murl
+    try $ httpProvider url
+  case eProvider of
+    Left _ -> throwError $ ConfigurationError "Cannot connect to Provider, check NODE_URL"
+    Right p -> pure p
 
 makeDeployConfig
-  :: forall eff.
-     Aff (console :: CONSOLE, eth :: ETH | eff) DeployConfig
+  :: forall eff m.
+     MonadAff (eth :: ETH, console :: CONSOLE, process :: PROCESS | eff) m
+  => MonadThrow DeployError m
+  => m DeployConfig
 makeDeployConfig = do
-  provider <- liftAff <<< liftEff' $ makeProvider
-  econfig <- runWeb3 provider $ do
-    primaryAccount <- unsafePartial getPrimaryAccount
+  provider <- makeProvider
+  econfig <- liftAff $ runWeb3 provider do
+    primaryAccount <- getPrimaryAccount
     networkId <- net_version
-    pure {provider, primaryAccount, networkId}
+    pure $ DeployConfig {provider, primaryAccount, networkId}
   case econfig of
-    Left err -> do
-      C.error $ "Couldn't create DeployConfig: " <> show err
-      throwError <<< error <<< show $ err
+    Left err ->
+      let errMsg = "Couldn't create DeployConfig -- " <> show err
+      in throwError $ ConfigurationError errMsg
     Right config -> pure config
 
 -- | get the primary account for the ethereum client
 getPrimaryAccount
   :: forall eff.
-     Partial
-  => Web3 eff Address
+     Web3 (console :: CONSOLE | eff) Address
 getPrimaryAccount = do
-  accounts <- eth_getAccounts
-  pure $ fromJust $ accounts !! 0
+    accounts <- eth_getAccounts
+    maybe accountsError pure $ accounts !! 0
+  where
+    accountsError = do
+      liftAff $ C.error "No PrimaryAccount found on ethereum client!"
+      throwError NullError
 
 -- | indefinitely poll for a transaction receipt, sleeping for 3
 -- | seconds in between every call.
 pollTransactionReceipt
-  :: forall eff.
-     HexString
+  :: forall eff m.
+     MonadAff (eth :: ETH | eff) m
+  => HexString
   -> Provider
-  -> Aff (eth :: ETH, console :: CONSOLE | eff) TransactionReceipt
+  -> m TransactionReceipt
 pollTransactionReceipt txHash provider = do
-  etxReceipt <- runWeb3 provider $ eth_getTransactionReceipt txHash
+  etxReceipt <- liftAff <<< runWeb3 provider $ eth_getTransactionReceipt txHash
   case etxReceipt of
     Left _ -> do
-      delay (Milliseconds 3000.0)
+      liftAff $ delay (Milliseconds 3000.0)
       pollTransactionReceipt txHash provider
     Right txRec -> pure txRec
 
@@ -104,9 +114,11 @@ reportIfErrored msg eRes =
     Right res -> pure res
 
 validateDeployArgs
-  :: forall args eff.
-     ContractConfig (deployArgs :: Maybe args)
-  -> Eff (exception :: EXCEPTION | eff) (ContractConfig (deployArgs :: args))
-validateDeployArgs cfg = do
-  args <- maybe (throw $ "Couldn't validate args for contract deployment: " <> cfg.name) pure cfg.deployArgs
-  pure cfg {deployArgs = args}
+  :: forall m args.
+     MonadThrow DeployError m
+  => ContractConfig (deployArgs :: Maybe args)
+  -> m (ContractConfig (deployArgs :: args))
+validateDeployArgs cfg =
+  case cfg.deployArgs of
+    Nothing -> throwError $ ConfigurationError ("Couldn't validate args for contract deployment: " <> cfg.name)
+    Just args -> pure $ cfg {deployArgs = args}

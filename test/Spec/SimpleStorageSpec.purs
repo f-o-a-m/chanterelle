@@ -8,16 +8,18 @@ import Control.Monad.Aff.AVar (AVAR, makeEmptyVar, putVar, takeVar)
 import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (CONSOLE, log)
+import Control.Monad.Except (runExceptT)
+import Data.Either (Either(..))
 import Data.Lens.Setter ((?~))
 import Data.Maybe (Maybe(..), fromJust)
 import Deploy (readDeployAddress)
 import Network.Ethereum.Web3 (ETH, EventAction(..), _from, _gas, _to, defaultTransactionOptions, embed, event, eventFilter, runWeb3, uIntNFromBigNumber)
 import Node.FS.Aff (FS)
-import Partial.Unsafe (unsafePartial)
+import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Type.Prelude (Proxy(..))
-import Types (DeployConfig)
+import Types (DeployConfig(..))
 
 simpleStorageSpec
   :: forall e.
@@ -28,11 +30,14 @@ simpleStorageSpec
           , console :: CONSOLE
           | e
           ) Unit
-simpleStorageSpec deployConfig = do
+simpleStorageSpec (DeployConfig deployConfig) = do
 
   describe "Setting the value of a SimpleStorage Contract" do
     it "can set the value of simple storage" $ do
-      simpleStorageAddress <- readDeployAddress simpleStorageConfig.filepath deployConfig.networkId
+      esimpleStorageAddress <- runExceptT $ readDeployAddress simpleStorageConfig.filepath deployConfig.networkId
+      let simpleStorageAddress = case esimpleStorageAddress of
+            Right x -> x
+            Left err -> unsafeCrashWith $ "Expected SimpleStorage Address in artifact, got error" <> show err
       var <- makeEmptyVar
       let n = unsafePartial $ fromJust <<< uIntNFromBigNumber <<< embed $ 42
           txOptions = defaultTransactionOptions # _from ?~ deployConfig.primaryAccount
