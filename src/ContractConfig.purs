@@ -24,7 +24,7 @@ simpleStorageConfig =
     }
   where
     simpleStorageArgs = do
-      _count <- uIntNFromBigNumber $ embed 12345
+      _count <- uIntNFromBigNumber $ embed 1234
       pure {_count}
 
 --------------------------------------------------------------------------------
