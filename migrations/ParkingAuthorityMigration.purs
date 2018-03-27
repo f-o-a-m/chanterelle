@@ -1,5 +1,4 @@
-module ParkingAuthoritySpec (parkingAuthoritySpec) where
-
+module ParkingAuthorityMigration where
 
 import Prelude
 
@@ -7,16 +6,19 @@ import ContractConfig (foamCSRConfig, makeParkingAuthorityConfig)
 import Contracts.ParkingAnchor as ParkingAnchor
 import Contracts.ParkingAuthority as PA
 import Contracts.User as User
-import Control.Monad.Aff (Aff)
+import Control.Monad.Aff (Aff, launchAff)
 import Control.Monad.Aff.AVar (AVAR, makeEmptyVar, putVar, takeVar)
 import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Aff.Console (CONSOLE, log)
+import Control.Monad.Aff.Unsafe (unsafeCoerceAff)
+import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Except (runExceptT)
 import Data.Array ((!!))
 import Data.ByteString as BS
 import Data.Either (Either(..))
 import Data.Lens.Setter ((?~))
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromJust)
 import Data.Record (insert)
 import Data.String (take)
 import Data.Symbol (SProxy(..))
@@ -25,25 +27,39 @@ import Deploy (readDeployAddress)
 import Network.Ethereum.Web3 (class EventFilter, EventAction(..), event, eventFilter, forkWeb3', runWeb3)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
 import Network.Ethereum.Web3.Solidity (class DecodeEvent, BytesN, D2, D3, D4, D8, type (:&), fromByteString)
-import Network.Ethereum.Web3.Types (Address, BigNumber, ChainCursor(..), TransactionReceipt(..), ETH, Web3, _from, _gas, _to, decimal, _value, defaultTransactionOptions, parseBigNumber, sha3, unHex, embed, fromWei)
+import Network.Ethereum.Web3.Types (Address, BigNumber, ChainCursor(..), TransactionReceipt(..), ETH, Web3, _from, _gas, _to, decimal, _value, defaultTransactionOptions, mkAddress, mkHexString, parseBigNumber, sha3, unHex, embed, fromWei)
 import Node.FS.Aff (FS)
-import Partial.Unsafe (unsafeCrashWith)
+import Node.Process as NP
+import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Test.Spec (Spec, describe, it)
+import Test.Spec.Reporter.Console (consoleReporter)
+import Test.Spec.Runner (PROCESS, run', defaultConfig)
 import Test.Spec.Assertions (shouldEqual)
 import Type.Prelude (Proxy(..))
-import Types (DeployConfig(..), ContractConfig)
-import Utils (pollTransactionReceipt)
+import Types (DeployConfig(..), ContractConfig, logDeployError)
+import Utils (makeDeployConfig, pollTransactionReceipt)
 
 
-parkingAuthoritySpec
+main
   :: forall e.
-     DeployConfig
-  -> Spec ( fs :: FS
-          , eth :: ETH
-          , avar :: AVAR
-          , console :: CONSOLE
-          | e
-          ) Unit
+     Eff ( console :: CONSOLE
+         , eth :: ETH
+         , avar :: AVAR
+         , fs :: FS
+         , process :: PROCESS
+         , process :: NP.PROCESS
+         | e
+         ) Unit
+main = void $ do
+  launchAff $ do
+    log $ "MAIN"
+    edeployConfig <- unsafeCoerceAff <<< runExceptT $ makeDeployConfig
+    case edeployConfig of
+      Left err -> logDeployError err *> pure unit
+      Right deployConfig ->
+        liftEff $ run' defaultConfig {timeout = Just (60 * 1000)} [consoleReporter] do
+          parkingAuthoritySpec deployConfig
+
 parkingAuthoritySpec deployCfg@(DeployConfig deployConfig) = do
 
   let
@@ -87,47 +103,6 @@ parkingAuthoritySpec deployCfg@(DeployConfig deployConfig) = do
             Nothing -> unsafeCrashWith "geohash should result in valid BytesN 8"
       void $ createParkingAnchor deployCfg 2 {_geohash, _anchorId}
 
-    it "can create a user and an anchor, the user requests permission at the anchor, then parks there, but not another zone" $ run do
-      userResult <- createUser deployCfg 1
-      let _anchorId = case fromByteString =<< BS.fromString (unHex $ sha3 "I'm an anchor!") BS.Hex of
-            Just x -> x
-            Nothing -> unsafeCrashWith "anchorId should result in valid BytesN 32"
-          geohashString = "0123456701234567"
-          _geohash = case fromByteString =<< BS.fromString geohashString BS.Hex of
-            Just x -> x
-            Nothing -> unsafeCrashWith "geohash should result in valid BytesN 8"
-      parkingAnchorResult <- createParkingAnchor deployCfg 2 {_geohash, _anchorId}
-      let
-        zoneStr = take 8 geohashString
-        zone = case fromByteString =<< BS.fromString zoneStr BS.Hex of
-          Just x -> x
-          Nothing -> unsafeCrashWith "zone should result in valid BytesN D4"
-        txOpts = defaultTransactionOptions # _from ?~ userResult.owner
-                                           # _gas ?~ bigGasLimit
-                                           # _to ?~ userResult.user
-      _ <- takeEvent (Proxy :: Proxy User.ZoneGranted) userResult.user $ User.requestZone txOpts { _zone: zone }
-      let parkingReqOpts = txOpts # _value ?~ (fromWei $ embed 1)
-      Tuple _ (User.CheckIn {user, anchor}) <- takeEvent (Proxy :: Proxy User.CheckIn) userResult.user $
-        User.payForParking parkingReqOpts {_anchor: parkingAnchorResult.anchor}
-      liftAff $ user `shouldEqual` userResult.user
-      liftAff $ anchor `shouldEqual` parkingAnchorResult.anchor
-
-      badUserResult <- createUser deployCfg 3
-      let
-        badZone :: BytesN D4
-        badZone = case fromByteString =<< BS.fromString "00000000" BS.Hex of
-          Just x -> x
-          Nothing -> unsafeCrashWith "zone should result in valid BytesN D4"
-
-        badTxOpts = defaultTransactionOptions # _from ?~ badUserResult.owner
-                                              # _gas ?~ bigGasLimit
-                                              # _to ?~ badUserResult.user
-                                              # _value ?~ fromWei (embed 1)
-      badHash <- User.payForParking badTxOpts {_anchor: parkingAnchorResult.anchor}
-      (TransactionReceipt txReceipt) <- liftAff $ pollTransactionReceipt badHash deployConfig.provider
-      liftAff $ txReceipt.status `shouldEqual` "0x0"
-
-
 
 --------------------------------------------------------------------------------
 -- | SetupTests
@@ -146,7 +121,7 @@ createUser deployCfg@(DeployConfig deployConfig) accountIndex = do
   let
     account = case accounts !! accountIndex of
       Just x -> x
-      Nothing -> unsafeCrashWith $ "no index " <> show accountIndex <> "in accounts"
+      Nothing -> unsafeCrashWith $ "no index " <> show accountIndex <> " in accounts"
   {owner, user} <- registerUser account deployCfg
   let txOpts = defaultTransactionOptions # _from ?~ account
                                          # _to ?~ user
@@ -169,7 +144,7 @@ createParkingAnchor deployConfig accountIndex args = do
   let
     account = case accounts !! accountIndex of
       Just x -> x
-      Nothing -> unsafeCrashWith $ "no index " <> show accountIndex <> "in accounts"
+      Nothing -> unsafeCrashWith $ "no index " <> show accountIndex <> " in accounts"
   res@{owner, anchor, geohash, anchorId} <- registerAnchor account args deployConfig
   let txOpts = defaultTransactionOptions # _from ?~ account
                                          # _to ?~ anchor
@@ -247,11 +222,8 @@ buildParkingAuthorityConfig
   :: forall eff.
      BigNumber
   -> Aff (fs :: FS | eff) (ContractConfig (deployArgs :: {foamCSR :: Address}, parkingAuthority :: Address))
-buildParkingAuthorityConfig networkId= do
-  efoamCSRAddress <- runExceptT $ readDeployAddress foamCSRConfig.filepath networkId
-  let foamCSRAddress = case efoamCSRAddress of
-        Right x -> x
-        Left err -> unsafeCrashWith $ "Expected FoamCSR Address in artifact, got error" <> show err
+buildParkingAuthorityConfig networkId = do
+  let foamCSRAddress = unsafePartial fromJust $ mkAddress =<< mkHexString "0x606c977259D39b51D199Bda969C59A5ceD682531"
   let parkingAuthorityConfig = makeParkingAuthorityConfig {foamCSR : foamCSRAddress}
   eparkingAuthorityAddress <- runExceptT $ readDeployAddress parkingAuthorityConfig.filepath networkId
   let parkingAuthorityAddress = case eparkingAuthorityAddress of
