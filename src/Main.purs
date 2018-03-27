@@ -22,7 +22,6 @@ import Utils (makeDeployConfig, validateDeployArgs)
 import ContractConfig (simpleStorageConfig, foamCSRConfig, makeParkingAuthorityConfig)
 import Types (DeployConfig(..), runDeployM, logDeployError)
 
--- | TODO: This passing of config indicates a ReaderMonad
 main :: forall e. Eff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS | e) Unit
 main = void <<< launchAff $ do
   edeployConfig <- runExceptT $ makeDeployConfig

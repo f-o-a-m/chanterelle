@@ -65,9 +65,12 @@ getPrimaryAccount
   :: forall eff.
      Web3 (console :: CONSOLE | eff) Address
 getPrimaryAccount = do
-  accounts <- eth_getAccounts
-  liftAff $ C.error "No PrimaryAccount found on ethereum client!"
-  maybe (throwError NullError) pure $ accounts !! 0
+    accounts <- eth_getAccounts
+    maybe accountsError pure $ accounts !! 0
+  where
+    accountsError = do
+      liftAff $ C.error "No PrimaryAccount found on ethereum client!"
+      throwError NullError
 
 -- | indefinitely poll for a transaction receipt, sleeping for 3
 -- | seconds in between every call.
