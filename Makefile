@@ -11,13 +11,15 @@ install:
 compile-contracts:
 	./node_modules/.bin/truffle compile
 	npm run generator
-	make build
 
-build:
-	pulp build
+deploy-blank:
+	pulp run --src-path deploy --main Blank --include src
 
-deploy:
-	pulp run
+deploy-foam:
+	pulp run --src-path deploy --main Foam --include src
+
+migrate-foam:
+	pulp run --src-path migrations --main ParkingAuthorityMigration --include src
 
 test:
 	npm run test

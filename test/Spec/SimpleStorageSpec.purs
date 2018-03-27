@@ -42,7 +42,7 @@ simpleStorageSpec (DeployConfig deployConfig) = do
       let n = unsafePartial $ fromJust <<< uIntNFromBigNumber <<< embed $ 42
           txOptions = defaultTransactionOptions # _from ?~ deployConfig.primaryAccount
                                                 # _to ?~ simpleStorageAddress
-                                                # _gas ?~ embed 90000
+                                                # _gas ?~ embed 4712388
       hx <- runWeb3 deployConfig.provider $ SimpleStorage.setCount txOptions {_count: n}
       liftEff <<< log $ "setCount tx hash: " <> show hx
       let filterCountSet = eventFilter (Proxy :: Proxy SimpleStorage.CountSet) simpleStorageAddress

@@ -1,4 +1,4 @@
-module Main where
+module Blank where
 
 import Prelude
 import Control.Monad.Aff (launchAff)
@@ -30,7 +30,7 @@ main = void <<< launchAff $ do
     Right deployConfig -> do
       eRes <- flip runDeployM deployConfig $ do
         deployCfg@(DeployConfig {primaryAccount}) <- ask
-        let bigGasLimit = unsafePartial fromJust $ parseBigNumber decimal "9000000"
+        let bigGasLimit = unsafePartial fromJust $ parseBigNumber decimal "4712388"
             txOpts = defaultTransactionOptions # _from ?~ primaryAccount
                                                # _gas ?~ bigGasLimit
         ssConfig <- validateDeployArgs simpleStorageConfig
