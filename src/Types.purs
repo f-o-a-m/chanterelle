@@ -22,6 +22,8 @@ import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (class MonadAsk)
 import Data.Either (Either)
+import Data.Generic.Rep (class Generic)
+import Data.Generic.Rep.Show (genericShow)
 import Network.Ethereum.Web3 (ETH, Address, BigNumber)
 import Network.Ethereum.Web3.Types.Provider (Provider)
 import Node.FS.Aff (FS)
@@ -60,6 +62,11 @@ data DeployError =
     ConfigurationError String
   | OnDeploymentError String
   | PostDeploymentError String
+
+derive instance genericError :: Generic DeployError _
+
+instance showDeployError :: Show DeployError where
+  show = genericShow
 
 logDeployError
   :: forall eff m.

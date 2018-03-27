@@ -11,6 +11,7 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Aff.AVar (AVAR, makeEmptyVar, putVar, takeVar)
 import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Aff.Console (CONSOLE, log)
+import Control.Monad.Except (runExceptT)
 import Data.Array ((!!))
 import Data.ByteString as BS
 import Data.Either (Either(..))
@@ -30,19 +31,9 @@ import Partial.Unsafe (unsafeCrashWith)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Type.Prelude (Proxy(..))
-import Types (DeployConfig, ContractConfig)
+import Types (DeployConfig(..), ContractConfig)
 import Utils (pollTransactionReceipt)
 
-
-buildParkingAuthorityConfig
-  :: forall eff.
-     BigNumber
-  -> Aff (fs :: FS | eff) (ContractConfig (deployArgs :: {foamCSR :: Address}, parkingAuthority :: Address))
-buildParkingAuthorityConfig networkId= do
-  foamCSRAddress <- readDeployAddress foamCSRConfig.filepath networkId
-  let parkingAuthorityConfig = makeParkingAuthorityConfig {foamCSR : foamCSRAddress}
-  parkingAuthorityAddress <- readDeployAddress parkingAuthorityConfig.filepath networkId
-  pure $ insert (SProxy :: SProxy "parkingAuthority") parkingAuthorityAddress parkingAuthorityConfig
 
 parkingAuthoritySpec
   :: forall e.
@@ -53,7 +44,7 @@ parkingAuthoritySpec
           , console :: CONSOLE
           | e
           ) Unit
-parkingAuthoritySpec deployConfig = do
+parkingAuthoritySpec deployCfg@(DeployConfig deployConfig) = do
 
   let
     run :: forall e' a. Web3 e' a -> Aff (eth :: ETH | e') a
@@ -64,18 +55,17 @@ parkingAuthoritySpec deployConfig = do
   describe "Testing basic functionality of the parking authority" do
     it "has the correct foamCSR contract" do
       parkingAuthorityConfig <- buildParkingAuthorityConfig deployConfig.networkId
-      parkingAuthorityAddress <- readDeployAddress parkingAuthorityConfig.filepath deployConfig.networkId
-      let txOpts = defaultTransactionOptions # _to ?~ parkingAuthorityAddress
+      let txOpts = defaultTransactionOptions # _to ?~ parkingAuthorityConfig.parkingAuthority
       ecsr <- run $ PA.parkingCSR txOpts Latest
       ecsr `shouldEqual` (Right parkingAuthorityConfig.deployArgs.foamCSR)
 
   describe "App Flow" do
     it "can register a user and that user is owned by the right account" $ run do
-      void $ createUser deployConfig 1
+      void $ createUser deployCfg 1
 
 
     it "can create a user and that user can request more zones from the authority" $ run do
-      {user, owner} <- createUser deployConfig 1
+      {user, owner} <- createUser deployCfg 1
       let
         zone :: BytesN D4
         zone = case fromByteString =<< BS.fromString "01234567" BS.Hex of
@@ -95,10 +85,10 @@ parkingAuthoritySpec deployConfig = do
           _geohash = case fromByteString =<< BS.fromString ("0123456701234567") BS.Hex of
             Just x -> x
             Nothing -> unsafeCrashWith "geohash should result in valid BytesN 8"
-      void $ createParkingAnchor deployConfig 2 {_geohash, _anchorId}
+      void $ createParkingAnchor deployCfg 2 {_geohash, _anchorId}
 
     it "can create a user and an anchor, the user requests permission at the anchor, then parks there, but not another zone" $ run do
-      userResult <- createUser deployConfig 1
+      userResult <- createUser deployCfg 1
       let _anchorId = case fromByteString =<< BS.fromString (unHex $ sha3 "I'm an anchor!") BS.Hex of
             Just x -> x
             Nothing -> unsafeCrashWith "anchorId should result in valid BytesN 32"
@@ -106,7 +96,7 @@ parkingAuthoritySpec deployConfig = do
           _geohash = case fromByteString =<< BS.fromString geohashString BS.Hex of
             Just x -> x
             Nothing -> unsafeCrashWith "geohash should result in valid BytesN 8"
-      parkingAnchorResult <- createParkingAnchor deployConfig 2 {_geohash, _anchorId}
+      parkingAnchorResult <- createParkingAnchor deployCfg 2 {_geohash, _anchorId}
       let
         zoneStr = take 8 geohashString
         zone = case fromByteString =<< BS.fromString zoneStr BS.Hex of
@@ -122,7 +112,7 @@ parkingAuthoritySpec deployConfig = do
       liftAff $ user `shouldEqual` userResult.user
       liftAff $ anchor `shouldEqual` parkingAnchorResult.anchor
 
-      badUserResult <- createUser deployConfig 3
+      badUserResult <- createUser deployCfg 3
       let
         badZone :: BytesN D4
         badZone = case fromByteString =<< BS.fromString "00000000" BS.Hex of
@@ -151,13 +141,13 @@ createUser
   -> Int
   -- ^ the index of the account to use for transactions
   -> Web3 (fs :: FS, avar :: AVAR, console :: CONSOLE | eff) {owner :: Address, user :: Address}
-createUser deployConfig accountIndex = do
+createUser deployCfg@(DeployConfig deployConfig) accountIndex = do
   accounts <- eth_getAccounts
   let
     account = case accounts !! accountIndex of
       Just x -> x
       Nothing -> unsafeCrashWith $ "no index " <> show accountIndex <> "in accounts"
-  {owner, user} <- registerUser account deployConfig
+  {owner, user} <- registerUser account deployCfg
   let txOpts = defaultTransactionOptions # _from ?~ account
                                          # _to ?~ user
   actualOwner <- User.owner txOpts Latest <#> case _ of
@@ -221,7 +211,7 @@ registerUser
   -- ^ from address
   -> DeployConfig
   -> Web3 (fs :: FS, avar :: AVAR, console :: CONSOLE | eff) {owner :: Address, user :: Address}
-registerUser fromAccount {provider, networkId} = do
+registerUser fromAccount (DeployConfig {provider, networkId}) = do
   {parkingAuthority} <- liftAff $ buildParkingAuthorityConfig networkId
   let txOpts = defaultTransactionOptions # _from ?~ fromAccount
                                          # _gas ?~ bigGasLimit
@@ -238,7 +228,7 @@ registerAnchor
   -> {_geohash :: BytesN D8, _anchorId :: BytesN (D3 :& D2)}
   -> DeployConfig
   -> Web3 (fs :: FS, console :: CONSOLE, avar :: AVAR | eff) {owner :: Address, anchor :: Address, anchorId :: BytesN (D3 :& D2) , geohash :: BytesN D8}
-registerAnchor fromAccount args {provider, networkId} = do
+registerAnchor fromAccount args (DeployConfig {provider, networkId}) = do
   {parkingAuthority} <- liftAff $ buildParkingAuthorityConfig networkId
   let txOpts = defaultTransactionOptions # _from ?~ fromAccount
                                          # _gas ?~ bigGasLimit
@@ -252,3 +242,19 @@ bigGasLimit :: BigNumber
 bigGasLimit = case parseBigNumber decimal "9000000" of
   Just x -> x
   Nothing -> unsafeCrashWith "expected to get big number from 9000000 but it failed"
+
+buildParkingAuthorityConfig
+  :: forall eff.
+     BigNumber
+  -> Aff (fs :: FS | eff) (ContractConfig (deployArgs :: {foamCSR :: Address}, parkingAuthority :: Address))
+buildParkingAuthorityConfig networkId= do
+  efoamCSRAddress <- runExceptT $ readDeployAddress foamCSRConfig.filepath networkId
+  let foamCSRAddress = case efoamCSRAddress of
+        Right x -> x
+        Left err -> unsafeCrashWith $ "Expected FoamCSR Address in artifact, got error" <> show err
+  let parkingAuthorityConfig = makeParkingAuthorityConfig {foamCSR : foamCSRAddress}
+  eparkingAuthorityAddress <- runExceptT $ readDeployAddress parkingAuthorityConfig.filepath networkId
+  let parkingAuthorityAddress = case eparkingAuthorityAddress of
+        Right x -> x
+        Left err -> unsafeCrashWith $ "Expected ParkingAuthority Address in artifact, got error" <> show err
+  pure $ insert (SProxy :: SProxy "parkingAuthority") parkingAuthorityAddress parkingAuthorityConfig
