@@ -157,3 +157,5 @@ compile project = do
   solcOutput <- liftEff $ _compile $ A.stringify solcInput
   traceA $ show solcOutput
   pure solcOutput
+
+-- TODO write the relevant contract outputs from our project to the build directory
