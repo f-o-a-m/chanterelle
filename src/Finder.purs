@@ -20,6 +20,8 @@ import Node.FS.Stats as Stats
 import Partial.Unsafe (unsafePartialBecause)
 import Data.StrMap as M
 
+import Debug.Trace (traceA)
+
 getAllDirectories
   :: forall eff m.
      MonadAff (fs :: FS.FS | eff) m
@@ -84,16 +86,16 @@ type SolcSourceFile =
   , sourceCode :: String
   }
 
-getAllSolcFiles
+getAllSolcFilesForProject
   :: forall eff m.
      MonadAff (fs :: FS.FS | eff) m
-  => Array FilePath
+  => {rootPrefix :: FilePath, rootPath :: FilePath}
   -> m (Array SolcSourceFile)
-getAllSolcFiles rootDirs = map concat <<< for rootDirs $ \root -> do
-    rootedSolcFiles <- evalStateT getAllSolcFiles' root
+getAllSolcFilesForProject {rootPrefix, rootPath} = do
+    rootedSolcFiles <- evalStateT getAllSolcFiles' (rootPath <> "/contracts")
     for rootedSolcFiles $ \filePath -> do
       sourceCode <- liftAff $ FS.readTextFile UTF8 filePath
-      let moduleName = unprepend root filePath
+      let moduleName = unprepend rootPrefix filePath
       pure {filePath, sourceCode, moduleName}
   where
     unprepend rt f =
@@ -112,13 +114,25 @@ getAllSolcFiles rootDirs = map concat <<< for rootDirs $ \root -> do
                               getAllSolcFiles'
               pure $ hereFiles <> concat thereFiles
 
+getAllSolcFiles
+  :: forall eff m.
+     MonadAff (fs :: FS.FS | eff) m
+  => {dependencies :: Array String}
+  -> m (Array SolcSourceFile)
+getAllSolcFiles {dependencies} = do
+  us <- getAllSolcFilesForProject {rootPrefix: "./", rootPath: "./"}
+  them <- for dependencies $ \dep ->
+    getAllSolcFilesForProject {rootPrefix: "node_modules", rootPath: "node_modules/" <> dep}
+  pure $ us <> concat them
+
+-- | TODO this json creation is terrible, find something nicer.
 makeSolcJsonInput
   :: forall eff m.
      MonadAff (fs :: FS.FS | eff) m
-  => Array FilePath
+  => {dependencies :: Array String}
   -> m A.Json
-makeSolcJsonInput rootDirs = do
-  fs <- getAllSolcFiles rootDirs
+makeSolcJsonInput project = do
+  fs <- getAllSolcFiles project
   let sourceObject f = A.fromObject $ M.insert "content" (A.fromString f.sourceCode) M.empty
       srcMapping = foldr (\f sourceMapping -> M.insert f.moduleName (sourceObject f) sourceMapping) M.empty fs
       selectionOptsObj = A.fromObject $ M.insert "*" (A.fromArray (map A.fromString ["abi","evm.bytecode.object"])) M.empty
@@ -136,9 +150,10 @@ foreign import _compile :: forall eff. String -> Eff eff A.Json
 compile
   :: forall eff m.
      MonadAff (fs :: FS.FS | eff) m
-  => Array FilePath
+  => {dependencies :: Array String}
   -> m A.Json
-compile dirs = do
-  solcInput <- makeSolcJsonInput dirs
+compile project = do
+  solcInput <- makeSolcJsonInput project
   solcOutput <- liftEff $ _compile $ A.stringify solcInput
+  traceA $ show solcOutput
   pure solcOutput

@@ -26,7 +26,7 @@ import Finder (compile)
 
 main :: forall e. Eff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS | e) Unit
 main = void <<< launchAff $ do
-  _ <- compile ["./test_contracts"]
+  _ <- compile {dependencies: ["zeppelin-solidity"]}
   edeployConfig <- runExceptT $ makeDeployConfig
   case edeployConfig of
     Left err -> logDeployError err *> pure unit

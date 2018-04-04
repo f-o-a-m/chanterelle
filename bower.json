@@ -13,7 +13,8 @@
     "purescript-console": "^3.0.0",
     "purescript-errors": "^3.0.0",
     "purescript-node-process": "^5.0.0",
-    "purescript-debug": "^3.0.0"
+    "purescript-debug": "^3.0.0",
+    "purescript-simple-json": "^2.0.1"
   },
   "devDependencies": {
     "purescript-psci-support": "^3.0.0",
