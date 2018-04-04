@@ -2,6 +2,7 @@ module Main where
 
 import Prelude
 import Control.Monad.Aff (launchAff)
+import Control.Monad.Aff.Console (log)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Except (runExceptT)
@@ -22,8 +23,12 @@ import Utils (makeDeployConfig, validateDeployArgs)
 import ContractConfig (simpleStorageConfig, foamCSRConfig, makeParkingAuthorityConfig)
 import Types (DeployConfig(..), runDeployM, logDeployError)
 
+import Finder (getAllSolcFiles)
+
 main :: forall e. Eff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS | e) Unit
 main = void <<< launchAff $ do
+  fs <- getAllSolcFiles ["node_modules", "."]
+  log $ show fs
   edeployConfig <- runExceptT $ makeDeployConfig
   case edeployConfig of
     Left err -> logDeployError err *> pure unit
