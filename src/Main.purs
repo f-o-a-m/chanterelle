@@ -17,18 +17,16 @@ import Partial.Unsafe (unsafePartial)
 import Control.Monad.Reader.Class (ask)
 import Contracts.SimpleStorage as SimpleStorage
 import Contracts.ParkingAuthority as ParkingAuthority
-
 import Deploy (deployContractWithArgs, deployContractNoArgs)
 import Utils (makeDeployConfig, validateDeployArgs)
 import ContractConfig (simpleStorageConfig, foamCSRConfig, makeParkingAuthorityConfig)
 import Types (DeployConfig(..), runDeployM, logDeployError)
 
-import Finder (getAllSolcFiles)
+import Finder (compile)
 
 main :: forall e. Eff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS | e) Unit
 main = void <<< launchAff $ do
-  fs <- getAllSolcFiles ["node_modules", "."]
-  log $ show fs
+  _ <- compile ["./test_contracts"]
   edeployConfig <- runExceptT $ makeDeployConfig
   case edeployConfig of
     Left err -> logDeployError err *> pure unit

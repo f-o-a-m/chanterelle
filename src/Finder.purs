@@ -4,14 +4,21 @@ import Prelude
 import Control.Monad.Aff (try)
 import Control.Monad.State (class MonadState, StateT, get, evalStateT, put)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
+import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Class (liftEff)
+import Data.Argonaut as A
 import Data.Array (catMaybes, null, concat)
 import Data.Either (Either(..))
-import Data.Maybe (Maybe(..), isNothing)
+import Data.Maybe (Maybe(..), isNothing, fromJust)
 import Data.String as S
+import Data.Foldable (foldr)
 import Data.Traversable (for)
 import Node.Path (FilePath, extname)
+import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
 import Node.FS.Stats as Stats
+import Partial.Unsafe (unsafePartialBecause)
+import Data.StrMap as M
 
 getAllDirectories
   :: forall eff m.
@@ -71,14 +78,27 @@ validateFile dir f = liftAff $ do
             then Just fullPath
             else Nothing
 
+type SolcSourceFile =
+  { filePath :: FilePath
+  , moduleName :: String
+  , sourceCode :: String
+  }
 
 getAllSolcFiles
   :: forall eff m.
      MonadAff (fs :: FS.FS | eff) m
   => Array FilePath
-  -> m (Array FilePath)
-getAllSolcFiles rootDirs = map concat <<< for rootDirs $ \root -> evalStateT getAllSolcFiles' root
+  -> m (Array SolcSourceFile)
+getAllSolcFiles rootDirs = map concat <<< for rootDirs $ \root -> do
+    rootedSolcFiles <- evalStateT getAllSolcFiles' root
+    for rootedSolcFiles $ \filePath -> do
+      sourceCode <- liftAff $ FS.readTextFile UTF8 filePath
+      let moduleName = unprepend root filePath
+      pure {filePath, sourceCode, moduleName}
   where
+    unprepend rt f =
+      let mstripped = S.stripPrefix (S.Pattern $ rt <> "/") f
+      in unsafePartialBecause ("The root \"" <> rt <> "\" was just prepended.") (fromJust mstripped)
     getAllSolcFiles' :: StateT FilePath m (Array FilePath)
     getAllSolcFiles' = do
       cd <- get
@@ -91,3 +111,34 @@ getAllSolcFiles rootDirs = map concat <<< for rootDirs $ \root -> evalStateT get
                               put d
                               getAllSolcFiles'
               pure $ hereFiles <> concat thereFiles
+
+makeSolcJsonInput
+  :: forall eff m.
+     MonadAff (fs :: FS.FS | eff) m
+  => Array FilePath
+  -> m A.Json
+makeSolcJsonInput rootDirs = do
+  fs <- getAllSolcFiles rootDirs
+  let sourceObject f = A.fromObject $ M.insert "content" (A.fromString f.sourceCode) M.empty
+      srcMapping = foldr (\f sourceMapping -> M.insert f.moduleName (sourceObject f) sourceMapping) M.empty fs
+      selectionOptsObj = A.fromObject $ M.insert "*" (A.fromArray (map A.fromString ["abi","evm.bytecode.object"])) M.empty
+      outputSelection = "outputSelection" A.:= A.fromObject (M.insert "*" selectionOptsObj M.empty) A.~>
+                        A.jsonEmptyObject
+      solcInput = "language" A.:= A.fromString "Solidity" A.~>
+                  "sources" A.:= A.fromObject srcMapping A.~>
+                  "settings" A.:= outputSelection A.~>
+                  A.jsonEmptyObject
+  pure solcInput
+
+
+foreign import _compile :: forall eff. String -> Eff eff A.Json
+
+compile
+  :: forall eff m.
+     MonadAff (fs :: FS.FS | eff) m
+  => Array FilePath
+  -> m A.Json
+compile dirs = do
+  solcInput <- makeSolcJsonInput dirs
+  solcOutput <- liftEff $ _compile $ A.stringify solcInput
+  pure solcOutput
