@@ -192,8 +192,9 @@ instance encodeSolcInput :: A.EncodeJson SolcInput where
   encodeJson (SolcInput {language, sources, settings}) =
     "language" A.:= A.fromString "Solidity" A.~>
     "sources" A.:= A.encodeJson sources A.~>
-    "settings" A.:= A.encodeJson settings A.~>
+    "settings" A.:= settingsObject A.~>
     A.jsonEmptyObject
+    where settingsObject = "outputSelection" A.:= A.encodeJson settings A.~> A.jsonEmptyObject
 
 --------------------------------------------------------------------------------
 
