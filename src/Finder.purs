@@ -26,6 +26,8 @@ import Network.Ethereum.Web3 (HexString, unHex, sha3)
 
 import Debug.Trace (traceA)
 
+-- | get all the "valid" -- non sym-linked, non-dotted directories
+-- | rooted in the current directory.
 getAllDirectories
   :: forall eff m.
      MonadAff (fs :: FS.FS | eff) m
@@ -56,6 +58,7 @@ validateRootedDir prefix dir = liftAff $ do
         then Just fullPath
         else Nothing
 
+-- | get all .sol files in the current directory.
 getSolcFilesInDirectory
   :: forall eff m.
      MonadAff (fs :: FS.FS | eff) m
@@ -90,6 +93,7 @@ type SolcSourceFile =
   , sourceCode :: String
   }
 
+-- | recursively traverse the file system for a "project" finding all solc files
 getAllSolcFilesForProject
   :: forall eff m.
      MonadAff (fs :: FS.FS | eff) m
@@ -118,6 +122,8 @@ getAllSolcFilesForProject {rootPrefix, rootPath} = do
                               getAllSolcFiles'
               pure $ hereFiles <> concat thereFiles
 
+-- | recursively find all solc files in all "projects" -- a project is either our
+-- | project rooted in "./", or a project in "./node_modules", e.g. zeppelin-solidity.
 getAllSolcFiles
   :: forall eff m.
      MonadAff (fs :: FS.FS | eff) m
@@ -142,6 +148,7 @@ defaultSolcSettings :: SolcSettings
 defaultSolcSettings = SolcSettings $
   M.insert "*" (M.insert "*" ["abi", "evm.bytecode.object"] M.empty) M.empty
 
+-- | Don't use this for now.
 updateSolcSettings
  :: FilePath
  -> ContractName
@@ -153,6 +160,8 @@ updateSolcSettings fp contract settings (SolcSettings current) =
 
 --------------------------------------------------------------------------------
 
+-- | as per http://solidity.readthedocs.io/en/v0.4.21/using-the-compiler.html,
+-- | "content" is the source code.
 newtype SolcContract =
   SolcContract { content :: String
                , hash :: HexString
@@ -188,7 +197,7 @@ instance encodeSolcInput :: A.EncodeJson SolcInput where
 
 --------------------------------------------------------------------------------
 
--- | TODO this json creation is terrible, find something nicer.
+-- | create the `--standard-json` input for solc
 makeSolcInput
   :: forall eff m.
      MonadAff (fs :: FS.FS | eff) m
@@ -205,6 +214,7 @@ makeSolcInput project = do
 
 foreign import _compile :: forall eff. String -> Eff eff A.Json
 
+-- | compile and print the output
 compile
   :: forall eff m.
      MonadAff (fs :: FS.FS | eff) m
@@ -219,6 +229,8 @@ compile project = do
 -- TODO write the relevant contract outputs from our project to the build directory
 
 --------------------------------------------------------------------------------
+
+-- | we pretty print these later
 newtype SolcError =
   SolcError { sourceLocation :: { file :: String
                                 , start :: Int
@@ -252,6 +264,7 @@ instance decodeSolcError :: A.DecodeJson SolcError where
                 }
 --------------------------------------------------------------------------------
 
+-- | This is the artifact we want, compatible with truffle (subset)
 newtype OutputContract =
   OutputContract { abi :: A.JArray
                  , bytecode :: String
@@ -301,10 +314,18 @@ writeBuildArtifact filepath output = liftAff $ do
 
 newtype SolcOutput =
   SolcOutput { errors :: Maybe (Array SolcError)
-             , contracts :: M.StrMap OutputContract
+             , contracts :: M.StrMap OutputContract -- mapping of Filepath
              }
 
 {-
+
+
+{ "contractName": "SimpleStorage"
+, "abi" : [..]
+, "bytecode" : String
+, "source" : String
+}
+
 {
   // Optional: not present if no errors/warnings were encountered
   // This contains the file-level outputs. In can be limited/filtered by the outputSelection settings.
