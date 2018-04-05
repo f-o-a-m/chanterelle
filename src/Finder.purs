@@ -10,7 +10,7 @@ import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Data.Argonaut as A
-import Data.Array (catMaybes, null, concat)
+import Data.Array (catMaybes, null, concat, filter, elem)
 import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn3, runFn3)
 import Data.Maybe (Maybe(..), isNothing, fromJust)
@@ -28,6 +28,7 @@ import Data.StrMap as M
 import Network.Ethereum.Web3 (HexString, unHex, sha3)
 
 import Debug.Trace (traceA)
+import Unsafe.Coerce (unsafeCoerce)
 
 -- | get all the "valid" -- non sym-linked, non-dotted directories
 -- | rooted in the current directory.
@@ -197,18 +198,26 @@ instance encodeSolcInput :: A.EncodeJson SolcInput where
 
 --------------------------------------------------------------------------------
 
+type SolcCompilationTarget = { dependencies :: Array String
+                             , sources      :: Maybe (Array String)
+                             }
+
 -- | create the `--standard-json` input for solc
 makeSolcInput
   :: forall eff m.
      MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
-  => {dependencies :: Array String}
+  => SolcCompilationTarget
   -> m SolcInput
-makeSolcInput project = do
+makeSolcInput target = do
   pwd <- liftEff P.cwd
-  fs <- getAllSolcFiles project
+  fs' <- getAllSolcFiles { dependencies: target.dependencies }
+  let fs = case target.sources of
+              Nothing -> fs' 
+              Just ss -> filter (\m -> m.moduleName `elem` ss) fs'
   let sources = foldr (\f m-> M.insert f.moduleName (makeSolcContract f) m) M.empty fs
-      remappings = map (\dep -> dep <> "=" <> (pwd <> "/node_modules/" <> dep)) project.dependencies
+      remappings = map (\dep -> dep <> "=" <> (pwd <> "/node_modules/" <> dep)) target.dependencies
       settings = defaultSolcSettings remappings
+  traceA (unsafeCoerce fs)
   pure $ SolcInput { language: "Solidity"
                    , sources
                    , settings
@@ -234,10 +243,10 @@ _compile = runFn3 _mkCompile solcFFIUtils
 compile
   :: forall eff m.
      MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
-  => {dependencies :: Array String}
+  => SolcCompilationTarget
   -> m A.Json
-compile project = do
-  solcInput <- makeSolcInput project
+compile target = do
+  solcInput <- makeSolcInput target
   solcOutput <- liftEff $ _compile (A.stringify $ A.encodeJson solcInput) loadSolcCallback
   traceA $ show solcOutput
   pure solcOutput

@@ -8,7 +8,7 @@ import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Except (runExceptT)
 import Data.Either (Either(..))
 import Data.Lens ((?~))
-import Data.Maybe (fromJust)
+import Data.Maybe (Maybe(..), fromJust)
 import Network.Ethereum.Web3 (ETH, defaultTransactionOptions, _from, _gas)
 import Network.Ethereum.Web3.Types.BigNumber (parseBigNumber, decimal)
 import Node.FS.Aff (FS)
@@ -26,7 +26,7 @@ import Finder (compile)
 
 main :: forall e. Eff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS | e) Unit
 main = void <<< launchAff $ do
-  _ <- compile {dependencies: ["zeppelin-solidity"]}
+  _ <- compile { dependencies: ["zeppelin-solidity"], sources: Just ["contracts/FoamCSR.sol"] }
   edeployConfig <- runExceptT $ makeDeployConfig
   case edeployConfig of
     Left err -> logDeployError err *> pure unit
