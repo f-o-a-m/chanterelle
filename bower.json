@@ -1,5 +1,5 @@
 {
-  "name": "foam.contracts.deux",
+  "name": "chanterelle",
   "ignore": [
     "**/.*",
     "node_modules",
@@ -13,8 +13,7 @@
     "purescript-console": "^3.0.0",
     "purescript-errors": "^3.0.0",
     "purescript-node-process": "^5.0.0",
-    "purescript-debug": "^3.0.0",
-    "purescript-simple-json": "^2.0.1"
+    "purescript-debug": "^3.0.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^3.0.0",
