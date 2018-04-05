@@ -3,7 +3,7 @@ module Finder where
 import Prelude
 import Control.Error.Util (hush)
 import Control.Monad.Aff (try)
-import Control.Monad.Eff.Exception (error)
+import Control.Monad.Eff.Exception (catchException, error)
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.State (class MonadState, StateT, get, evalStateT, put)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
@@ -12,13 +12,16 @@ import Control.Monad.Eff.Class (liftEff)
 import Data.Argonaut as A
 import Data.Array (catMaybes, null, concat)
 import Data.Either (Either(..))
+import Data.Function.Uncurried (Fn3, runFn3)
 import Data.Maybe (Maybe(..), isNothing, fromJust)
 import Data.String as S
 import Data.Foldable (foldr)
 import Data.Traversable (for)
 import Node.Path (FilePath, extname)
 import Node.Encoding (Encoding(UTF8))
+import Node.FS.Sync as FSS
 import Node.FS.Aff as FS
+import Node.Process as P
 import Node.FS.Stats as Stats
 import Partial.Unsafe (unsafePartialBecause)
 import Data.StrMap as M
@@ -139,24 +142,21 @@ getAllSolcFiles {dependencies} = do
 
 type ContractName = String
 
-newtype SolcSettings = SolcSettings (M.StrMap (M.StrMap (Array String)))
+newtype SolcSettings = SolcSettings { outputSelection :: (M.StrMap (M.StrMap (Array String)))
+                                    , remappings      :: Array String
+                                    }
 
 instance encodeSolcSettings :: A.EncodeJson SolcSettings where
-  encodeJson (SolcSettings settings) = A.encodeJson settings
+  encodeJson (SolcSettings {outputSelection, remappings}) =
+         "outputSelection" A.:= A.encodeJson outputSelection
+    A.~> "remappings"      A.:= A.encodeJson remappings
+    A.~> A.jsonEmptyObject
 
-defaultSolcSettings :: SolcSettings
-defaultSolcSettings = SolcSettings $
-  M.insert "*" (M.insert "*" ["abi", "evm.bytecode.object"] M.empty) M.empty
-
--- | Don't use this for now.
-updateSolcSettings
- :: FilePath
- -> ContractName
- -> Array String
- -> SolcSettings
- -> SolcSettings
-updateSolcSettings fp contract settings (SolcSettings current) =
-  SolcSettings $ M.insert fp (M.insert contract settings M.empty) current
+defaultSolcSettings :: Array String -> SolcSettings
+defaultSolcSettings remappings =
+  SolcSettings { outputSelection: M.insert "*" (M.insert "*" ["abi", "evm.bytecode.object"] M.empty) M.empty
+               , remappings
+               }
 
 --------------------------------------------------------------------------------
 
@@ -192,40 +192,62 @@ instance encodeSolcInput :: A.EncodeJson SolcInput where
   encodeJson (SolcInput {language, sources, settings}) =
     "language" A.:= A.fromString "Solidity" A.~>
     "sources" A.:= A.encodeJson sources A.~>
-    "settings" A.:= settingsObject A.~>
+    "settings" A.:= A.encodeJson settings A.~>
     A.jsonEmptyObject
-    where settingsObject = "outputSelection" A.:= A.encodeJson settings A.~> A.jsonEmptyObject
 
 --------------------------------------------------------------------------------
 
 -- | create the `--standard-json` input for solc
 makeSolcInput
   :: forall eff m.
-     MonadAff (fs :: FS.FS | eff) m
+     MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
   => {dependencies :: Array String}
   -> m SolcInput
 makeSolcInput project = do
+  pwd <- liftEff P.cwd
   fs <- getAllSolcFiles project
   let sources = foldr (\f m-> M.insert f.moduleName (makeSolcContract f) m) M.empty fs
+      remappings = map (\dep -> dep <> "=" <> (pwd <> "/node_modules/" <> dep)) project.dependencies
+      settings = defaultSolcSettings remappings
   pure $ SolcInput { language: "Solidity"
                    , sources
-                   , settings: defaultSolcSettings
+                   , settings
                    }
 
+type SolcFFIUtils = { isLeft    :: Either String String -> Boolean
+                    , fromLeft  :: Either String String -> { error :: String    }
+                    , fromRight :: Either String String -> { contents :: String }
+                    }
+foreign import _mkCompile :: forall eff cbEff. Fn3 SolcFFIUtils String (String -> Eff cbEff (Either String String)) (Eff eff A.Json)
 
-foreign import _compile :: forall eff. String -> Eff eff A.Json
+_compile :: forall eff cbEff. String -> (String -> Eff cbEff (Either String String)) -> (Eff eff A.Json)
+_compile = runFn3 _mkCompile solcFFIUtils
+  where solcFFIUtils = { isLeft, fromLeft, fromRight }
+        isLeft (Left _)  = true
+        isLeft (Right _) = false
+        fromLeft (Left l)  = { error: l }
+        fromLeft (Right _) = { error: "fromLeftSolcCB called on a Right. This is impossible." }
+        fromRight (Left _)  = { contents: "fromRightSolcCB called on a Left. This is impossible." }
+        fromRight (Right r) = { contents: r }
 
 -- | compile and print the output
 compile
   :: forall eff m.
-     MonadAff (fs :: FS.FS | eff) m
+     MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
   => {dependencies :: Array String}
   -> m A.Json
 compile project = do
   solcInput <- makeSolcInput project
-  solcOutput <- liftEff $ _compile $ A.stringify $ A.encodeJson solcInput
+  solcOutput <- liftEff $ _compile (A.stringify $ A.encodeJson solcInput) loadSolcCallback
   traceA $ show solcOutput
   pure solcOutput
+
+-- | load a file when solc requests it
+-- | TODO: secure it so that it doesnt try loading crap like /etc/passwd, etc. :P
+loadSolcCallback :: forall eff. String -> Eff (fs :: FS.FS | eff) (Either String String)
+loadSolcCallback filePath = do
+  traceA ("solc is requesting that we load: " <> filePath)
+  catchException (pure <<< Left <<< show) (Right <$> (FSS.readTextFile UTF8 filePath))
 
 -- TODO write the relevant contract outputs from our project to the build directory
 
