@@ -9,15 +9,14 @@ install:
 	npm install
 
 compile-contracts:
-	./node_modules/.bin/truffle compile
-	npm run generator
 	make build
+	pulp build --src-path src -m Main --to compile.js && node compile.js --compile --abis build/contracts --dest src --truffle true; rm compile.js
 
 build:
 	pulp build
 
 deploy:
-	pulp run
+	pulp build --src-path src -m Main --to deploy.js && node deploy.js --deploy; rm deploy.js
 
 test:
 	npm run test

@@ -1,16 +1,18 @@
 module Main where
 
 import Prelude
-import Control.Monad.Aff (launchAff)
+import Control.Monad.Aff (Aff, launchAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
+import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Except (runExceptT)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
 import Data.Either (Either(..), fromRight)
 import Data.Lens ((?~))
-import Data.Maybe (fromJust)
+import Data.Maybe (Maybe(..), fromJust)
+import Data.Monoid (mempty)
 import Network.Ethereum.Web3 (ETH, defaultTransactionOptions, _from, _gas)
 import Network.Ethereum.Web3.Types.BigNumber (parseBigNumber, decimal)
 import Node.Encoding (Encoding(UTF8))
@@ -24,15 +26,26 @@ import Deploy (deployContractWithArgs, deployContractNoArgs)
 import Utils (makeDeployConfig, validateDeployArgs)
 import ContractConfig (simpleStorageConfig, foamCSRConfig, makeParkingAuthorityConfig)
 import Types (DeployConfig(..), runDeployM, logDeployError)
-
+import Node.Yargs.Applicative (flag, runY)
 import Compile (compile)
+import Data.GeneratorMain (generatorMain)
 
-main :: forall e. Eff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS | e) Unit
-main = void <<< launchAff $ do
+main :: forall e. Eff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS, exception :: EXCEPTION | e) Unit
+main = runY mempty $ go <$> flag "compile" [] (Just "Compile the contracts and generate the client libraries")
+                        <*> flag "deploy" [] (Just "Deploy the contracts")
+  where
+    go isCompile isDeploy = void <<< launchAff $ if isCompile then mainCompile else mainDeploy
+
+mainCompile :: forall e. Aff (console :: CONSOLE, fs :: FS, exception :: EXCEPTION, process :: PROCESS | e) Unit
+mainCompile = void $ do
   root <- liftEff cwd
   projectJson <- readTextFile UTF8 "chanterelle.json"
   let project = unsafePartial fromRight (AP.jsonParser projectJson >>= A.decodeJson)
   _ <- compile root project
+  liftEff $ generatorMain
+
+mainDeploy :: forall e. Aff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS | e) Unit
+mainDeploy = void $ do
   edeployConfig <- runExceptT $ makeDeployConfig
   case edeployConfig of
     Left err -> logDeployError err *> pure unit
