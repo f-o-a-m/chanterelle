@@ -2,15 +2,16 @@ module Compile where
 
 import Prelude
 import Control.Error.Util (hush)
-import Control.Monad.Eff.Exception (catchException, error)
+import Control.Monad.Eff.Exception (EXCEPTION, catchException, error)
 import Control.Monad.Error.Class (throwError)
-import Control.Monad.Aff (Aff)
+import Control.Monad.Aff (Aff, launchAff)
+import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
-import Data.Either (Either(..))
+import Data.Either (Either(..), fromRight)
 import Data.Function.Uncurried (Fn2, runFn2)
 import Data.Maybe (Maybe(..), maybe)
 import Data.Traversable (for)
@@ -29,6 +30,9 @@ import Network.Ethereum.Web3 (HexString, unHex, sha3)
 import Types (ChanterelleProject(..), Dependency(..))
 
 import Debug.Trace (traceA)
+import Data.GeneratorMain (generatorMain)
+import Data.Argonaut.Parser as AP
+import Partial.Unsafe (unsafePartial)
 
 --------------------------------------------------------------------------------
 
@@ -350,3 +354,11 @@ newtype SolcOutput =
   }
 }
 -}
+
+main :: forall e. Eff (console :: CONSOLE, fs :: FS.FS, exception :: EXCEPTION, process :: P.PROCESS | e) Unit
+main = void <<< launchAff $ do
+  root <- liftEff P.cwd
+  projectJson <- FS.readTextFile UTF8 "chanterelle.json"
+  let project = unsafePartial fromRight (AP.jsonParser projectJson >>= A.decodeJson)
+  _ <- compile root project
+  liftEff $ generatorMain

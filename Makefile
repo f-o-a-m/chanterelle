@@ -10,13 +10,13 @@ install:
 
 compile-contracts:
 	make build
-	pulp build --src-path src -m Main --to compile.js && node compile.js --compile --abis build/contracts --dest src --truffle true; rm compile.js
+	pulp build --src-path src -m Compile --to compile.js && node compile.js --abis build/contracts --dest src --truffle true; rm compile.js
 
 build:
 	pulp build
 
 deploy:
-	pulp build --src-path src -m Main --to deploy.js && node deploy.js --deploy; rm deploy.js
+	pulp build --src-path src -m Main --to deploy.js && node deploy.js; rm deploy.js
 
 test:
 	npm run test

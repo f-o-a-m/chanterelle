@@ -31,18 +31,8 @@ import Compile (compile)
 import Data.GeneratorMain (generatorMain)
 
 main :: forall e. Eff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS, exception :: EXCEPTION | e) Unit
-main = runY mempty $ go <$> flag "compile" [] (Just "Compile the contracts and generate the client libraries")
-                        <*> flag "deploy" [] (Just "Deploy the contracts")
-  where
-    go isCompile isDeploy = void <<< launchAff $ if isCompile then mainCompile else mainDeploy
+main = void $ launchAff $ mainDeploy
 
-mainCompile :: forall e. Aff (console :: CONSOLE, fs :: FS, exception :: EXCEPTION, process :: PROCESS | e) Unit
-mainCompile = void $ do
-  root <- liftEff cwd
-  projectJson <- readTextFile UTF8 "chanterelle.json"
-  let project = unsafePartial fromRight (AP.jsonParser projectJson >>= A.decodeJson)
-  _ <- compile root project
-  liftEff $ generatorMain
 
 mainDeploy :: forall e. Aff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS | e) Unit
 mainDeploy = void $ do
