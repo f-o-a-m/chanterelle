@@ -1,143 +1,76 @@
-module Finder where
+module Compile where
 
 import Prelude
 import Control.Error.Util (hush)
-import Control.Monad.Aff (try)
 import Control.Monad.Eff.Exception (catchException, error)
 import Control.Monad.Error.Class (throwError)
-import Control.Monad.State (class MonadState, StateT, get, evalStateT, put)
+import Control.Monad.Aff (Aff)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Data.Argonaut as A
-import Data.Array (catMaybes, null, concat, filter, elem)
-import Data.Either (Either(..))
-import Data.Function.Uncurried (Fn3, runFn3)
-import Data.Maybe (Maybe(..), isNothing, fromJust)
-import Data.String as S
-import Data.Foldable (foldr)
+import Data.Either (Either)
+import Data.Function.Uncurried (Fn2, runFn2)
+import Data.Maybe (Maybe(..))
 import Data.Traversable (for)
-import Node.Path (FilePath, extname)
+import Node.Path (FilePath)
+import Node.Path as Path
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Sync as FSS
 import Node.FS.Aff as FS
 import Node.Process as P
-import Node.FS.Stats as Stats
-import Partial.Unsafe (unsafePartialBecause)
 import Data.StrMap as M
 import Network.Ethereum.Web3 (HexString, unHex, sha3)
 
+import Types (ChanterelleProject(..), Dependency(..))
+
 import Debug.Trace (traceA)
-import Unsafe.Coerce (unsafeCoerce)
 
--- | get all the "valid" -- non sym-linked, non-dotted directories
--- | rooted in the current directory.
-getAllDirectories
+foreign import data SolcInputCallbackResult :: Type
+foreign import solcInputCallbackSuccess :: String -> SolcInputCallbackResult
+foreign import solcInputCallbackFailure :: String -> SolcInputCallbackResult
+foreign import _compile :: forall eff cbEff. Fn2 String (String -> Eff cbEff SolcInputCallbackResult) (Eff eff A.Json)
+
+-- | compile and print the output
+compile
+  :: forall eff m.
+     MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
+  => ChanterelleProject
+  -> m (Array A.Json)
+compile p@(ChanterelleProject project) = do
+  cwd <- liftAff <<< liftEff $ P.cwd
+  solcInputs <- for project.sources $ (\src -> makeSolcInput p cwd src (Path.concat [cwd, project.sourceDir, src]))
+  solcOutputs <- liftEff $ for solcInputs $ \solcInput -> 
+    runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback p)
+  pure solcOutputs
+
+makeSolcInput
   :: forall eff m.
      MonadAff (fs :: FS.FS | eff) m
-  => MonadState FilePath m
-  => m (Array FilePath)
-getAllDirectories = do
-  currentDirectory <- get
-  allFiles <- liftAff $ FS.readdir currentDirectory
-  mdirs <- for allFiles (validateRootedDir currentDirectory)
-  pure $ catMaybes mdirs
+  => ChanterelleProject
+  -> FilePath
+  -> String
+  -> FilePath
+  -> m SolcInput
+makeSolcInput (ChanterelleProject project) cwd moduleName sourcePath = do
+  code <- liftAff $ FS.readTextFile UTF8 sourcePath
+  let language = "Solidity"
+      sources = M.singleton moduleName (makeSolcContract code)
+      outputSelection = M.singleton "*" (M.singleton "*" (["abi", "evm.bytecode.object"] <> project.solcOutputSelection))
+      depMappings = (\(Dependency dep) -> dep <> "=" <> (cwd <> "/node_modules/" <> dep)) <$> project.dependencies
+      sourceDirMapping = [":g" <> (Path.concat [cwd, project.sourceDir])]
+      remappings = sourceDirMapping <> depMappings
+      settings = SolcSettings { outputSelection, remappings }
+  pure $ SolcInput { language, sources, settings }
 
-validateRootedDir
-  :: forall eff m.
-  MonadAff (fs :: FS.FS | eff) m
-  => FilePath -- prefix
-  -> FilePath -- dirname
-  -> m (Maybe FilePath)
-validateRootedDir prefix dir = liftAff $ do
-  let fullPath = prefix <> "/" <> dir
-  estat <- try $ FS.stat fullPath
-  pure case estat of
-    Left _ -> Nothing
-    Right s ->
-      let isValid = (not $ Stats.isSymbolicLink s)
-                      && Stats.isDirectory s
-                      && (isNothing $ S.stripPrefix (S.Pattern ".") dir)
-      in if isValid
-        then Just fullPath
-        else Nothing
-
--- | get all .sol files in the current directory.
-getSolcFilesInDirectory
-  :: forall eff m.
-     MonadAff (fs :: FS.FS | eff) m
-  => MonadState FilePath m
-  => m (Array FilePath)
-getSolcFilesInDirectory = do
-  currentDirectory <- get
-  allFiles <- liftAff $ FS.readdir currentDirectory
-  msolcs <- for allFiles (validateFile currentDirectory)
-  pure $ catMaybes msolcs
-
-validateFile
-  :: forall eff m.
-     MonadAff (fs :: FS.FS | eff) m
-  => FilePath -- dir
-  -> FilePath -- filepath
-  -> m (Maybe FilePath)
-validateFile dir f = liftAff $ do
-  let fullPath = dir <> "/" <> f
-  estat <- try $ FS.stat fullPath
-  pure case estat of
-    Left _ -> Nothing
-    Right s ->
-      let isValid = Stats.isFile s && extname f == ".sol"
-      in if isValid
-            then Just fullPath
-            else Nothing
-
-type SolcSourceFile =
-  { filePath :: FilePath
-  , moduleName :: String
-  , sourceCode :: String
-  }
-
--- | recursively traverse the file system for a "project" finding all solc files
-getAllSolcFilesForProject
-  :: forall eff m.
-     MonadAff (fs :: FS.FS | eff) m
-  => {rootPrefix :: FilePath, rootPath :: FilePath}
-  -> m (Array SolcSourceFile)
-getAllSolcFilesForProject {rootPrefix, rootPath} = do
-    rootedSolcFiles <- evalStateT getAllSolcFiles' (rootPath <> "/contracts")
-    for rootedSolcFiles $ \filePath -> do
-      sourceCode <- liftAff $ FS.readTextFile UTF8 filePath
-      let moduleName = unprepend rootPrefix filePath
-      pure {filePath, sourceCode, moduleName}
-  where
-    unprepend rt f =
-      let mstripped = S.stripPrefix (S.Pattern $ rt <> "/") f
-      in unsafePartialBecause ("The root \"" <> rt <> "\" was just prepended.") (fromJust mstripped)
-    getAllSolcFiles' :: StateT FilePath m (Array FilePath)
-    getAllSolcFiles' = do
-      cd <- get
-      hereFiles <- getSolcFilesInDirectory
-      hereDirectories <- getAllDirectories
-      if null hereDirectories
-         then pure hereFiles
-         else do
-              thereFiles <- for hereDirectories $ \d -> do
-                              put d
-                              getAllSolcFiles'
-              pure $ hereFiles <> concat thereFiles
-
--- | recursively find all solc files in all "projects" -- a project is either our
--- | project rooted in "./", or a project in "./node_modules", e.g. zeppelin-solidity.
-getAllSolcFiles
-  :: forall eff m.
-     MonadAff (fs :: FS.FS | eff) m
-  => {dependencies :: Array String}
-  -> m (Array SolcSourceFile)
-getAllSolcFiles {dependencies} = do
-  us <- getAllSolcFilesForProject {rootPrefix: "./", rootPath: "./"}
-  them <- for dependencies $ \dep ->
-    getAllSolcFilesForProject {rootPrefix: "node_modules", rootPath: "node_modules/" <> dep}
-  pure $ us <> concat them
+-- | load a file when solc requests it
+-- | TODO: secure it so that it doesnt try loading crap like /etc/passwd, etc. :P
+loadSolcCallback :: forall eff. ChanterelleProject -> String -> Eff (fs :: FS.FS | eff) SolcInputCallbackResult
+loadSolcCallback (ChanterelleProject project) filePath = do
+  let isAbs = Path.isAbsolute filePath
+      fullPath = if isAbs then filePath else Path.normalize (Path.concat [project.sourceDir, filePath])
+  traceA ("solc is requesting that we load " <> show filePath <> ", so we'll give it " <> show fullPath)
+  catchException (pure <<< solcInputCallbackFailure <<< show) (solcInputCallbackSuccess <$> (FSS.readTextFile UTF8 fullPath))
 
 --------------------------------------------------------------------------------
 
@@ -153,12 +86,6 @@ instance encodeSolcSettings :: A.EncodeJson SolcSettings where
     A.~> "remappings"      A.:= A.encodeJson remappings
     A.~> A.jsonEmptyObject
 
-defaultSolcSettings :: Array String -> SolcSettings
-defaultSolcSettings remappings =
-  SolcSettings { outputSelection: M.insert "*" (M.insert "*" ["abi", "evm.bytecode.object"] M.empty) M.empty
-               , remappings
-               }
-
 --------------------------------------------------------------------------------
 
 -- | as per http://solidity.readthedocs.io/en/v0.4.21/using-the-compiler.html,
@@ -167,7 +94,6 @@ newtype SolcContract =
   SolcContract { content :: String
                , hash :: HexString
                }
-
 instance encodeSolcContract :: A.EncodeJson SolcContract where
   encodeJson (SolcContract {content, hash}) =
     "content" A.:= A.fromString content A.~>
@@ -175,9 +101,9 @@ instance encodeSolcContract :: A.EncodeJson SolcContract where
     A.jsonEmptyObject
 
 makeSolcContract
-  :: SolcSourceFile
+  :: String
   -> SolcContract
-makeSolcContract {moduleName, sourceCode} =
+makeSolcContract  sourceCode =
   SolcContract { content: sourceCode
                , hash: sha3 sourceCode
                }
@@ -202,61 +128,6 @@ type SolcCompilationTarget = { dependencies :: Array String
                              , sources      :: Maybe (Array String)
                              }
 
--- | create the `--standard-json` input for solc
-makeSolcInput
-  :: forall eff m.
-     MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
-  => SolcCompilationTarget
-  -> m SolcInput
-makeSolcInput target = do
-  pwd <- liftEff P.cwd
-  fs' <- getAllSolcFiles { dependencies: target.dependencies }
-  let fs = case target.sources of
-              Nothing -> fs' 
-              Just ss -> filter (\m -> m.moduleName `elem` ss) fs'
-  let sources = foldr (\f m-> M.insert f.moduleName (makeSolcContract f) m) M.empty fs
-      remappings = map (\dep -> dep <> "=" <> (pwd <> "/node_modules/" <> dep)) target.dependencies
-      settings = defaultSolcSettings remappings
-  traceA (unsafeCoerce fs)
-  pure $ SolcInput { language: "Solidity"
-                   , sources
-                   , settings
-                   }
-
-type SolcFFIUtils = { isLeft    :: Either String String -> Boolean
-                    , fromLeft  :: Either String String -> { error :: String    }
-                    , fromRight :: Either String String -> { contents :: String }
-                    }
-foreign import _mkCompile :: forall eff cbEff. Fn3 SolcFFIUtils String (String -> Eff cbEff (Either String String)) (Eff eff A.Json)
-
-_compile :: forall eff cbEff. String -> (String -> Eff cbEff (Either String String)) -> (Eff eff A.Json)
-_compile = runFn3 _mkCompile solcFFIUtils
-  where solcFFIUtils = { isLeft, fromLeft, fromRight }
-        isLeft (Left _)  = true
-        isLeft (Right _) = false
-        fromLeft (Left l)  = { error: l }
-        fromLeft (Right _) = { error: "fromLeftSolcCB called on a Right. This is impossible." }
-        fromRight (Left _)  = { contents: "fromRightSolcCB called on a Left. This is impossible." }
-        fromRight (Right r) = { contents: r }
-
--- | compile and print the output
-compile
-  :: forall eff m.
-     MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
-  => SolcCompilationTarget
-  -> m A.Json
-compile target = do
-  solcInput <- makeSolcInput target
-  solcOutput <- liftEff $ _compile (A.stringify $ A.encodeJson solcInput) loadSolcCallback
-  traceA $ show solcOutput
-  pure solcOutput
-
--- | load a file when solc requests it
--- | TODO: secure it so that it doesnt try loading crap like /etc/passwd, etc. :P
-loadSolcCallback :: forall eff. String -> Eff (fs :: FS.FS | eff) (Either String String)
-loadSolcCallback filePath = do
-  traceA ("solc is requesting that we load: " <> filePath)
-  catchException (pure <<< Left <<< show) (Right <$> (FSS.readTextFile UTF8 filePath))
 
 -- TODO write the relevant contract outputs from our project to the build directory
 

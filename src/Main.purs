@@ -6,12 +6,15 @@ import Control.Monad.Aff.Console (log)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Except (runExceptT)
-import Data.Either (Either(..))
+import Data.Argonaut as A
+import Data.Argonaut.Parser as AP
+import Data.Either (Either(..), fromRight)
 import Data.Lens ((?~))
 import Data.Maybe (Maybe(..), fromJust)
 import Network.Ethereum.Web3 (ETH, defaultTransactionOptions, _from, _gas)
 import Network.Ethereum.Web3.Types.BigNumber (parseBigNumber, decimal)
-import Node.FS.Aff (FS)
+import Node.Encoding (Encoding(UTF8))
+import Node.FS.Aff (FS, readTextFile)
 import Node.Process (PROCESS)
 import Partial.Unsafe (unsafePartial)
 import Control.Monad.Reader.Class (ask)
@@ -22,11 +25,13 @@ import Utils (makeDeployConfig, validateDeployArgs)
 import ContractConfig (simpleStorageConfig, foamCSRConfig, makeParkingAuthorityConfig)
 import Types (DeployConfig(..), runDeployM, logDeployError)
 
-import Finder (compile)
+import Compile (compile)
 
 main :: forall e. Eff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS | e) Unit
 main = void <<< launchAff $ do
-  _ <- compile { dependencies: ["zeppelin-solidity"], sources: Just ["contracts/FoamCSR.sol"] }
+  projectJson <- readTextFile UTF8 "chanterelle.json"
+  let project = unsafePartial fromRight (AP.jsonParser projectJson >>= A.decodeJson)
+  _ <- compile project
   edeployConfig <- runExceptT $ makeDeployConfig
   case edeployConfig of
     Left err -> logDeployError err *> pure unit
