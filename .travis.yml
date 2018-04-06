@@ -6,8 +6,8 @@ services:
   - docker
 install:
   - make
-  - make compile-contracts
   - make build
+  - make compile-contracts
 script:
   - docker run -d -p 8545:8545 foamspace/cliquebait:latest
   - sleep 10
