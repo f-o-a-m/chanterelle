@@ -9,40 +9,79 @@ import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Data.Argonaut as A
-import Data.Either (Either)
+import Data.Argonaut.Parser as AP
+import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn2, runFn2)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), maybe)
 import Data.Traversable (for)
+import Data.Tuple (Tuple(..))
 import Node.Path (FilePath)
 import Node.Path as Path
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Sync as FSS
 import Node.FS.Aff as FS
+import Node.FS.Sync.Mkdirp
+import Node.FS.Stats as Stats
 import Node.Process as P
 import Data.StrMap as M
+import Data.Tuple (snd)
 import Network.Ethereum.Web3 (HexString, unHex, sha3)
-
 import Types (ChanterelleProject(..), Dependency(..))
 
 import Debug.Trace (traceA)
 
+--------------------------------------------------------------------------------
+
 foreign import data SolcInputCallbackResult :: Type
 foreign import solcInputCallbackSuccess :: String -> SolcInputCallbackResult
 foreign import solcInputCallbackFailure :: String -> SolcInputCallbackResult
-foreign import _compile :: forall eff cbEff. Fn2 String (String -> Eff cbEff SolcInputCallbackResult) (Eff eff A.Json)
+foreign import _compile :: forall eff cbEff. Fn2 String (String -> Eff cbEff SolcInputCallbackResult) (Eff eff String)
 
 -- | compile and print the output
 compile
   :: forall eff m.
      MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
-  => ChanterelleProject
-  -> m (Array A.Json)
-compile p@(ChanterelleProject project) = do
-  cwd <- liftAff <<< liftEff $ P.cwd
-  solcInputs <- for project.sources $ (\src -> makeSolcInput p cwd src (Path.concat [cwd, project.sourceDir, src]))
-  solcOutputs <- liftEff $ for solcInputs $ \solcInput -> 
-    runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback p)
-  pure solcOutputs
+  => FilePath
+  -> ChanterelleProject
+  -> m (M.StrMap A.Json)
+compile root p@(ChanterelleProject project) = do
+  solcInputs <- for project.sources $ \srcName -> do
+      input <- makeSolcInput p root srcName (Path.concat [root, project.sourceDir, srcName])
+      pure $ Tuple srcName input
+  solcOutputs <-for solcInputs $ \(Tuple srcName solcInput) -> do
+      output <- liftEff $ runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback root p)
+      case AP.jsonParser output of
+        Left err -> liftAff <<< throwError <<< error $ "Malformed solc output: " <> err
+        Right output' -> do
+          let outputPath = Path.concat [root, "build", project.sourceDir, srcName]
+          writeBuildArtifact srcName outputPath output'
+          pure $ Tuple srcName output'
+  pure $ M.fromFoldable solcOutputs
+
+-- | load a file when solc requests it
+-- | TODO: secure it so that it doesnt try loading crap like /etc/passwd, etc. :P
+-- | TODO: be more clever about dependency resolution, that way we don't even have to do
+-- |       any remappings!
+loadSolcCallback :: forall eff. FilePath -> ChanterelleProject -> String -> Eff (fs :: FS.FS | eff) SolcInputCallbackResult
+loadSolcCallback root (ChanterelleProject project) filePath = do
+  let isAbs = Path.isAbsolute filePath
+      fullPath = if isAbs then filePath else Path.normalize (Path.concat [root, project.sourceDir, filePath])
+  traceA ("solc is requesting that we load " <> show filePath <> ", so we'll give it " <> show fullPath)
+  catchException (pure <<< solcInputCallbackFailure <<< show) (solcInputCallbackSuccess <$> (FSS.readTextFile UTF8 fullPath))
+
+--------------------------------------------------------------------------------
+
+newtype SolcInput =
+  SolcInput { language :: String
+            , sources :: M.StrMap SolcContract
+            , settings :: SolcSettings
+            }
+instance encodeSolcInput :: A.EncodeJson SolcInput where
+  encodeJson (SolcInput {language, sources, settings}) =
+    "language" A.:= A.fromString "Solidity" A.~>
+    "sources" A.:= A.encodeJson sources A.~>
+    "settings" A.:= A.encodeJson settings A.~>
+    A.jsonEmptyObject
 
 makeSolcInput
   :: forall eff m.
@@ -52,25 +91,16 @@ makeSolcInput
   -> String
   -> FilePath
   -> m SolcInput
-makeSolcInput (ChanterelleProject project) cwd moduleName sourcePath = do
+makeSolcInput (ChanterelleProject project) root moduleName sourcePath = do
   code <- liftAff $ FS.readTextFile UTF8 sourcePath
   let language = "Solidity"
       sources = M.singleton moduleName (makeSolcContract code)
       outputSelection = M.singleton "*" (M.singleton "*" (["abi", "evm.bytecode.object"] <> project.solcOutputSelection))
-      depMappings = (\(Dependency dep) -> dep <> "=" <> (cwd <> "/node_modules/" <> dep)) <$> project.dependencies
-      sourceDirMapping = [":g" <> (Path.concat [cwd, project.sourceDir])]
+      depMappings = (\(Dependency dep) -> dep <> "=" <> (root <> "/node_modules/" <> dep)) <$> project.dependencies
+      sourceDirMapping = [":g" <> (Path.concat [root, project.sourceDir])]
       remappings = sourceDirMapping <> depMappings
       settings = SolcSettings { outputSelection, remappings }
   pure $ SolcInput { language, sources, settings }
-
--- | load a file when solc requests it
--- | TODO: secure it so that it doesnt try loading crap like /etc/passwd, etc. :P
-loadSolcCallback :: forall eff. ChanterelleProject -> String -> Eff (fs :: FS.FS | eff) SolcInputCallbackResult
-loadSolcCallback (ChanterelleProject project) filePath = do
-  let isAbs = Path.isAbsolute filePath
-      fullPath = if isAbs then filePath else Path.normalize (Path.concat [project.sourceDir, filePath])
-  traceA ("solc is requesting that we load " <> show filePath <> ", so we'll give it " <> show fullPath)
-  catchException (pure <<< solcInputCallbackFailure <<< show) (solcInputCallbackSuccess <$> (FSS.readTextFile UTF8 fullPath))
 
 --------------------------------------------------------------------------------
 
@@ -107,27 +137,6 @@ makeSolcContract  sourceCode =
   SolcContract { content: sourceCode
                , hash: sha3 sourceCode
                }
-
---------------------------------------------------------------------------------
-
-newtype SolcInput =
-  SolcInput { language :: String
-            , sources :: M.StrMap SolcContract
-            , settings :: SolcSettings
-            }
-instance encodeSolcInput :: A.EncodeJson SolcInput where
-  encodeJson (SolcInput {language, sources, settings}) =
-    "language" A.:= A.fromString "Solidity" A.~>
-    "sources" A.:= A.encodeJson sources A.~>
-    "settings" A.:= A.encodeJson settings A.~>
-    A.jsonEmptyObject
-
---------------------------------------------------------------------------------
-
-type SolcCompilationTarget = { dependencies :: Array String
-                             , sources      :: Maybe (Array String)
-                             }
-
 
 -- TODO write the relevant contract outputs from our project to the build directory
 
@@ -181,7 +190,8 @@ parseOutputContract json = do
   abi <- obj A..? "abi"
   evm <- obj A..? "evm"
   evmObj <- A.decodeJson evm
-  bytecode <- evmObj A..? "bytecode"
+  bytecodeO <- evmObj A..? "bytecode"
+  bytecode <- bytecodeO A..? "object"
   pure $ OutputContract {abi, bytecode}
 
 instance encodeOutputContact :: A.EncodeJson OutputContract where
@@ -191,26 +201,45 @@ instance encodeOutputContact :: A.EncodeJson OutputContract where
     A.jsonEmptyObject
 
 decodeContract
-  :: FilePath
+  :: String
   -> A.Json
-  -> Maybe (M.StrMap OutputContract)
-decodeContract filepath json = do
-  obj <- hush $ A.decodeJson json
-  json' <- M.lookup filepath obj
-  contractMap <- hush $ A.decodeJson json'
-  for contractMap $ hush <<< parseOutputContract
+  -> Either String (M.StrMap OutputContract)
+decodeContract srcName json = do
+  obj <- A.decodeJson json
+  contracts <- obj A..? "contracts"
+  json' <- maybe (Left $ "couldn't find " <> show srcName <> " in object") Right (M.lookup srcName contracts)
+  contractMap <- A.decodeJson json'
+  for contractMap $ parseOutputContract
+
+foreign import jsonStringifyWithSpaces :: Int -> A.Json -> String
 
 writeBuildArtifact
   :: forall eff m.
      MonadAff (fs :: FS.FS | eff) m
-  => FilePath
+  => String
+  -> FilePath
   -> A.Json
   -> m Unit
-writeBuildArtifact filepath output = liftAff $ do
-  let contractOutput = decodeContract filepath output
-  case contractOutput of
-    Nothing -> throwError <<< error $ "FilePath not found in solc output: " <> filepath
-    Just co -> FS.writeTextFile UTF8 filepath <<< A.stringify <<< A.encodeJson $ co
+writeBuildArtifact srcName filepath output = liftAff $
+q
+  case decodeContract srcName output of
+    Left err -> throwError <<< error $ "Malformed solc output: " <> err
+    Right co -> do
+      let dn = Path.dirname filepath
+      dnExists <- FS.exists dn
+      if not dnExists
+        then liftEff (mkdirp dn)
+        else do
+          isDir <- Stats.isDirectory <$> FS.stat dn
+          if not isDir
+            then (throwError <<< error $ ("Path " <> show dn <> " exists but is not a directory!"))
+            else pure unit
+      let parsedPath = Path.parse filepath
+          withNewExtension = Path.concat [parsedPath.dir, parsedPath.name <> ".json"]
+          contractsMainModule = M.lookup parsedPath.name co -- | HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+      case contractsMainModule of -- | HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+        Nothing -> (throwError <<< error $ ("Couldn't find an object named " <> show parsedPath.name <> " in " <> show filepath <> "!"))
+        Just co' -> FS.writeTextFile UTF8 withNewExtension <<< jsonStringifyWithSpaces 4 $ A.encodeJson co'
 
 
 --------------------------------------------------------------------------------
