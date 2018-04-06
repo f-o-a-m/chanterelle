@@ -221,7 +221,6 @@ writeBuildArtifact
   -> A.Json
   -> m Unit
 writeBuildArtifact srcName filepath output = liftAff $
-q
   case decodeContract srcName output of
     Left err -> throwError <<< error $ "Malformed solc output: " <> err
     Right co -> do
