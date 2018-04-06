@@ -182,6 +182,9 @@ newtype OutputContract =
                  , bytecode :: String
                  }
 
+-- NOTE: We don't use the codecs here because they aren't mutual inverses of eachother,
+-- for example we serialize an empty networks object for truffle compatibility,
+-- but this is not output from the compiler. 
 parseOutputContract
   :: A.Json
   -> Either String OutputContract
@@ -194,10 +197,13 @@ parseOutputContract json = do
   bytecode <- bytecodeO A..? "object"
   pure $ OutputContract {abi, bytecode}
 
-instance encodeOutputContact :: A.EncodeJson OutputContract where
-  encodeJson (OutputContract {abi, bytecode}) =
+encodeOutputContract
+  :: OutputContract
+  -> A.Json
+encodeOutputContract (OutputContract {abi, bytecode}) =
     "abi" A.:= A.fromArray abi A.~>
     "bytecode" A.:= bytecode A.~>
+    "networks" A.:= A.jsonEmptyObject A.~>
     A.jsonEmptyObject
 
 decodeContract
@@ -238,7 +244,7 @@ writeBuildArtifact srcName filepath output = liftAff $
           contractsMainModule = M.lookup parsedPath.name co -- | HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
       case contractsMainModule of -- | HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
         Nothing -> (throwError <<< error $ ("Couldn't find an object named " <> show parsedPath.name <> " in " <> show filepath <> "!"))
-        Just co' -> FS.writeTextFile UTF8 withNewExtension <<< jsonStringifyWithSpaces 4 $ A.encodeJson co'
+        Just co' -> FS.writeTextFile UTF8 withNewExtension <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co'
 
 
 --------------------------------------------------------------------------------
