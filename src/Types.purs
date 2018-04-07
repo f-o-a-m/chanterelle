@@ -104,3 +104,4 @@ type ContractConfig args =
   , name :: String
   | args
   }
+

@@ -1,0 +1,13 @@
+{
+    "name": "test-app",
+    "version": "0.0.1",
+    "sourceDir": "contracts",
+    "sources": [ "FoamCSR.sol"
+               , "ParkingAuthority.sol"
+               , "SimpleStorage.sol"
+               , "User.sol"
+               , "ParkingAnchor.sol"
+               ],
+    "dependencies": ["zeppelin-solidity"],
+    "solcOutputSelection": []
+}
