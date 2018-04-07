@@ -4,9 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "postinstall": "bower install",
-    "build": "pulp build",
-    "test": "pulp test"
+    "postinstall": "bower install"
   },
   "author": "",
   "license": "ISC",

@@ -31,8 +31,8 @@ import Partial.Unsafe (unsafeCrashWith)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Type.Prelude (Proxy(..))
-import Types (DeployConfig(..), ContractConfig)
-import Utils (pollTransactionReceipt)
+import Deploy.Types (DeployConfig(..), ContractConfig)
+import Deploy.Utils (pollTransactionReceipt)
 
 
 parkingAuthoritySpec

@@ -19,7 +19,7 @@ import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Type.Prelude (Proxy(..))
-import Types (DeployConfig(..))
+import Deploy.Types (DeployConfig(..))
 
 simpleStorageSpec
   :: forall e.

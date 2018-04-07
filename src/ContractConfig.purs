@@ -9,7 +9,7 @@ import Data.Maybe (Maybe)
 import Network.Ethereum.Web3.Types (Address, embed)
 import Network.Ethereum.Web3.Solidity (type (:&), UIntN, D2, D5, D6, uIntNFromBigNumber)
 
-import Types (ContractConfig)
+import Deploy.Types (ContractConfig)
 
 --------------------------------------------------------------------------------
 -- | SimpleStorage

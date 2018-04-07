@@ -1,4 +1,4 @@
-module Types
+module Deploy.Types
   ( DeployM
   , runDeployM
   , DeployError(..)
