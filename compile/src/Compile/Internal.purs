@@ -1,4 +1,4 @@
-module Compile where
+module Compile.Internal where
 
 import Prelude
 import Control.Error.Util (hush)
@@ -21,18 +21,15 @@ import Node.Path as Path
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Sync as FSS
 import Node.FS.Aff as FS
-import Node.FS.Sync.Mkdirp
+import Compile.Node.FS.Sync.Mkdirp
 import Node.FS.Stats as Stats
 import Node.Process as P
 import Data.StrMap as M
 import Data.Tuple (snd)
 import Network.Ethereum.Web3 (HexString, unHex, sha3)
-import Types (ChanterelleProject(..), Dependency(..))
+import Compile.Types (ChanterelleProject(..), Dependency(..))
 
 import Debug.Trace (traceA)
-import Data.GeneratorMain (generatorMain)
-import Data.Argonaut.Parser as AP
-import Partial.Unsafe (unsafePartial)
 
 --------------------------------------------------------------------------------
 
@@ -354,11 +351,3 @@ newtype SolcOutput =
   }
 }
 -}
-
-main :: forall e. Eff (console :: CONSOLE, fs :: FS.FS, exception :: EXCEPTION, process :: P.PROCESS | e) Unit
-main = void <<< launchAff $ do
-  root <- liftEff P.cwd
-  projectJson <- FS.readTextFile UTF8 "chanterelle.json"
-  let project = unsafePartial fromRight (AP.jsonParser projectJson >>= A.decodeJson)
-  _ <- compile root project
-  liftEff $ generatorMain

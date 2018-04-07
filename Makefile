@@ -9,8 +9,7 @@ install:
 	npm install
 
 compile-contracts:
-	make build
-	pulp build --src-path src -m Compile --to compile.js && node compile.js --abis build/contracts --dest src --truffle true; rm compile.js
+	pulp build --src-path compile -m Compile --to compile.js && node compile.js --abis build/contracts --dest src --truffle true; rm compile.js
 
 build:
 	pulp build

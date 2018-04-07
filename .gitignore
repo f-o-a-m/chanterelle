@@ -9,3 +9,4 @@
 /.psa*
 /src/Contracts
 /build/contracts/*.json
+*.swp
