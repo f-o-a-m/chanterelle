@@ -16,8 +16,8 @@ import Network.Ethereum.Web3 (ETH)
 import Node.FS.Aff (FS)
 import Node.Process as NP
 
-import Utils (makeDeployConfig)
-import Types (logDeployError)
+import Deploy.Utils (makeDeployConfig)
+import Deploy.Types (logDeployError)
 
 import SimpleStorageSpec (simpleStorageSpec)
 import ParkingAuthoritySpec (parkingAuthoritySpec)

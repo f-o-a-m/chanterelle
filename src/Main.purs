@@ -18,9 +18,10 @@ import Control.Monad.Reader.Class (ask)
 import Contracts.SimpleStorage as SimpleStorage
 import Contracts.ParkingAuthority as ParkingAuthority
 import Deploy (deployContractWithArgs, deployContractNoArgs)
-import Utils (makeDeployConfig, validateDeployArgs)
+import Deploy.Utils (makeDeployConfig, validateDeployArgs)
+import Deploy.Types (DeployConfig(..), runDeployM, logDeployError)
+
 import ContractConfig (simpleStorageConfig, foamCSRConfig, makeParkingAuthorityConfig)
-import Types (DeployConfig(..), runDeployM, logDeployError)
 
 main :: forall e. Eff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS, exception :: EXCEPTION | e) Unit
 main = void $ launchAff $ mainDeploy
