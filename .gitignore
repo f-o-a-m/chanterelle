@@ -10,3 +10,5 @@
 /src/Contracts
 /build/contracts/*.json
 *.swp
+deploy.js
+compile.js

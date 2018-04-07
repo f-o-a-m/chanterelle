@@ -21,8 +21,6 @@ import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (class MonadAsk)
-import Data.Argonaut as A
-import Data.Argonaut ((:=), (~>), (.?))
 import Data.Either (Either)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)

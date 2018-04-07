@@ -1,4 +1,4 @@
-.PHONY: test build deploy install compile-contracts
+.PHONY: test build-deploy build-compile deploy install compile-contracts
 
 NODE_URL ?= "http://localhost:8545"
 
@@ -8,13 +8,16 @@ all: install
 install:
 	npm install
 
-compile-contracts:
-	pulp build --src-path compile -m Compile --to compile.js && node compile.js --abis build/contracts --dest src --truffle true; rm compile.js
-
-build:
+build-deploy:
 	pulp build
 
-deploy:
+build-compile:
+	pulp build --src-path compile
+
+compile-contracts: build-compile
+	pulp build --src-path compile -m Compile --to compile.js && node compile.js --abis build/contracts --dest src --truffle true; rm compile.js
+
+deploy: build-deploy
 	pulp build --src-path src -m Main --to deploy.js && node deploy.js; rm deploy.js
 
 test:
