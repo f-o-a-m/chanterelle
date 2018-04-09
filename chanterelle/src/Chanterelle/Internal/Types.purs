@@ -8,7 +8,7 @@ import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as C
 import Control.Monad.Eff.Class (class MonadEff)
-import Control.Monad.Eff.Exception (Error, throwException)
+import Control.Monad.Eff.Exception (EXCEPTION, Error, throwException)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Reader (ReaderT, runReaderT)
@@ -22,6 +22,7 @@ import Data.Maybe (fromMaybe)
 import Network.Ethereum.Web3 (ETH, Address, BigNumber)
 import Network.Ethereum.Web3.Types.Provider (Provider)
 import Node.FS.Aff (FS)
+import Node.Process (PROCESS)
 import Node.Path (FilePath)
 
 newtype Dependency = Dependency String
@@ -31,21 +32,21 @@ instance encodeJsonDependency :: A.EncodeJson Dependency where
 instance decodeJsonDependency :: A.DecodeJson Dependency where
   decodeJson d = Dependency <$> A.decodeJson d
 
-newtype ChanterelleProject =
-  ChanterelleProject { name                :: String
-                     , version             :: String
-                     , sourceDir           :: FilePath
-                     , sources             :: Array String
-                     , dependencies        :: Array Dependency
-                     , solcOutputSelection :: Array String
-                     , psGen               :: { exprPrefix   :: String
-                                              , modulePrefix :: String
-                                              , outputPath   :: String
-                                              }
-                     }
-derive instance eqChanterelleProject  :: Eq ChanterelleProject
-instance encodeJsonChanterelleProject :: A.EncodeJson ChanterelleProject where
-  encodeJson (ChanterelleProject project) =
+newtype ChanterelleProjectSpec =
+  ChanterelleProjectSpec { name                :: String
+                         , version             :: String
+                         , sourceDir           :: FilePath
+                         , sources             :: Array String
+                         , dependencies        :: Array Dependency
+                         , solcOutputSelection :: Array String
+                         , psGen               :: { exprPrefix   :: String
+                                                  , modulePrefix :: String
+                                                  , outputPath   :: String
+                                                  }
+                         }
+derive instance eqChanterelleProjectSpec  :: Eq ChanterelleProjectSpec
+instance encodeJsonChanterelleProjectSpec :: A.EncodeJson ChanterelleProjectSpec where
+  encodeJson (ChanterelleProjectSpec project) =
          "name"                  := A.encodeJson project.name
       ~> "version"               := A.encodeJson project.version
       ~> "source-dir"            := A.encodeJson project.sourceDir
@@ -59,7 +60,7 @@ instance encodeJsonChanterelleProject :: A.EncodeJson ChanterelleProject where
                         ~> "expression-prefix" := A.encodeJson project.psGen.exprPrefix
                         ~> "module-prefix"     := A.encodeJson project.psGen.modulePrefix
                         ~> A.jsonEmptyObject
-instance decodeJsonChanterelleProject :: A.DecodeJson ChanterelleProject where
+instance decodeJsonChanterelleProjectSpec :: A.DecodeJson ChanterelleProjectSpec where
   decodeJson j = do
     obj                 <- A.decodeJson j
     name                <- obj .? "name"
@@ -73,7 +74,15 @@ instance decodeJsonChanterelleProject :: A.DecodeJson ChanterelleProject where
     psGenExprPrefix     <- fromMaybe "" <$> psGenObj .?? "expression-prefix"
     psGenModulePrefix   <- fromMaybe "" <$> psGenObj .?? "module-prefix"
     let psGen = { exprPrefix: psGenExprPrefix, modulePrefix: psGenModulePrefix, outputPath: psGenOutputPath } 
-    pure $ ChanterelleProject { name, version, sourceDir, sources, dependencies, solcOutputSelection, psGen }
+    pure $ ChanterelleProjectSpec { name, version, sourceDir, sources, dependencies, solcOutputSelection, psGen }
+
+data ChanterelleProject =
+     ChanterelleProject { root     :: FilePath -- ^ parent directory containing chanterelle.json
+                        , srcIn    :: FilePath -- ^ hydrated/absolute path of src dir (root + spec.sourceDir)
+                        , jsonOut  :: FilePath -- ^ hydrated/absolute path of jsons dir 
+                        , psOut    :: FilePath -- ^ hydrated/absolute path of psGen (root + spec.psGen.outputPath)
+                        , spec     :: ChanterelleProjectSpec -- ^ the contents of the chanterelle.json
+                        }
 
 --------------------------------------------------------------------------------
 -- | DeployM

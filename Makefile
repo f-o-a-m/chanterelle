@@ -11,8 +11,8 @@ install:
 build-chanterelle:
 	pulp build --src-path chanterelle
 
-compile-contracts: build-chanterelle
-	pulp build --src-path chanterelle -m Chanterelle.Internal.Compile --to compile.js && node compile.js; rm compile.js
+compile-contracts:
+	pulp build --src-path chanterelle -m Chanterelle.Main --to compile.js && node compile.js; rm compile.js
 
 deploy: compile-contracts build-chanterelle
 	pulp build -I chanterelle --src-path src -m Main --to deploy.js && node deploy.js; rm deploy.js

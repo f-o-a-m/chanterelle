@@ -21,18 +21,33 @@ import Node.Path as Path
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Sync as FSS
 import Node.FS.Aff as FS
-import Compile.Node.FS.Sync.Mkdirp
+import Node.FS.Sync.Mkdirp
 import Node.FS.Stats as Stats
 import Node.Process as P
 import Data.StrMap as M
 import Data.Tuple (snd)
 import Network.Ethereum.Web3 (HexString, unHex, sha3)
-import Chanterelle.Internal.Types (ChanterelleProject(..), Dependency(..))
-import Data.Generator (generatePS) -- purescript-web3-generator
+import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), Dependency(..))
+import Data.CodeGen (generatePS) -- purescript-web3-generator
 
 import Debug.Trace (traceA)
 import Partial.Unsafe (unsafePartial)
+import Unsafe.Coerce (unsafeCoerce)
 
+--------------------------------------------------------------------------------
+generate :: forall eff m. 
+            MonadAff (console :: CONSOLE, fs :: FS.FS | eff) m 
+         => ChanterelleProject
+         -> m Unit
+generate (ChanterelleProject project) =
+  let (ChanterelleProjectSpec spec) = project.spec
+      psGenArgs = { jsonDir: project.jsonOut
+                  , pursDir: project.psOut
+                  , truffle: true
+                  , exprPrefix: spec.psGen.exprPrefix
+                  , modulePrefix: spec.psGen.modulePrefix
+                  }
+    in liftAff $ generatePS psGenArgs
 --------------------------------------------------------------------------------
 
 foreign import data SolcInputCallbackResult :: Type
@@ -40,26 +55,22 @@ foreign import solcInputCallbackSuccess :: String -> SolcInputCallbackResult
 foreign import solcInputCallbackFailure :: String -> SolcInputCallbackResult
 foreign import _compile :: forall eff cbEff. Fn2 String (String -> Eff cbEff SolcInputCallbackResult) (Eff eff String)
 
-compileOutputPath :: FilePath -> ChanterelleProject -> FilePath
-compileOutputPath root (ChanterelleProject project) = Path.concat [root, "build", project.sourceDir]
-
--- | compile and print the output
-compile
-  :: forall eff m.
-     MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
-  => FilePath
-  -> ChanterelleProject
-  -> m (M.StrMap A.Json)
-compile root p@(ChanterelleProject project) = do
-  solcInputs <- for project.sources $ \srcName -> do
-      input <- makeSolcInput p root srcName (Path.concat [root, project.sourceDir, srcName])
+-- | compile and write the artifact
+compile :: forall eff m.
+           MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
+        => ChanterelleProject
+        -> m (M.StrMap A.Json)
+compile (ChanterelleProject project) = do
+  let (ChanterelleProjectSpec spec) = project.spec
+  solcInputs <- for spec.sources $ \srcName -> do
+      input <- makeSolcInput project.spec project.root srcName (Path.concat [project.srcIn, srcName])
       pure $ Tuple srcName input
   solcOutputs <-for solcInputs $ \(Tuple srcName solcInput) -> do
-      output <- liftEff $ runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback root p)
+      output <- liftEff $ runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback project.root project.spec)
       case AP.jsonParser output of
         Left err -> liftAff <<< throwError <<< error $ "Malformed solc output: " <> err
         Right output' -> do
-          let outputPath = Path.concat [compileOutputPath root p, srcName]
+          let outputPath = Path.concat [project.jsonOut, srcName]
           writeBuildArtifact srcName outputPath output'
           pure $ Tuple srcName output'
   pure $ M.fromFoldable solcOutputs
@@ -68,8 +79,8 @@ compile root p@(ChanterelleProject project) = do
 -- | TODO: secure it so that it doesnt try loading crap like /etc/passwd, etc. :P
 -- | TODO: be more clever about dependency resolution, that way we don't even have to do
 -- |       any remappings!
-loadSolcCallback :: forall eff. FilePath -> ChanterelleProject -> String -> Eff (fs :: FS.FS | eff) SolcInputCallbackResult
-loadSolcCallback root (ChanterelleProject project) filePath = do
+loadSolcCallback :: forall eff. FilePath -> ChanterelleProjectSpec -> String -> Eff (fs :: FS.FS | eff) SolcInputCallbackResult
+loadSolcCallback root (ChanterelleProjectSpec project) filePath = do
   let isAbs = Path.isAbsolute filePath
       fullPath = if isAbs then filePath else Path.normalize (Path.concat [root, project.sourceDir, filePath])
   traceA ("solc is requesting that we load " <> show filePath <> ", so we'll give it " <> show fullPath)
@@ -92,12 +103,12 @@ instance encodeSolcInput :: A.EncodeJson SolcInput where
 makeSolcInput
   :: forall eff m.
      MonadAff (fs :: FS.FS | eff) m
-  => ChanterelleProject
+  => ChanterelleProjectSpec
   -> FilePath
   -> String
   -> FilePath
   -> m SolcInput
-makeSolcInput (ChanterelleProject project) root moduleName sourcePath = do
+makeSolcInput (ChanterelleProjectSpec project) root moduleName sourcePath = do
   code <- liftAff $ FS.readTextFile UTF8 sourcePath
   let language = "Solidity"
       sources = M.singleton moduleName (makeSolcContract code)
@@ -239,7 +250,7 @@ writeBuildArtifact srcName filepath output = liftAff $
       let dn = Path.dirname filepath
       dnExists <- FS.exists dn
       if not dnExists
-        then liftEff (mkdirp dn)
+        then liftEff (traceA dn *> (mkdirp dn))
         else do
           isDir <- Stats.isDirectory <$> FS.stat dn
           if not isDir
@@ -258,20 +269,6 @@ writeBuildArtifact srcName filepath output = liftAff $
 newtype SolcOutput =
   SolcOutput { errors :: Maybe (Array SolcError)
              , contracts :: M.StrMap OutputContract -- mapping of Filepath
-             }
-
-main :: forall e. Eff (console :: CONSOLE, fs :: FS.FS, exception :: EXCEPTION, process :: P.PROCESS | e) Unit
-main = void <<< launchAff $ do
-  root <- liftEff P.cwd
-  projectJson <- FS.readTextFile UTF8 "chanterelle.json"
-  let p@(ChanterelleProject project) = unsafePartial fromRight (AP.jsonParser projectJson >>= A.decodeJson)
-  _ <- compile root p
-  generatePS { jsonDir: compileOutputPath root p
-             , pursDir: project.psGen.outputPath
-             , truffle: true
-             , exprPrefix: project.psGen.exprPrefix
-             , modulePrefix: project.psGen.modulePrefix
-             , indentationLevel: 0
              }
 
 {-
