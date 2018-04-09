@@ -14,10 +14,11 @@ import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (class MonadAsk)
 import Data.Argonaut as A
-import Data.Argonaut ((:=), (~>), (.?))
+import Data.Argonaut ((:=), (~>), (.?), (.??))
 import Data.Either (Either)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
+import Data.Maybe (fromMaybe)
 import Network.Ethereum.Web3 (ETH, Address, BigNumber)
 import Network.Ethereum.Web3.Types.Provider (Provider)
 import Node.FS.Aff (FS)
@@ -37,26 +38,42 @@ newtype ChanterelleProject =
                      , sources             :: Array String
                      , dependencies        :: Array Dependency
                      , solcOutputSelection :: Array String
+                     , psGen               :: { exprPrefix   :: String
+                                              , modulePrefix :: String
+                                              , outputPath   :: String
+                                              }
                      }
 derive instance eqChanterelleProject  :: Eq ChanterelleProject
 instance encodeJsonChanterelleProject :: A.EncodeJson ChanterelleProject where
-  encodeJson (ChanterelleProject project) =  "name"                := A.encodeJson project.name
-                                          ~> "version"             := A.encodeJson project.version
-                                          ~> "sourceDir"           := A.encodeJson project.sourceDir
-                                          ~> "sources"             := A.encodeJson project.sources
-                                          ~> "dependencies"        := A.encodeJson project.dependencies
-                                          ~> "solcOutputSelection" := A.encodeJson project.solcOutputSelection
-                                          ~> A.jsonEmptyObject
+  encodeJson (ChanterelleProject project) =
+         "name"                  := A.encodeJson project.name
+      ~> "version"               := A.encodeJson project.version
+      ~> "source-dir"            := A.encodeJson project.sourceDir
+      ~> "sources"               := A.encodeJson project.sources
+      ~> "dependencies"          := A.encodeJson project.dependencies
+      ~> "solc-output-selection" := A.encodeJson project.solcOutputSelection
+      ~> "purescript-generator"  := psGenEncode
+      ~> A.jsonEmptyObject
+
+      where psGenEncode =  "output-path"       := A.encodeJson project.psGen.outputPath
+                        ~> "expression-prefix" := A.encodeJson project.psGen.exprPrefix
+                        ~> "module-prefix"     := A.encodeJson project.psGen.modulePrefix
+                        ~> A.jsonEmptyObject
 instance decodeJsonChanterelleProject :: A.DecodeJson ChanterelleProject where
   decodeJson j = do
     obj                 <- A.decodeJson j
     name                <- obj .? "name"
     version             <- obj .? "version"
-    sourceDir           <- obj .? "sourceDir"
+    sourceDir           <- obj .? "source-dir"
     sources             <- obj .? "sources"
     dependencies        <- obj .? "dependencies"
-    solcOutputSelection <- obj .? "solcOutputSelection"
-    pure $ ChanterelleProject { name, version, sourceDir, sources, dependencies, solcOutputSelection }
+    solcOutputSelection <- obj .? "solc-output-selection"
+    psGenObj            <- obj .? "purescript-generator"
+    psGenOutputPath     <- psGenObj .? "output-path"
+    psGenExprPrefix     <- fromMaybe "" <$> psGenObj .?? "expression-prefix"
+    psGenModulePrefix   <- fromMaybe "" <$> psGenObj .?? "module-prefix"
+    let psGen = { exprPrefix: psGenExprPrefix, modulePrefix: psGenModulePrefix, outputPath: psGenOutputPath } 
+    pure $ ChanterelleProject { name, version, sourceDir, sources, dependencies, solcOutputSelection, psGen }
 
 --------------------------------------------------------------------------------
 -- | DeployM

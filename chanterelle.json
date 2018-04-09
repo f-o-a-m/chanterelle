@@ -1,7 +1,7 @@
 {
     "name": "test-app",
     "version": "0.0.1",
-    "sourceDir": "contracts",
+    "source-dir": "contracts",
     "sources": [ "FoamCSR.sol"
                , "ParkingAuthority.sol"
                , "SimpleStorage.sol"
@@ -9,5 +9,9 @@
                , "ParkingAnchor.sol"
                ],
     "dependencies": ["zeppelin-solidity"],
-    "solcOutputSelection": []
+    "solc-output-selection": [],
+    "purescript-generator": {
+        "output-path": "src",
+        "module-prefix": "Contracts"
+    }
 }

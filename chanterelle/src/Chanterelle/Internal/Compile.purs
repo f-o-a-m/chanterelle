@@ -28,7 +28,7 @@ import Data.StrMap as M
 import Data.Tuple (snd)
 import Network.Ethereum.Web3 (HexString, unHex, sha3)
 import Chanterelle.Internal.Types (ChanterelleProject(..), Dependency(..))
-import Data.GeneratorMain (generatorMain) -- purescript-web3-generator
+import Data.Generator (generatePS) -- purescript-web3-generator
 
 import Debug.Trace (traceA)
 import Partial.Unsafe (unsafePartial)
@@ -39,6 +39,9 @@ foreign import data SolcInputCallbackResult :: Type
 foreign import solcInputCallbackSuccess :: String -> SolcInputCallbackResult
 foreign import solcInputCallbackFailure :: String -> SolcInputCallbackResult
 foreign import _compile :: forall eff cbEff. Fn2 String (String -> Eff cbEff SolcInputCallbackResult) (Eff eff String)
+
+compileOutputPath :: FilePath -> ChanterelleProject -> FilePath
+compileOutputPath root (ChanterelleProject project) = Path.concat [root, "build", project.sourceDir]
 
 -- | compile and print the output
 compile
@@ -56,7 +59,7 @@ compile root p@(ChanterelleProject project) = do
       case AP.jsonParser output of
         Left err -> liftAff <<< throwError <<< error $ "Malformed solc output: " <> err
         Right output' -> do
-          let outputPath = Path.concat [root, "build", project.sourceDir, srcName]
+          let outputPath = Path.concat [compileOutputPath root p, srcName]
           writeBuildArtifact srcName outputPath output'
           pure $ Tuple srcName output'
   pure $ M.fromFoldable solcOutputs
@@ -261,10 +264,15 @@ main :: forall e. Eff (console :: CONSOLE, fs :: FS.FS, exception :: EXCEPTION, 
 main = void <<< launchAff $ do
   root <- liftEff P.cwd
   projectJson <- FS.readTextFile UTF8 "chanterelle.json"
-  let project = unsafePartial fromRight (AP.jsonParser projectJson >>= A.decodeJson)
-  _ <- compile root project
-  liftEff $ generatorMain
-
+  let p@(ChanterelleProject project) = unsafePartial fromRight (AP.jsonParser projectJson >>= A.decodeJson)
+  _ <- compile root p
+  generatePS { jsonDir: compileOutputPath root p
+             , pursDir: project.psGen.outputPath
+             , truffle: true
+             , exprPrefix: project.psGen.exprPrefix
+             , modulePrefix: project.psGen.modulePrefix
+             , indentationLevel: 0
+             }
 
 {-
 

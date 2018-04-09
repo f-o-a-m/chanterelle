@@ -12,7 +12,7 @@ build-chanterelle:
 	pulp build --src-path chanterelle
 
 compile-contracts: build-chanterelle
-	pulp build --src-path chanterelle -m Chanterelle.Internal.Compile --to compile.js && node compile.js --abis build/contracts --dest src --truffle true; rm compile.js
+	pulp build --src-path chanterelle -m Chanterelle.Internal.Compile --to compile.js && node compile.js; rm compile.js
 
 deploy: compile-contracts build-chanterelle
 	pulp build -I chanterelle --src-path src -m Main --to deploy.js && node deploy.js; rm deploy.js
