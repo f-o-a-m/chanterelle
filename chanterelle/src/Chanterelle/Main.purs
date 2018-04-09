@@ -22,8 +22,6 @@ import Partial.Unsafe (unsafePartial)
 import Chanterelle.Internal.Compile as Chanterelle
 import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..))
 
-import Debug.Trace (traceA)
-
 loadProject :: forall m eff.
                MonadAff (fs :: FS | eff) m 
             => FilePath
