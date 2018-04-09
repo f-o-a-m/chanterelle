@@ -16,8 +16,8 @@ import Network.Ethereum.Web3 (ETH)
 import Node.FS.Aff (FS)
 import Node.Process as NP
 
-import Deploy.Utils (makeDeployConfig)
-import Deploy.Types (logDeployError)
+import Chanterelle.Internal.Utils (makeDeployConfig)
+import Chanterelle.Internal.Types (logDeployError)
 
 import SimpleStorageSpec (simpleStorageSpec)
 import ParkingAuthoritySpec (parkingAuthoritySpec)

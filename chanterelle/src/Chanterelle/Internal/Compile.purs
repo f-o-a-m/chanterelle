@@ -1,4 +1,4 @@
-module Compile.Internal where
+module Chanterelle.Internal.Compile where
 
 import Prelude
 import Control.Error.Util (hush)
@@ -27,9 +27,11 @@ import Node.Process as P
 import Data.StrMap as M
 import Data.Tuple (snd)
 import Network.Ethereum.Web3 (HexString, unHex, sha3)
-import Compile.Types (ChanterelleProject(..), Dependency(..))
+import Chanterelle.Internal.Types (ChanterelleProject(..), Dependency(..))
+import Data.GeneratorMain (generatorMain) -- purescript-web3-generator
 
 import Debug.Trace (traceA)
+import Partial.Unsafe (unsafePartial)
 
 --------------------------------------------------------------------------------
 
@@ -254,6 +256,15 @@ newtype SolcOutput =
   SolcOutput { errors :: Maybe (Array SolcError)
              , contracts :: M.StrMap OutputContract -- mapping of Filepath
              }
+
+main :: forall e. Eff (console :: CONSOLE, fs :: FS.FS, exception :: EXCEPTION, process :: P.PROCESS | e) Unit
+main = void <<< launchAff $ do
+  root <- liftEff P.cwd
+  projectJson <- FS.readTextFile UTF8 "chanterelle.json"
+  let project = unsafePartial fromRight (AP.jsonParser projectJson >>= A.decodeJson)
+  _ <- compile root project
+  liftEff $ generatorMain
+
 
 {-
 

@@ -1,4 +1,4 @@
-module Deploy
+module Chanterelle.Internal.Deploy
   ( deployContractNoArgs
   , deployContractWithArgs
   , readDeployAddress
@@ -30,8 +30,8 @@ import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff (FS, readTextFile, writeTextFile)
 import Node.Path (FilePath)
 import Partial.Unsafe (unsafePartial)
-import Deploy.Utils (withTimeout, pollTransactionReceipt)
-import Deploy.Types (DeployM, DeployError(..), DeployConfig(..), ContractConfig)
+import Chanterelle.Internal.Utils (withTimeout, pollTransactionReceipt)
+import Chanterelle.Internal.Types (DeployM, DeployError(..), DeployConfig(..), ContractConfig)
 
 
 -- | Fetch the bytecode from a solidity build artifact

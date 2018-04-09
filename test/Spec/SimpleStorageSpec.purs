@@ -12,14 +12,14 @@ import Control.Monad.Except (runExceptT)
 import Data.Either (Either(..))
 import Data.Lens.Setter ((?~))
 import Data.Maybe (Maybe(..), fromJust)
-import Deploy (readDeployAddress)
+import Chanterelle.Internal.Deploy (readDeployAddress)
 import Network.Ethereum.Web3 (ETH, EventAction(..), _from, _gas, _to, defaultTransactionOptions, embed, event, eventFilter, runWeb3, uIntNFromBigNumber)
 import Node.FS.Aff (FS)
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Type.Prelude (Proxy(..))
-import Deploy.Types (DeployConfig(..))
+import Chanterelle.Internal.Types (DeployConfig(..))
 
 simpleStorageSpec
   :: forall e.

@@ -1,4 +1,4 @@
-module Deploy.Utils
+module Chanterelle.Internal.Utils
   ( makeProvider
   , makeDeployConfig
   , getPrimaryAccount
@@ -25,7 +25,7 @@ import Network.Ethereum.Web3.Api (eth_getAccounts, eth_getTransactionReceipt, ne
 import Network.Ethereum.Web3.Types (TransactionReceipt, Web3Error(NullError))
 import Network.Ethereum.Web3.Types.Provider (Provider, httpProvider)
 import Node.Process (PROCESS, lookupEnv)
-import Deploy.Types (DeployError(..), DeployConfig(..), ContractConfig)
+import Chanterelle.Internal.Types (DeployError(..), DeployConfig(..), ContractConfig)
 
 -- | Make an http provider with address given by NODE_URL, falling back
 -- | to localhost.

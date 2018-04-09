@@ -17,15 +17,14 @@ import Partial.Unsafe (unsafePartial)
 import Control.Monad.Reader.Class (ask)
 import Contracts.SimpleStorage as SimpleStorage
 import Contracts.ParkingAuthority as ParkingAuthority
-import Deploy (deployContractWithArgs, deployContractNoArgs)
-import Deploy.Utils (makeDeployConfig, validateDeployArgs)
-import Deploy.Types (DeployConfig(..), runDeployM, logDeployError)
+import Chanterelle.Internal.Deploy (deployContractWithArgs, deployContractNoArgs)
+import Chanterelle.Internal.Utils (makeDeployConfig, validateDeployArgs)
+import Chanterelle.Internal.Types (DeployConfig(..), runDeployM, logDeployError)
 
 import ContractConfig (simpleStorageConfig, foamCSRConfig, makeParkingAuthorityConfig)
 
 main :: forall e. Eff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS, exception :: EXCEPTION | e) Unit
 main = void $ launchAff $ mainDeploy
-
 
 mainDeploy :: forall e. Aff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS | e) Unit
 mainDeploy = void $ do
