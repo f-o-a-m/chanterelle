@@ -116,11 +116,11 @@ reportIfErrored msg eRes =
     Right res -> pure res
 
 validateDeployArgs
-  :: forall m args r.
+  :: forall m args.
      MonadThrow DeployError m
-  => ContractConfig args r
+  => ContractConfig args
   -> m (Record args)
 validateDeployArgs cfg =
-  let onErr msg = throwError $ ConfigurationError ("Couldn't validate args for contract deployment " <> cfg.name <> ": " <> msg)
+  let onErr msg = throwError $ ConfigurationError ("Couldn't validate args for contract deployment " <> cfg.name <> ": " <> show msg)
       onSucc = pure
   in unV onErr onSucc cfg.unvalidatedArgs

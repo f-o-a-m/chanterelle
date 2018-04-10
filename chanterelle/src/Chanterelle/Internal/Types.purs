@@ -157,21 +157,24 @@ newtype DeployConfig =
                }
 
 type Constructor args =
-  forall eff. TransactionOptions NoPay -> Record args -> HexString -> Web3 eff HexString
+  forall eff. TransactionOptions NoPay -> HexString -> Record args -> Web3 eff HexString
 
-constructorNoArgs :: Constructor ()
-constructorNoArgs txOpts _ bytecode =
+type NoArgs = ()
+
+noArgs :: V (Array String) {}
+noArgs = pure {}
+
+constructorNoArgs :: Constructor NoArgs
+constructorNoArgs txOpts bytecode _ =
   eth_sendTransaction $ txOpts # _data ?~ bytecode
                                # _value ?~ fromWei zero
 
-type ConfigR args r =
+type ConfigR args =
   ( filepath :: FilePath
   , name :: String
   , constructor :: Constructor args
-  , unvalidatedArgs :: V String (Record args)
-  | r
+  , unvalidatedArgs :: V (Array String) (Record args)
   )
 
 -- | configuration for deployment of a single contract
-type ContractConfig args r = Record (ConfigR args r)
-
+type ContractConfig args = Record (ConfigR args)

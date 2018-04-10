@@ -110,11 +110,11 @@ getPublishedContractAddress txHash provider name = do
            pure contractAddress
 
 getContractBytecode
-  :: forall eff m args r.
+  :: forall eff m args.
      MonadThrow DeployError m
   => MonadAsk DeployConfig m
   => MonadAff (fs :: FS | eff) m
-  => ContractConfig args r
+  => ContractConfig args
   -> m HexString
 getContractBytecode cconfig@{filepath, name} = do
   cfg@(DeployConfig {provider}) <- ask
@@ -129,18 +129,18 @@ getContractBytecode cconfig@{filepath, name} = do
 -- | args defined in the contract config to deploy, then writes the address
 -- | to the artifact.
 deployContract
-  :: forall eff args m r.
+  :: forall eff args m.
      MonadThrow DeployError m
   => MonadAsk DeployConfig m
   => MonadAff (console :: CONSOLE, eth :: ETH, fs :: FS | eff) m
   => TransactionOptions NoPay
-  -> ContractConfig args r
+  -> ContractConfig args
   -> m Address
 deployContract txOptions ccfg@{filepath, name, constructor} = do
   (DeployConfig {provider, primaryAccount}) <- ask
   validatedArgs <- validateDeployArgs ccfg
   bytecode <- getContractBytecode ccfg
-  let deploymentAction = constructor txOptions validatedArgs bytecode
+  let deploymentAction = constructor txOptions bytecode validatedArgs
   deployContractAndWriteToArtifact filepath name deploymentAction
 
 -- | The common deployment function for contracts with or without args.

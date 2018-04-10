@@ -1,11 +1,17 @@
 module Main where
 
 import Prelude
+
+import Chanterelle.Internal.Deploy (deployContract)
+import Chanterelle.Internal.Types (DeployConfig(..), runDeployM, logDeployError)
+import Chanterelle.Internal.Utils (makeDeployConfig)
+import ContractConfig (foamCSRConfig, makeParkingAuthorityConfig, simpleStorageConfig)
 import Control.Monad.Aff (Aff, launchAff)
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Console (CONSOLE)
+import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Except (runExceptT)
+import Control.Monad.Reader.Class (ask)
 import Data.Either (Either(..))
 import Data.Lens ((?~))
 import Data.Maybe (fromJust)
@@ -14,14 +20,6 @@ import Network.Ethereum.Web3.Types.BigNumber (parseBigNumber, decimal)
 import Node.FS.Aff (FS)
 import Node.Process (PROCESS)
 import Partial.Unsafe (unsafePartial)
-import Control.Monad.Reader.Class (ask)
-import Contracts.SimpleStorage as SimpleStorage
-import Contracts.ParkingAuthority as ParkingAuthority
-import Chanterelle.Internal.Deploy (deployContractWithArgs, deployContractNoArgs)
-import Chanterelle.Internal.Utils (makeDeployConfig, validateDeployArgs)
-import Chanterelle.Internal.Types (DeployConfig(..), runDeployM, logDeployError)
-
-import ContractConfig (simpleStorageConfig, foamCSRConfig, makeParkingAuthorityConfig)
 
 main :: forall e. Eff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS, exception :: EXCEPTION | e) Unit
 main = void $ launchAff $ mainDeploy
@@ -37,11 +35,10 @@ mainDeploy = void $ do
         let bigGasLimit = unsafePartial fromJust $ parseBigNumber decimal "9000000"
             txOpts = defaultTransactionOptions # _from ?~ primaryAccount
                                                # _gas ?~ bigGasLimit
-        ssConfig <- validateDeployArgs simpleStorageConfig
-        _ <- deployContractWithArgs ssConfig $ SimpleStorage.constructor txOpts
-        foamCSR <- deployContractNoArgs foamCSRConfig txOpts
+        _ <- deployContract txOpts simpleStorageConfig
+        foamCSR <- deployContract txOpts foamCSRConfig
         let parkingAuthorityConfig = makeParkingAuthorityConfig {foamCSR}
-        _ <- deployContractWithArgs parkingAuthorityConfig $ ParkingAuthority.constructor txOpts
+        _ <- deployContract txOpts parkingAuthorityConfig
         pure unit
       case eRes of
         Left err -> logDeployError err
