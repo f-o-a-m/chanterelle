@@ -23,7 +23,7 @@ import Chanterelle.Internal.Compile as Chanterelle
 import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..))
 
 loadProject :: forall m eff.
-               MonadAff (fs :: FS | eff) m 
+               MonadAff (fs :: FS | eff) m
             => FilePath
             -> m ChanterelleProject
 loadProject root = liftAff $ do

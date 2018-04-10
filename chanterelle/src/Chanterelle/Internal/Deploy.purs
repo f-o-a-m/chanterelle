@@ -5,13 +5,13 @@ module Chanterelle.Internal.Deploy
 
 import Prelude
 
+import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types (DeployConfig(..), DeployError(..), ContractConfig)
 import Chanterelle.Internal.Utils (withTimeout, pollTransactionReceipt, validateDeployArgs)
 import Control.Error.Util ((??))
 import Control.Monad.Aff (Milliseconds(..), attempt)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
-import Control.Monad.Aff.Console as C
 import Control.Monad.Aff.Unsafe (unsafeCoerceAff)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Except (ExceptT(..), runExceptT)
@@ -93,7 +93,7 @@ getPublishedContractAddress
   -- ^ contract name
   -> m Address
 getPublishedContractAddress txHash provider name = do
-  liftAff <<< C.log $ "Polling for TransactionReceipt: " <> show txHash
+  log Info $ "Polling for TransactionReceipt: " <> show txHash
   etxReceipt <- liftAff <<< attempt $ withTimeout (Milliseconds $ 90.0 * 1000.0) (pollTransactionReceipt txHash provider)
   case etxReceipt of
     Left err ->
@@ -106,7 +106,7 @@ getPublishedContractAddress txHash provider name = do
             in throwError $ OnDeploymentError missingMessage
          else do
            let contractAddress = unsafePartial fromJust <<< unNullOrUndefined $ txReceipt.contractAddress
-           liftAff <<< C.log $ "Contract " <> name <> " deployed to address " <> show contractAddress
+           log Info $ "Contract " <> name <> " deployed to address " <> show contractAddress
            pure contractAddress
 
 getContractBytecode
@@ -158,7 +158,7 @@ deployContractAndWriteToArtifact
   -> m Address
 deployContractAndWriteToArtifact filepath name deployAction = do
   (DeployConfig {provider, networkId, primaryAccount}) <- ask
-  liftAff $ C.log $ "Deploying contract " <> name
+  log Info $ "Deploying contract " <> name
   etxHash <- liftAff <<< unsafeCoerceAff $ runWeb3 provider deployAction
   case etxHash of
     Left err ->

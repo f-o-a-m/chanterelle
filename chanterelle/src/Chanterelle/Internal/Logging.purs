@@ -12,12 +12,14 @@ import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Data.JSDate (now, toISOString)
 
 data LogLevel = Debug | Info | Warn | Error
+
 derive instance eqLogLevel   :: Eq LogLevel
 derive instance ordLogLevel  :: Ord LogLevel
+
 instance showLogLevel :: Show LogLevel where
     show Debug = "DEBUG"
-    show Info  = " INFO"
-    show Warn  = " WARN"
+    show Info  = "INFO"
+    show Warn  = "WARN"
     show Error = "ERROR"
 
 foreign import getLogLevel :: forall eff m. MonadEff eff m => LogLevel -> m LogLevel
