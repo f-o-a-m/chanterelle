@@ -29,7 +29,6 @@ takeEvent prx addrs web3Action = do
   var <- liftAff makeEmptyVar
   _ <- forkWeb3' do
     event (eventFilter prx addrs) $ \e -> do
-      liftAff <<< log $ "Received Event: " <> show e
       _ <- liftAff $ putVar e var
       pure TerminateEvent
   efRes <- web3Action

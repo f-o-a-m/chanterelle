@@ -12,7 +12,7 @@ import Contracts.ParkingAnchor as ParkingAnchor
 import Contracts.ParkingAuthority as PA
 import Contracts.User as User
 import Control.Monad.Aff (Aff)
-import Control.Monad.Aff.AVar (AVAR, makeEmptyVar, putVar, takeVar)
+import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Aff.Console (CONSOLE, log)
 import Control.Monad.Except (runExceptT)
@@ -23,9 +23,8 @@ import Data.Lens.Setter ((?~))
 import Data.Maybe (Maybe(..))
 import Data.String (take)
 import Data.Tuple (Tuple(..))
-import Network.Ethereum.Web3 (class EventFilter, EventAction(..), event, eventFilter, forkWeb3', runWeb3)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
-import Network.Ethereum.Web3.Solidity (class DecodeEvent, BytesN, D2, D3, D4, D8, type (:&), fromByteString)
+import Network.Ethereum.Web3.Solidity (BytesN, D2, D3, D4, D8, type (:&), fromByteString)
 import Network.Ethereum.Web3.Types (Address, BigNumber, ChainCursor(..), TransactionReceipt(..), ETH, Web3, _from, _gas, _to, decimal, _value, defaultTransactionOptions, parseBigNumber, sha3, unHex, embed, fromWei)
 import Node.FS.Aff (FS)
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
@@ -68,8 +67,9 @@ parkingAuthoritySpec deployCfg@(DeployConfig deployConfig) = do
         txOpts = defaultTransactionOptions # _from ?~ owner
                                            # _gas ?~ bigGasLimit
                                            # _to ?~ user
-      Tuple _ (User.ZoneGranted {zone: eventZone}) <- takeEvent (Proxy :: Proxy User.ZoneGranted) user
+      Tuple _ e@(User.ZoneGranted {zone: eventZone}) <- takeEvent (Proxy :: Proxy User.ZoneGranted) user
         $ User.requestZone txOpts { _zone: zone }
+      liftAff <<< log $ "Received Event: " <> show e
       liftAff $ zone `shouldEqual` eventZone
 
     it "can create an anchor, and that anchor is owned by the right account" $ assertWeb3 deployConfig.provider do
@@ -99,7 +99,8 @@ parkingAuthoritySpec deployCfg@(DeployConfig deployConfig) = do
         txOpts = defaultTransactionOptions # _from ?~ userResult.owner
                                            # _gas ?~ bigGasLimit
                                            # _to ?~ userResult.user
-      _ <- takeEvent (Proxy :: Proxy User.ZoneGranted) userResult.user $ User.requestZone txOpts { _zone: zone }
+      (Tuple _ e) <- takeEvent (Proxy :: Proxy User.ZoneGranted) userResult.user $ User.requestZone txOpts { _zone: zone }
+      liftAff <<< log $ "Received Event: " <> show e
       let parkingReqOpts = txOpts # _value ?~ (fromWei $ embed 1)
       Tuple _ (User.CheckIn {user, anchor}) <- takeEvent (Proxy :: Proxy User.CheckIn) userResult.user $
         User.payForParking parkingReqOpts {_anchor: parkingAnchorResult.anchor}
