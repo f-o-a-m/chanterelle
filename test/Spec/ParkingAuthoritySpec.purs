@@ -22,6 +22,8 @@ import Data.String (take)
 import Data.Symbol (SProxy(..))
 import Data.Tuple (Tuple(..))
 import Deploy (readDeployAddress)
+import Deploy.Types (DeployConfig(..), ContractConfig)
+import Deploy.Utils (pollTransactionReceipt)
 import Network.Ethereum.Web3 (class EventFilter, EventAction(..), event, eventFilter, forkWeb3', runWeb3)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
 import Network.Ethereum.Web3.Solidity (class DecodeEvent, BytesN, D2, D3, D4, D8, type (:&), fromByteString)
@@ -31,8 +33,6 @@ import Partial.Unsafe (unsafeCrashWith)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Type.Prelude (Proxy(..))
-import Deploy.Types (DeployConfig(..), ContractConfig)
-import Deploy.Utils (pollTransactionReceipt)
 
 
 parkingAuthoritySpec

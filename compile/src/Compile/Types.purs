@@ -1,8 +1,9 @@
 module Compile.Types where
 
 import Prelude
-import Data.Argonaut as A
+
 import Data.Argonaut ((:=), (~>), (.?))
+import Data.Argonaut as A
 import Node.Path (FilePath)
 
 newtype Dependency = Dependency String

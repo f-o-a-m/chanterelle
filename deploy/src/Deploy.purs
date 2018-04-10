@@ -5,14 +5,15 @@ module Deploy
   ) where
 
 import Prelude
+
 import Control.Error.Util ((??))
 import Control.Monad.Aff (Milliseconds(..), attempt)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as C
 import Control.Monad.Aff.Unsafe (unsafeCoerceAff)
-import Control.Monad.Except (ExceptT(..), runExceptT)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
+import Control.Monad.Except (ExceptT(..), runExceptT)
 import Control.Monad.Reader.Class (class MonadAsk, ask)
 import Data.Argonaut (stringify, _Object, _String, jsonEmptyObject, (~>), (:=))
 import Data.Argonaut.Parser (jsonParser)
@@ -22,6 +23,8 @@ import Data.Lens ((^?), (?~), (%~))
 import Data.Lens.Index (ix)
 import Data.Maybe (isNothing, fromJust)
 import Data.StrMap as M
+import Deploy.Types (DeployM, DeployError(..), DeployConfig(..), ContractConfig)
+import Deploy.Utils (withTimeout, pollTransactionReceipt)
 import Network.Ethereum.Web3 (runWeb3)
 import Network.Ethereum.Web3.Api (eth_sendTransaction)
 import Network.Ethereum.Web3.Types (NoPay, ETH, Web3, Address, BigNumber, HexString, TransactionOptions, TransactionReceipt(..), mkHexString, _data, fromWei, _value, mkAddress)
@@ -30,8 +33,6 @@ import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff (FS, readTextFile, writeTextFile)
 import Node.Path (FilePath)
 import Partial.Unsafe (unsafePartial)
-import Deploy.Utils (withTimeout, pollTransactionReceipt)
-import Deploy.Types (DeployM, DeployError(..), DeployConfig(..), ContractConfig)
 
 
 -- | Fetch the bytecode from a solidity build artifact

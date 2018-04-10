@@ -9,23 +9,24 @@ module Deploy.Utils
   ) where
 
 import Prelude
-import Control.Monad.Eff.Class (class MonadEff, liftEff)
+
 import Control.Monad.Aff (Aff, Milliseconds(..), delay)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as C
+import Control.Monad.Eff.Class (class MonadEff, liftEff)
 import Control.Monad.Eff.Exception (error, try)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Parallel (parOneOf)
 import Data.Array ((!!))
-import Data.Maybe (Maybe(..), maybe)
 import Data.Either (Either(..))
+import Data.Maybe (Maybe(..), maybe)
+import Deploy.Types (DeployError(..), DeployConfig(..), ContractConfig)
 import Network.Ethereum.Web3 (ETH, Web3, HexString, Address, runWeb3)
 import Network.Ethereum.Web3.Api (eth_getAccounts, eth_getTransactionReceipt, net_version)
 import Network.Ethereum.Web3.Types (TransactionReceipt, Web3Error(NullError))
 import Network.Ethereum.Web3.Types.Provider (Provider, httpProvider)
 import Node.Process (PROCESS, lookupEnv)
-import Deploy.Types (DeployError(..), DeployConfig(..), ContractConfig)
 
 -- | Make an http provider with address given by NODE_URL, falling back
 -- | to localhost.
