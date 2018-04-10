@@ -23,7 +23,7 @@ import Data.StrMap as M
 import Network.Ethereum.Web3 (HexString, unHex, sha3)
 import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..))
 import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Utils (assertDirectory, unparsePath)
+import Chanterelle.Internal.Utils (assertDirectory)
 
 foreign import data SolcInputCallbackResult :: Type
 foreign import solcInputCallbackSuccess :: String -> SolcInputCallbackResult
