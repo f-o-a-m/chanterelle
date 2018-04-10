@@ -32,21 +32,8 @@ import Node.FS.Aff (FS, readTextFile, writeTextFile)
 import Node.Path (FilePath)
 import Partial.Unsafe (unsafePartial)
 
--- | Fetch the bytecode from a solidity build artifact
-getBytecode
-  :: forall eff m.
-     MonadAff (fs :: FS | eff) m
-  => FilePath
-  -- ^ filename of contract artifact
-  -> m (Either String HexString)
-getBytecode filename = runExceptT $ do
-  artifact <- ExceptT $ jsonParser <$> liftAff (readTextFile UTF8 filename)
-  bytecode <- (artifact ^? _Object <<< ix "bytecode" <<< _String) ?? "artifact missing 'bytecode' field."
-  mkHexString bytecode ?? "bytecode not a valid hex) string"
-
--- | Write the "network object" for a given deployment on a network with
--- | the given id.
--- | TODO: this currently overwrites the entire network object
+-- | Write update "networks" object in the solc artifact with a (NetworkId, Address) pair corresponding
+-- | to a deployment.
 writeDeployAddress
   :: forall eff m.
      MonadAff (fs :: FS | eff) m
@@ -63,14 +50,15 @@ writeDeployAddress filename nid deployAddress = runExceptT $ do
       artifactWithAddress = artifact # _Object <<< ix "networks" <<< _Object %~ M.insert (show nid) networkIdObj
   liftAff $ writeTextFile UTF8 filename $ stringify artifactWithAddress
 
+-- | Read the deployment address for a given network id from the solc artifact.
 readDeployAddress
   :: forall eff m.
      MonadThrow DeployError m
   => MonadAff (fs :: FS | eff) m
   => FilePath
-  -- contract filepath
+  -- ^ contract filepath
   -> BigNumber
-  -- network id
+  -- ^ network id
   -> m Address
 readDeployAddress filepath nid = do
   eAddr <- runExceptT $ do
@@ -81,6 +69,8 @@ readDeployAddress filepath nid = do
     maddress ?? ("Couldn't find valid Deploy Address in artifact: " <> filepath)
   either (throwError <<< ConfigurationError) pure eAddr
 
+-- | Poll a TransactionHash for the receipt of a deployment transaction, and throw an error in the event that the
+-- | transaction failed.
 getPublishedContractAddress
   :: forall eff m.
      MonadThrow DeployError m
@@ -109,6 +99,7 @@ getPublishedContractAddress txHash provider name = do
            log Info $ "Contract " <> name <> " deployed to address " <> show contractAddress
            pure contractAddress
 
+-- | Get the contract bytecode from the solc output corresponding to the contract config.
 getContractBytecode
   :: forall eff m args.
      MonadThrow DeployError m
@@ -117,17 +108,20 @@ getContractBytecode
   => ContractConfig args
   -> m HexString
 getContractBytecode cconfig@{filepath, name} = do
-  cfg@(DeployConfig {provider}) <- ask
-  ebc <- getBytecode filepath
-  case ebc of
-    Left err ->
-      let errMsg = "Couln't find contract bytecode in artifact " <> filepath <> " -- " <> show err
-      in throwError $ ConfigurationError errMsg
-    Right bc -> pure bc
+    cfg@(DeployConfig {provider}) <- ask
+    ebc <- getBytecode filepath
+    case ebc of
+      Left err ->
+        let errMsg = "Couln't find contract bytecode in artifact " <> filepath <> " -- " <> show err
+        in throwError $ ConfigurationError errMsg
+      Right bc -> pure bc
+  where
+    getBytecode filename = runExceptT $ do
+      artifact <- ExceptT $ jsonParser <$> liftAff (readTextFile UTF8 filename)
+      bytecode <- (artifact ^? _Object <<< ix "bytecode" <<< _String) ?? "artifact missing 'bytecode' field."
+      mkHexString bytecode ?? "bytecode not a valid hex) string"
 
--- | `deployContractWithArgs` grabs the bytecode from the artifact and uses the
--- | args defined in the contract config to deploy, then writes the address
--- | to the artifact.
+-- | Deploy a contract using its ContractConfig object.
 deployContract
   :: forall eff args m.
      MonadThrow DeployError m
@@ -143,7 +137,7 @@ deployContract txOptions ccfg@{filepath, name, constructor} = do
   let deploymentAction = constructor txOptions bytecode validatedArgs
   deployContractAndWriteToArtifact filepath name deploymentAction
 
--- | The common deployment function for contracts with or without args.
+-- | Helper function which deploys a contract and writes the new contract address to the solc artifact.
 deployContractAndWriteToArtifact
   :: forall eff m.
      MonadThrow DeployError m

@@ -16,6 +16,8 @@ import Network.Ethereum.Web3.Solidity (class DecodeEvent)
 import Partial.Unsafe (unsafeCrashWith)
 import Type.Proxy (Proxy)
 
+-- | Run a `Web3` action which will dispatch a single event, wait for the event,
+-- | then return the action's result and the event.
 takeEvent
   :: forall eff a ev i ni.
      DecodeEvent i ni ev
@@ -35,6 +37,7 @@ takeEvent prx addrs web3Action = do
   event <- liftAff $ takeVar var
   pure $ Tuple efRes event
 
+-- | Assert the `Web3` action's result, crash the program if it doesn't succeed.
 assertWeb3
   :: forall eff a.
      Provider
