@@ -5,11 +5,11 @@ module ContractConfig
   ) where
 
 import Prelude
-
 import Data.Maybe (Maybe)
-import Deploy.Types (ContractConfig)
-import Network.Ethereum.Web3.Solidity (type (:&), D2, D5, D6, UIntN, uIntNFromBigNumber)
 import Network.Ethereum.Web3.Types (Address, embed)
+import Network.Ethereum.Web3.Solidity (type (:&), UIntN, D2, D5, D6, uIntNFromBigNumber)
+
+import Deploy.Types (ContractConfig)
 
 --------------------------------------------------------------------------------
 -- | SimpleStorage

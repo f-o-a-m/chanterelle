@@ -1,27 +1,27 @@
 module Main where
 
 import Prelude
-
-import ContractConfig (foamCSRConfig, makeParkingAuthorityConfig, simpleStorageConfig)
-import Contracts.ParkingAuthority as ParkingAuthority
-import Contracts.SimpleStorage as SimpleStorage
 import Control.Monad.Aff (Aff, launchAff)
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception (EXCEPTION)
+import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Except (runExceptT)
-import Control.Monad.Reader.Class (ask)
 import Data.Either (Either(..))
 import Data.Lens ((?~))
 import Data.Maybe (fromJust)
-import Deploy (deployContractWithArgs, deployContractNoArgs)
-import Deploy.Types (DeployConfig(..), runDeployM, logDeployError)
-import Deploy.Utils (makeDeployConfig, validateDeployArgs)
 import Network.Ethereum.Web3 (ETH, defaultTransactionOptions, _from, _gas)
 import Network.Ethereum.Web3.Types.BigNumber (parseBigNumber, decimal)
 import Node.FS.Aff (FS)
 import Node.Process (PROCESS)
 import Partial.Unsafe (unsafePartial)
+import Control.Monad.Reader.Class (ask)
+import Contracts.SimpleStorage as SimpleStorage
+import Contracts.ParkingAuthority as ParkingAuthority
+import Deploy (deployContractWithArgs, deployContractNoArgs)
+import Deploy.Utils (makeDeployConfig, validateDeployArgs)
+import Deploy.Types (DeployConfig(..), runDeployM, logDeployError)
+
+import ContractConfig (simpleStorageConfig, foamCSRConfig, makeParkingAuthorityConfig)
 
 main :: forall e. Eff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS, exception :: EXCEPTION | e) Unit
 main = void $ launchAff $ mainDeploy

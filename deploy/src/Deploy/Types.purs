@@ -9,17 +9,16 @@ module Deploy.Types
   ) where
 
 import Prelude
-
 import Ansi.Codes (Color(Red))
-import Ansi.Output (foreground, withGraphics)
+import Ansi.Output (withGraphics, foreground)
 import Control.Monad.Aff (Aff, liftEff')
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as C
 import Control.Monad.Eff.Class (class MonadEff)
 import Control.Monad.Eff.Exception (Error, throwException)
-import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Except (ExceptT, runExceptT)
+import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (class MonadAsk)
 import Data.Either (Either)

@@ -1,31 +1,35 @@
 module Compile.Internal where
 
 import Prelude
-
-import Compile.Node.FS.Sync.Mkdirp
-import Compile.Types (ChanterelleProject(..), Dependency(..))
+import Control.Error.Util (hush)
+import Control.Monad.Eff.Exception (EXCEPTION, catchException, error)
+import Control.Monad.Error.Class (throwError)
+import Control.Monad.Aff (Aff, launchAff)
+import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Exception (catchException, error)
-import Control.Monad.Error.Class (throwError)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
-import Data.Either (Either(..))
+import Data.Either (Either(..), fromRight)
 import Data.Function.Uncurried (Fn2, runFn2)
 import Data.Maybe (Maybe(..), maybe)
-import Data.StrMap as M
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
-import Debug.Trace (traceA)
-import Network.Ethereum.Web3 (HexString, unHex, sha3)
-import Node.Encoding (Encoding(UTF8))
-import Node.FS.Aff as FS
-import Node.FS.Stats as Stats
-import Node.FS.Sync as FSS
 import Node.Path (FilePath)
 import Node.Path as Path
+import Node.Encoding (Encoding(UTF8))
+import Node.FS.Sync as FSS
+import Node.FS.Aff as FS
+import Compile.Node.FS.Sync.Mkdirp
+import Node.FS.Stats as Stats
 import Node.Process as P
+import Data.StrMap as M
+import Data.Tuple (snd)
+import Network.Ethereum.Web3 (HexString, unHex, sha3)
+import Compile.Types (ChanterelleProject(..), Dependency(..))
+
+import Debug.Trace (traceA)
 
 --------------------------------------------------------------------------------
 
