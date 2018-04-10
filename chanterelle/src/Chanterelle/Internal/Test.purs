@@ -37,7 +37,7 @@ takeEvent prx addrs web3Action = do
   event <- liftAff $ takeVar var
   pure $ Tuple efRes event
 
--- | assert the `Web3` action's result, crash the program if it doesn't succeed.
+-- | Assert the `Web3` action's result, crash the program if it doesn't succeed.
 assertWeb3
   :: forall eff a.
      Provider
