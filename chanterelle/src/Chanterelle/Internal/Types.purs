@@ -1,12 +1,11 @@
 module Chanterelle.Internal.Types where
 
 import Prelude
-import Ansi.Codes (Color(Red))
-import Ansi.Output (withGraphics, foreground)
+
+import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Control.Monad.Aff (Aff, liftEff')
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
-import Control.Monad.Aff.Console as C
 import Control.Monad.Eff.Class (class MonadEff)
 import Control.Monad.Eff.Exception (Error, throwException)
 import Control.Monad.Error.Class (class MonadThrow)
@@ -28,19 +27,27 @@ import Network.Ethereum.Web3.Types.Provider (Provider)
 import Node.FS.Aff (FS)
 import Node.Path (FilePath)
 
+--------------------------------------------------------------------------------
+-- | Chanterelle Project Types
+--------------------------------------------------------------------------------
+
 newtype Dependency = Dependency String
+
 derive instance eqDependency  :: Eq Dependency
+
 instance encodeJsonDependency :: A.EncodeJson Dependency where
   encodeJson (Dependency d) = A.encodeJson d
+
 instance decodeJsonDependency :: A.DecodeJson Dependency where
   decodeJson d = Dependency <$> A.decodeJson d
 
-data ChanterelleModule = ChanterelleModule { moduleName      :: String
-                                           , solContractName :: String
-                                           , solPath         :: FilePath
-                                           , jsonPath        :: FilePath
-                                           , pursPath        :: FilePath
-                                           }
+data ChanterelleModule =
+  ChanterelleModule { moduleName      :: String
+                    , solContractName :: String
+                    , solPath         :: FilePath
+                    , jsonPath        :: FilePath
+                    , pursPath        :: FilePath
+                    }
 
 newtype ChanterelleProjectSpec =
   ChanterelleProjectSpec { name                :: String
@@ -54,7 +61,9 @@ newtype ChanterelleProjectSpec =
                                                   , outputPath   :: String
                                                   }
                          }
+
 derive instance eqChanterelleProjectSpec  :: Eq ChanterelleProjectSpec
+
 instance encodeJsonChanterelleProjectSpec :: A.EncodeJson ChanterelleProjectSpec where
   encodeJson (ChanterelleProjectSpec project) =
          "name"                  := A.encodeJson project.name
@@ -70,6 +79,7 @@ instance encodeJsonChanterelleProjectSpec :: A.EncodeJson ChanterelleProjectSpec
                         ~> "expression-prefix" := A.encodeJson project.psGen.exprPrefix
                         ~> "module-prefix"     := A.encodeJson project.psGen.modulePrefix
                         ~> A.jsonEmptyObject
+
 instance decodeJsonChanterelleProjectSpec :: A.DecodeJson ChanterelleProjectSpec where
   decodeJson j = do
     obj                 <- A.decodeJson j
@@ -83,22 +93,23 @@ instance decodeJsonChanterelleProjectSpec :: A.DecodeJson ChanterelleProjectSpec
     psGenOutputPath     <- psGenObj .? "output-path"
     psGenExprPrefix     <- fromMaybe "" <$> psGenObj .?? "expression-prefix"
     psGenModulePrefix   <- fromMaybe "" <$> psGenObj .?? "module-prefix"
-    let psGen = { exprPrefix: psGenExprPrefix, modulePrefix: psGenModulePrefix, outputPath: psGenOutputPath } 
+    let psGen = { exprPrefix: psGenExprPrefix, modulePrefix: psGenModulePrefix, outputPath: psGenOutputPath }
     pure $ ChanterelleProjectSpec { name, version, sourceDir, modules, dependencies, solcOutputSelection, psGen }
 
 data ChanterelleProject =
      ChanterelleProject { root     :: FilePath -- ^ parent directory containing chanterelle.json
                         , srcIn    :: FilePath -- ^ hydrated/absolute path of src dir (root + spec.sourceDir)
-                        , jsonOut  :: FilePath -- ^ hydrated/absolute path of jsons dir 
+                        , jsonOut  :: FilePath -- ^ hydrated/absolute path of jsons dir
                         , psOut    :: FilePath -- ^ hydrated/absolute path of psGen (root + spec.psGen.outputPath)
                         , spec     :: ChanterelleProjectSpec -- ^ the contents of the chanterelle.json
                         , modules  :: Array ChanterelleModule
                         }
 
 --------------------------------------------------------------------------------
--- | DeployM
+-- | DeployM Deployment monad
 --------------------------------------------------------------------------------
 
+-- | Monad Stack for contract deployment.
 newtype DeployM eff a =
   DeployM (ReaderT DeployConfig (ExceptT DeployError (Aff (eth :: ETH, fs :: FS, console :: CONSOLE | eff))) a)
 
@@ -139,13 +150,11 @@ logDeployError
   => DeployError
   -> m Unit
 logDeployError err = liftAff $ case err of
-    ConfigurationError errMsg -> C.error $ makeRed "Configuration Error: " <> errMsg
-    OnDeploymentError errMsg -> C.error $ makeRed "On Deployment Error: " <> errMsg
-    PostDeploymentError errMsg -> C.error $ makeRed "Post Deployment Error: " <> errMsg
-  where
-    makeRed :: String -> String
-    makeRed = withGraphics (foreground Red)
+    ConfigurationError errMsg -> log Error errMsg
+    OnDeploymentError errMsg -> log Error errMsg
+    PostDeploymentError errMsg -> log Error errMsg
 
+-- | Throw an `Error` Exception inside DeployM.
 throwDeploy
   :: forall eff a.
      Error
@@ -163,14 +172,20 @@ newtype DeployConfig =
                , provider :: Provider
                }
 
+-- | Contract Config
+
+-- | Represents a contract constructor with input type `args`.
 type Constructor args =
   forall eff. TransactionOptions NoPay -> HexString -> Record args -> Web3 eff HexString
 
+-- | Type alias for the empty args
 type NoArgs = ()
 
+-- | Value representing empty args
 noArgs :: V (Array String) {}
 noArgs = pure {}
 
+-- | A constructor that deploys a contract with no constructor args.
 constructorNoArgs :: Constructor NoArgs
 constructorNoArgs txOpts bytecode _ =
   eth_sendTransaction $ txOpts # _data ?~ bytecode
@@ -183,5 +198,5 @@ type ConfigR args =
   , unvalidatedArgs :: V (Array String) (Record args)
   )
 
--- | configuration for deployment of a single contract
+-- | Configuration for deployment of a single contract
 type ContractConfig args = Record (ConfigR args)
