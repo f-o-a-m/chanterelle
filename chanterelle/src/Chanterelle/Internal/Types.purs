@@ -1,6 +1,7 @@
 module Chanterelle.Internal.Types where
 
 import Prelude
+
 import Ansi.Codes (Color(Red))
 import Ansi.Output (withGraphics, foreground)
 import Control.Monad.Aff (Aff, liftEff')
@@ -8,21 +9,24 @@ import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as C
 import Control.Monad.Eff.Class (class MonadEff)
-import Control.Monad.Eff.Exception (EXCEPTION, Error, throwException)
-import Control.Monad.Except (ExceptT, runExceptT)
+import Control.Monad.Eff.Exception (Error, throwException)
 import Control.Monad.Error.Class (class MonadThrow)
+import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (class MonadAsk)
-import Data.Argonaut as A
 import Data.Argonaut ((:=), (~>), (.?), (.??))
+import Data.Argonaut as A
 import Data.Either (Either)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
+import Data.Lens ((?~))
 import Data.Maybe (fromMaybe)
-import Network.Ethereum.Web3 (ETH, Address, BigNumber)
+import Data.Validation.Semigroup (V)
+import Network.Ethereum.Web3 (Address, BigNumber, ETH, HexString, TransactionOptions, Web3, _value, _data, fromWei)
+import Network.Ethereum.Web3.Api (eth_sendTransaction)
+import Network.Ethereum.Web3.Types (NoPay)
 import Network.Ethereum.Web3.Types.Provider (Provider)
 import Node.FS.Aff (FS)
-import Node.Process (PROCESS)
 import Node.Path (FilePath)
 
 newtype Dependency = Dependency String
@@ -152,8 +156,22 @@ newtype DeployConfig =
                , provider :: Provider
                }
 
-type ConfigR r = (filepath :: FilePath, name :: String | r)
+type Constructor args =
+  forall eff. TransactionOptions NoPay -> Record args -> HexString -> Web3 eff HexString
+
+constructorNoArgs :: Constructor ()
+constructorNoArgs txOpts _ bytecode =
+  eth_sendTransaction $ txOpts # _data ?~ bytecode
+                               # _value ?~ fromWei zero
+
+type ConfigR args r =
+  ( filepath :: FilePath
+  , name :: String
+  , constructor :: Constructor args
+  , unvalidatedArgs :: V String (Record args)
+  | r
+  )
 
 -- | configuration for deployment of a single contract
-type ContractConfig r = Record (ConfigR r)
+type ContractConfig args r = Record (ConfigR args r)
 

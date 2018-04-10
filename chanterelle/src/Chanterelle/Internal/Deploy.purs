@@ -1,13 +1,12 @@
 module Chanterelle.Internal.Deploy
-  ( deployContractNoArgs
-  , deployContractWithArgs
+  ( deployContract
   , readDeployAddress
   ) where
 
 import Prelude
 
-import Chanterelle.Internal.Types (DeployConfig(..), DeployError(..), DeployM, ConfigR, ContractConfig)
-import Chanterelle.Internal.Utils (withTimeout, pollTransactionReceipt)
+import Chanterelle.Internal.Types (DeployConfig(..), DeployError(..), ContractConfig)
+import Chanterelle.Internal.Utils (withTimeout, pollTransactionReceipt, validateDeployArgs)
 import Control.Error.Util ((??))
 import Control.Monad.Aff (Milliseconds(..), attempt)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
@@ -20,23 +19,18 @@ import Control.Monad.Reader.Class (class MonadAsk, ask)
 import Data.Argonaut (stringify, _Object, _String, jsonEmptyObject, (~>), (:=))
 import Data.Argonaut.Parser (jsonParser)
 import Data.Either (Either(..), either)
-import Data.Exists (Exists, mkExists)
 import Data.Foreign.NullOrUndefined (unNullOrUndefined)
-import Data.Lens ((^?), (?~), (%~))
+import Data.Lens ((^?), (%~))
 import Data.Lens.Index (ix)
 import Data.Maybe (isNothing, fromJust)
-import Data.Record as R
 import Data.StrMap as M
-import Data.Symbol (SProxy(..))
-import Network.Ethereum.Web3 (HexString, runWeb3)
-import Network.Ethereum.Web3.Api (eth_sendTransaction)
-import Network.Ethereum.Web3.Types (NoPay, ETH, Web3, Address, BigNumber, HexString, TransactionOptions, TransactionReceipt(..), mkHexString, _data, fromWei, _value, mkAddress)
+import Network.Ethereum.Web3 (runWeb3)
+import Network.Ethereum.Web3.Types (NoPay, ETH, Web3, Address, BigNumber, HexString, TransactionOptions, TransactionReceipt(..), mkHexString, mkAddress)
 import Network.Ethereum.Web3.Types.Provider (Provider)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff (FS, readTextFile, writeTextFile)
 import Node.Path (FilePath)
 import Partial.Unsafe (unsafePartial)
-import Type.Row (class RowLacks)
 
 -- | Fetch the bytecode from a solidity build artifact
 getBytecode
@@ -50,17 +44,6 @@ getBytecode filename = runExceptT $ do
   bytecode <- (artifact ^? _Object <<< ix "bytecode" <<< _String) ?? "artifact missing 'bytecode' field."
   mkHexString bytecode ?? "bytecode not a valid hex) string"
 
--- | Publish a contract based on the bytecode. Used for contracts with no constructor.
-defaultPublishContract
-  :: forall eff.
-     TransactionOptions NoPay
-  -> HexString
-  -- ^ Contract bytecode
-  -> Web3 eff HexString
-defaultPublishContract txOpts bytecode =
-  eth_sendTransaction $ txOpts # _data ?~ bytecode
-                               # _value ?~ fromWei zero
-
 -- | Write the "network object" for a given deployment on a network with
 -- | the given id.
 -- | TODO: this currently overwrites the entire network object
@@ -69,12 +52,12 @@ writeDeployAddress
      MonadAff (fs :: FS | eff) m
   => FilePath
   -- filename of contract artifact
-  -> Address
-  -- deployed contract address
   -> BigNumber
   -- network id
+  -> Address
+  -- deployed contract address
   -> m (Either String Unit)
-writeDeployAddress filename deployAddress nid = runExceptT $ do
+writeDeployAddress filename nid deployAddress = runExceptT $ do
   artifact <- ExceptT $ jsonParser <$> liftAff (readTextFile UTF8 filename)
   let networkIdObj = "address" := show deployAddress ~> jsonEmptyObject
       artifactWithAddress = artifact # _Object <<< ix "networks" <<< _Object %~ M.insert (show nid) networkIdObj
@@ -126,63 +109,39 @@ getPublishedContractAddress txHash provider name = do
            liftAff <<< C.log $ "Contract " <> name <> " deployed to address " <> show contractAddress
            pure contractAddress
 
--- | `deployContractNoArgs` grabs the bytecode from a build artifact and deploys it
--- | from the primary account, writing the contract address to the artifact.
-deployContractNoArgs
-  :: forall eff.
-     ContractConfig ()
-  -> TransactionOptions NoPay
-  -> DeployM eff Address
-deployContractNoArgs {filepath, name} txOpts = do
+getContractBytecode
+  :: forall eff m args r.
+     MonadThrow DeployError m
+  => MonadAsk DeployConfig m
+  => MonadAff (fs :: FS | eff) m
+  => ContractConfig args r
+  -> m HexString
+getContractBytecode cconfig@{filepath, name} = do
   cfg@(DeployConfig {provider}) <- ask
-  bytecode <- do
-    ebc <- getBytecode filepath
-    case ebc of
-      Left err ->
-        let errMsg = "Couln't find contract bytecode in artifact " <> filepath <> " -- " <> show err
-        in throwError $ ConfigurationError errMsg
-      Right bc -> pure bc
-  let deployAction =  defaultPublishContract txOpts bytecode
-  deployContractAndWriteToArtifact filepath name deployAction
-
-addContractBytecode
-  :: forall eff r .
-     RowLacks "bytecode" (ConfigR r)
-  => ContractConfig r
-  -> DeployM eff (ContractConfig (bytecode :: HexString | r))
-addContractBytecode cconfig@{filepath, name} = do
-  cfg@(DeployConfig {provider}) <- ask
-  bytecode <- do
-    ebc <- getBytecode filepath
-    case ebc of
-      Left err ->
-        let errMsg = "Couln't find contract bytecode in artifact " <> filepath <> " -- " <> show err
-        in throwError $ ConfigurationError errMsg
-      Right bc -> pure bc
-  pure $ R.insert (SProxy :: SProxy "bytecode") bytecode cconfig
-
+  ebc <- getBytecode filepath
+  case ebc of
+    Left err ->
+      let errMsg = "Couln't find contract bytecode in artifact " <> filepath <> " -- " <> show err
+      in throwError $ ConfigurationError errMsg
+    Right bc -> pure bc
 
 -- | `deployContractWithArgs` grabs the bytecode from the artifact and uses the
 -- | args defined in the contract config to deploy, then writes the address
 -- | to the artifact.
-deployContractWithArgs
-  :: forall eff args m.
+deployContract
+  :: forall eff args m r.
      MonadThrow DeployError m
   => MonadAsk DeployConfig m
   => MonadAff (console :: CONSOLE, eth :: ETH, fs :: FS | eff) m
-  => ContractConfig (deployArgs :: args)
-  -> (HexString -> args -> Web3 eff HexString)
+  => TransactionOptions NoPay
+  -> ContractConfig args r
   -> m Address
-deployContractWithArgs {filepath, name, deployArgs} deployer = do
-  cfg@(DeployConfig {provider, primaryAccount}) <- ask
-  bytecode <- do
-    ebc <- getBytecode filepath
-    case ebc of
-      Left err ->
-        let errMsg = "Couln't find contract bytecode in artifact " <> filepath
-        in throwError $ ConfigurationError errMsg
-      Right bc -> pure bc
-  deployContractAndWriteToArtifact filepath name (deployer bytecode deployArgs)
+deployContract txOptions ccfg@{filepath, name, constructor} = do
+  (DeployConfig {provider, primaryAccount}) <- ask
+  validatedArgs <- validateDeployArgs ccfg
+  bytecode <- getContractBytecode ccfg
+  let deploymentAction = constructor txOptions validatedArgs bytecode
+  deployContractAndWriteToArtifact filepath name deploymentAction
 
 -- | The common deployment function for contracts with or without args.
 deployContractAndWriteToArtifact
@@ -207,24 +166,9 @@ deployContractAndWriteToArtifact filepath name deployAction = do
       in throwError $ OnDeploymentError errMsg
     Right txHash -> do
       contractAddress <- getPublishedContractAddress txHash provider name
-      eWriteRes <- writeDeployAddress filepath contractAddress networkId
+      eWriteRes <- writeDeployAddress filepath networkId contractAddress
       case eWriteRes of
         Left err ->
           let errMsg = "Failed to write address for artifact " <> filepath <> " -- " <> err
           in throwError $ PostDeploymentError errMsg
         Right _ -> pure contractAddress
-
---data Deployment =
---  Deployment { constructor :: forall eff. TransactionOptions NoPay -> DeployM HexString
---             }
---
---makeDeploymentWithArgs
---  :: forall eff args.
---     (TransactionOptions -> HexString -> args -> Web3 eff HexString)
---  -> ContractConfig args
---  -> Deployment
---makeDeploymentWithArgs constructor =
---  let deployAction 
---  DeploymentT { constructor = }
---
-
