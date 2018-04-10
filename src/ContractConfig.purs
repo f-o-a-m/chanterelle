@@ -9,6 +9,7 @@ import Data.Maybe (Maybe(..))
 import Data.Validation.Semigroup (V, invalid)
 import Network.Ethereum.Web3.Types (Address, embed)
 import Network.Ethereum.Web3.Solidity (type (:&), UIntN, D2, D5, D6, uIntNFromBigNumber)
+
 import Contracts.SimpleStorage as SimpleStorage
 import Contracts.ParkingAuthority as ParkingAuthority
 import Chanterelle.Internal.Types (ContractConfig, NoArgs, noArgs, constructorNoArgs)

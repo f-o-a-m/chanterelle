@@ -8,7 +8,7 @@ import Prelude
 import Control.Monad.Aff (Aff)
 import Control.Monad.Aff.AVar (AVAR, makeEmptyVar, putVar, takeVar)
 import Control.Monad.Aff.Class (liftAff)
-import Control.Monad.Aff.Console (CONSOLE, log)
+import Control.Monad.Aff.Console (CONSOLE)
 import Data.Either (Either(..))
 import Data.Tuple (Tuple(..))
 import Network.Ethereum.Web3 (class EventFilter, Address, ETH, EventAction(..), Provider, Web3, event, eventFilter, forkWeb3', runWeb3)

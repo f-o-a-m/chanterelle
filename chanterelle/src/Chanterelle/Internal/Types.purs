@@ -1,7 +1,6 @@
 module Chanterelle.Internal.Types where
 
 import Prelude
-
 import Ansi.Codes (Color(Red))
 import Ansi.Output (withGraphics, foreground)
 import Control.Monad.Aff (Aff, liftEff')
@@ -36,11 +35,18 @@ instance encodeJsonDependency :: A.EncodeJson Dependency where
 instance decodeJsonDependency :: A.DecodeJson Dependency where
   decodeJson d = Dependency <$> A.decodeJson d
 
+data ChanterelleModule = ChanterelleModule { moduleName      :: String
+                                           , solContractName :: String
+                                           , solPath         :: FilePath
+                                           , jsonPath        :: FilePath
+                                           , pursPath        :: FilePath
+                                           }
+
 newtype ChanterelleProjectSpec =
   ChanterelleProjectSpec { name                :: String
                          , version             :: String
                          , sourceDir           :: FilePath
-                         , sources             :: Array String
+                         , modules             :: Array String
                          , dependencies        :: Array Dependency
                          , solcOutputSelection :: Array String
                          , psGen               :: { exprPrefix   :: String
@@ -54,7 +60,7 @@ instance encodeJsonChanterelleProjectSpec :: A.EncodeJson ChanterelleProjectSpec
          "name"                  := A.encodeJson project.name
       ~> "version"               := A.encodeJson project.version
       ~> "source-dir"            := A.encodeJson project.sourceDir
-      ~> "sources"               := A.encodeJson project.sources
+      ~> "modules"               := A.encodeJson project.modules
       ~> "dependencies"          := A.encodeJson project.dependencies
       ~> "solc-output-selection" := A.encodeJson project.solcOutputSelection
       ~> "purescript-generator"  := psGenEncode
@@ -70,7 +76,7 @@ instance decodeJsonChanterelleProjectSpec :: A.DecodeJson ChanterelleProjectSpec
     name                <- obj .? "name"
     version             <- obj .? "version"
     sourceDir           <- obj .? "source-dir"
-    sources             <- obj .? "sources"
+    modules             <- obj .? "modules"
     dependencies        <- obj .? "dependencies"
     solcOutputSelection <- obj .? "solc-output-selection"
     psGenObj            <- obj .? "purescript-generator"
@@ -78,7 +84,7 @@ instance decodeJsonChanterelleProjectSpec :: A.DecodeJson ChanterelleProjectSpec
     psGenExprPrefix     <- fromMaybe "" <$> psGenObj .?? "expression-prefix"
     psGenModulePrefix   <- fromMaybe "" <$> psGenObj .?? "module-prefix"
     let psGen = { exprPrefix: psGenExprPrefix, modulePrefix: psGenModulePrefix, outputPath: psGenOutputPath } 
-    pure $ ChanterelleProjectSpec { name, version, sourceDir, sources, dependencies, solcOutputSelection, psGen }
+    pure $ ChanterelleProjectSpec { name, version, sourceDir, modules, dependencies, solcOutputSelection, psGen }
 
 data ChanterelleProject =
      ChanterelleProject { root     :: FilePath -- ^ parent directory containing chanterelle.json
@@ -86,6 +92,7 @@ data ChanterelleProject =
                         , jsonOut  :: FilePath -- ^ hydrated/absolute path of jsons dir 
                         , psOut    :: FilePath -- ^ hydrated/absolute path of psGen (root + spec.psGen.outputPath)
                         , spec     :: ChanterelleProjectSpec -- ^ the contents of the chanterelle.json
+                        , modules  :: Array ChanterelleModule
                         }
 
 --------------------------------------------------------------------------------
