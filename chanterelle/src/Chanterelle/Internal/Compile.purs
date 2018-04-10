@@ -46,7 +46,7 @@ compile (ChanterelleProject project) = do
       case AP.jsonParser output of
         Left err -> liftAff <<< throwError <<< error $ "Malformed solc output: " <> err
         Right output' -> do
-          writeBuildArtifact mod.solContractName mod.jsonPath output'
+          writeBuildArtifact mod.solContractName mod.jsonPath output' mod.solContractName
           pure $ Tuple mod.moduleName (Tuple (ChanterelleModule mod) output')
   pure $ M.fromFoldable solcOutputs
 
@@ -218,21 +218,20 @@ writeBuildArtifact
   => String
   -> FilePath
   -> A.Json
+  -> String
   -> m Unit
-writeBuildArtifact srcName filepath output = liftAff $
+writeBuildArtifact srcName filepath output solContractName = liftAff $
   case decodeContract srcName output of
     Left err -> throwError <<< error $ "Malformed solc output: " <> err
     Right co -> do
       let dn = Path.dirname filepath
-          parsedPath = Path.parse filepath
-          withNewExtension = unparsePath (parsedPath { ext = ".json" })
-          contractsMainModule = M.lookup parsedPath.name co -- | HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+          contractsMainModule = M.lookup solContractName co -- | HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
       case contractsMainModule of -- | HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
-        Nothing -> (throwError <<< error $ ("Couldn't find an object named " <> show parsedPath.name <> " in " <> show filepath <> "!"))
+        Nothing -> (throwError <<< error $ ("Couldn't find an object named " <> show solContractName <> " in " <> show filepath <> "!"))
         Just co' -> do
             assertDirectory dn
-            liftEff $ log Debug ("writing " <> withNewExtension)
-            FS.writeTextFile UTF8 withNewExtension <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co'
+            liftEff $ log Debug ("writing " <> filepath)
+            FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co'
 
 
 --------------------------------------------------------------------------------

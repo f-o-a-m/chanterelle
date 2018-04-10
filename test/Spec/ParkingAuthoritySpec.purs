@@ -3,6 +3,9 @@ module ParkingAuthoritySpec (parkingAuthoritySpec) where
 
 import Prelude
 
+import Chanterelle.Internal.Deploy (readDeployAddress)
+import Chanterelle.Internal.Types (DeployConfig(..), ContractConfig)
+import Chanterelle.Internal.Utils (pollTransactionReceipt, validateDeployArgs)
 import ContractConfig (foamCSRConfig, makeParkingAuthorityConfig)
 import Contracts.ParkingAnchor as ParkingAnchor
 import Contracts.ParkingAuthority as PA
@@ -14,25 +17,20 @@ import Control.Monad.Aff.Console (CONSOLE, log)
 import Control.Monad.Except (runExceptT)
 import Data.Array ((!!))
 import Data.ByteString as BS
-import Data.Either (Either(..))
+import Data.Either (Either(..), fromRight)
 import Data.Lens.Setter ((?~))
 import Data.Maybe (Maybe(..))
-import Data.Record (insert)
 import Data.String (take)
-import Data.Symbol (SProxy(..))
 import Data.Tuple (Tuple(..))
-import Chanterelle.Internal.Deploy (readDeployAddress)
 import Network.Ethereum.Web3 (class EventFilter, EventAction(..), event, eventFilter, forkWeb3', runWeb3)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
 import Network.Ethereum.Web3.Solidity (class DecodeEvent, BytesN, D2, D3, D4, D8, type (:&), fromByteString)
 import Network.Ethereum.Web3.Types (Address, BigNumber, ChainCursor(..), TransactionReceipt(..), ETH, Web3, _from, _gas, _to, decimal, _value, defaultTransactionOptions, parseBigNumber, sha3, unHex, embed, fromWei)
 import Node.FS.Aff (FS)
-import Partial.Unsafe (unsafeCrashWith)
+import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Type.Prelude (Proxy(..))
-import Chanterelle.Internal.Types (DeployConfig(..), ContractConfig)
-import Chanterelle.Internal.Utils (pollTransactionReceipt)
 
 
 parkingAuthoritySpec
@@ -54,10 +52,11 @@ parkingAuthoritySpec deployCfg@(DeployConfig deployConfig) = do
 
   describe "Testing basic functionality of the parking authority" do
     it "has the correct foamCSR contract" do
-      parkingAuthorityConfig <- buildParkingAuthorityConfig deployConfig.networkId
-      let txOpts = defaultTransactionOptions # _to ?~ parkingAuthorityConfig.parkingAuthority
+      (Tuple parkingCfg addr) <- buildParkingAuthorityConfig deployConfig.networkId
+      let txOpts = defaultTransactionOptions # _to ?~ addr
       ecsr <- run $ PA.parkingCSR txOpts Latest
-      ecsr `shouldEqual` (Right parkingAuthorityConfig.deployArgs.foamCSR)
+      let csr = validateDeployArgs (parkingCfg :: ContractConfig (foamCSR :: Address))
+      ecsr `shouldEqual` Right (unsafePartial fromRight $ csr).foamCSR
 
   describe "App Flow" do
     it "can register a user and that user is owned by the right account" $ run do
@@ -212,11 +211,11 @@ registerUser
   -> DeployConfig
   -> Web3 (fs :: FS, avar :: AVAR, console :: CONSOLE | eff) {owner :: Address, user :: Address}
 registerUser fromAccount (DeployConfig {provider, networkId}) = do
-  {parkingAuthority} <- liftAff $ buildParkingAuthorityConfig networkId
+  (Tuple cfg addr) <- liftAff $ buildParkingAuthorityConfig networkId
   let txOpts = defaultTransactionOptions # _from ?~ fromAccount
                                          # _gas ?~ bigGasLimit
-                                         # _to ?~ parkingAuthority
-  Tuple _ (PA.RegisterParkingUser ev) <- takeEvent (Proxy :: Proxy PA.RegisterParkingUser) parkingAuthority do
+                                         # _to ?~ addr
+  Tuple _ (PA.RegisterParkingUser ev) <- takeEvent (Proxy :: Proxy PA.RegisterParkingUser) addr do
       txHash <- PA.registerUser txOpts
       liftAff <<< log $ "Registered User " <> show fromAccount <> ", Transaction Hash:" <> show txHash
   pure ev
@@ -229,11 +228,11 @@ registerAnchor
   -> DeployConfig
   -> Web3 (fs :: FS, console :: CONSOLE, avar :: AVAR | eff) {owner :: Address, anchor :: Address, anchorId :: BytesN (D3 :& D2) , geohash :: BytesN D8}
 registerAnchor fromAccount args (DeployConfig {provider, networkId}) = do
-  {parkingAuthority} <- liftAff $ buildParkingAuthorityConfig networkId
+  (Tuple cfg addr) <- liftAff $ buildParkingAuthorityConfig networkId
   let txOpts = defaultTransactionOptions # _from ?~ fromAccount
                                          # _gas ?~ bigGasLimit
-                                         # _to ?~ parkingAuthority
-  Tuple _ (PA.RegisteredParkingAnchor ev) <- takeEvent (Proxy :: Proxy PA.RegisteredParkingAnchor) parkingAuthority do
+                                         # _to ?~ addr
+  Tuple _ (PA.RegisteredParkingAnchor ev) <- takeEvent (Proxy :: Proxy PA.RegisteredParkingAnchor) addr do
     txHash <- PA.registerParkingAnchor txOpts args
     liftAff <<< log $ "Registered Anchor " <> show fromAccount <> ", Transaction Hash:" <> show txHash
   pure ev
@@ -246,7 +245,7 @@ bigGasLimit = case parseBigNumber decimal "9000000" of
 buildParkingAuthorityConfig
   :: forall eff.
      BigNumber
-  -> Aff (fs :: FS | eff) (ContractConfig (deployArgs :: {foamCSR :: Address}, parkingAuthority :: Address))
+  -> Aff (fs :: FS | eff) (Tuple (ContractConfig (foamCSR :: Address)) Address)
 buildParkingAuthorityConfig networkId= do
   efoamCSRAddress <- runExceptT $ readDeployAddress foamCSRConfig.filepath networkId
   let foamCSRAddress = case efoamCSRAddress of
@@ -257,4 +256,4 @@ buildParkingAuthorityConfig networkId= do
   let parkingAuthorityAddress = case eparkingAuthorityAddress of
         Right x -> x
         Left err -> unsafeCrashWith $ "Expected ParkingAuthority Address in artifact, got error" <> show err
-  pure $ insert (SProxy :: SProxy "parkingAuthority") parkingAuthorityAddress parkingAuthorityConfig
+  pure $ Tuple parkingAuthorityConfig parkingAuthorityAddress

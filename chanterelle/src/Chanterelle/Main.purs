@@ -20,6 +20,7 @@ import Node.Path (FilePath)
 import Node.Path as Path
 import Node.Process (PROCESS)
 import Node.Process as P
+
 import Partial.Unsafe (unsafePartial, unsafePartialBecause)
 
 import Chanterelle.Internal.Compile (compile) as Chanterelle

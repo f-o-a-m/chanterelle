@@ -11,17 +11,21 @@ module Chanterelle.Internal.Utils
   ) where
 
 import Prelude
-import Control.Monad.Eff.Class (class MonadEff, liftEff)
+
+import Chanterelle.Internal.Types (ContractConfig, DeployConfig(..), DeployError(..))
+import Chanterelle.Internal.Logging (LogLevel(Debug), log)
 import Control.Monad.Aff (Aff, Milliseconds(..), delay)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as C
 import Control.Monad.Eff.Exception (Error, error, try)
+import Control.Monad.Eff.Class (class MonadEff, liftEff)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Parallel (parOneOf)
 import Data.Array ((!!))
-import Data.Maybe (Maybe(..), maybe)
 import Data.Either (Either(..))
+import Data.Maybe (maybe)
+import Data.Validation.Semigroup (unV)
 import Network.Ethereum.Web3 (ETH, Web3, HexString, Address, runWeb3)
 import Network.Ethereum.Web3.Api (eth_getAccounts, eth_getTransactionReceipt, net_version)
 import Network.Ethereum.Web3.Types (TransactionReceipt, Web3Error(NullError))
@@ -32,8 +36,6 @@ import Node.FS.Stats as Stats
 import Node.FS.Sync.Mkdirp (mkdirp)
 import Node.Path (FilePath)
 import Node.Path as Path
-import Chanterelle.Internal.Types (DeployError(..), DeployConfig(..), ContractConfig)
-import Chanterelle.Internal.Logging (LogLevel(Debug), log)
 
 -- | Make an http provider with address given by NODE_URL, falling back
 -- | to localhost.
@@ -124,12 +126,12 @@ reportIfErrored msg eRes =
 validateDeployArgs
   :: forall m args.
      MonadThrow DeployError m
-  => ContractConfig (deployArgs :: Maybe args)
-  -> m (ContractConfig (deployArgs :: args))
+  => ContractConfig args
+  -> m (Record args)
 validateDeployArgs cfg =
-  case cfg.deployArgs of
-    Nothing -> throwError $ ConfigurationError ("Couldn't validate args for contract deployment: " <> cfg.name)
-    Just args -> pure $ cfg {deployArgs = args}
+  let onErr msg = throwError $ ConfigurationError ("Couldn't validate args for contract deployment " <> cfg.name <> ": " <> show msg)
+      onSucc = pure
+  in unV onErr onSucc cfg.unvalidatedArgs
 
 unparsePath :: forall p. { dir :: String, name :: String, ext :: String | p} -> Path.FilePath
 unparsePath p = Path.concat [p.dir, p.name <> p.ext]
