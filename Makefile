@@ -8,6 +8,9 @@ all: install
 install:
 	npm install
 
+docs:
+	pulp docs --src-path chanterelle
+
 build-chanterelle:
 	pulp build --src-path chanterelle
 

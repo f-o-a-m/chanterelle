@@ -1,4 +1,4 @@
-module Chanterelle.Internal.Compile where
+module Chanterelle.Internal.Compile (compile) where
 
 import Prelude (Unit, bind, discard, pure, show, ($), (<$>), (<<<), (<>))
 import Control.Monad.Eff.Exception (catchException, error)
