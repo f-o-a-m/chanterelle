@@ -152,10 +152,8 @@ newtype DeployConfig =
                , provider :: Provider
                }
 
+type ConfigR r = (filepath :: FilePath, name :: String | r)
+
 -- | configuration for deployment of a single contract
-type ContractConfig args =
-  { filepath :: FilePath
-  , name :: String
-  | args
-  }
+type ContractConfig r = Record (ConfigR r)
 

@@ -5,24 +5,30 @@ module Chanterelle.Internal.Deploy
   ) where
 
 import Prelude
+
+import Chanterelle.Internal.Types (DeployConfig(..), DeployError(..), DeployM, ConfigR, ContractConfig)
+import Chanterelle.Internal.Utils (withTimeout, pollTransactionReceipt)
 import Control.Error.Util ((??))
 import Control.Monad.Aff (Milliseconds(..), attempt)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as C
 import Control.Monad.Aff.Unsafe (unsafeCoerceAff)
-import Control.Monad.Except (ExceptT(..), runExceptT)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
+import Control.Monad.Except (ExceptT(..), runExceptT)
 import Control.Monad.Reader.Class (class MonadAsk, ask)
 import Data.Argonaut (stringify, _Object, _String, jsonEmptyObject, (~>), (:=))
 import Data.Argonaut.Parser (jsonParser)
 import Data.Either (Either(..), either)
+import Data.Exists (Exists, mkExists)
 import Data.Foreign.NullOrUndefined (unNullOrUndefined)
 import Data.Lens ((^?), (?~), (%~))
 import Data.Lens.Index (ix)
 import Data.Maybe (isNothing, fromJust)
+import Data.Record as R
 import Data.StrMap as M
-import Network.Ethereum.Web3 (runWeb3)
+import Data.Symbol (SProxy(..))
+import Network.Ethereum.Web3 (HexString, runWeb3)
 import Network.Ethereum.Web3.Api (eth_sendTransaction)
 import Network.Ethereum.Web3.Types (NoPay, ETH, Web3, Address, BigNumber, HexString, TransactionOptions, TransactionReceipt(..), mkHexString, _data, fromWei, _value, mkAddress)
 import Network.Ethereum.Web3.Types.Provider (Provider)
@@ -30,9 +36,7 @@ import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff (FS, readTextFile, writeTextFile)
 import Node.Path (FilePath)
 import Partial.Unsafe (unsafePartial)
-import Chanterelle.Internal.Utils (withTimeout, pollTransactionReceipt)
-import Chanterelle.Internal.Types (DeployM, DeployError(..), DeployConfig(..), ContractConfig)
-
+import Type.Row (class RowLacks)
 
 -- | Fetch the bytecode from a solidity build artifact
 getBytecode
@@ -141,6 +145,23 @@ deployContractNoArgs {filepath, name} txOpts = do
   let deployAction =  defaultPublishContract txOpts bytecode
   deployContractAndWriteToArtifact filepath name deployAction
 
+addContractBytecode
+  :: forall eff r .
+     RowLacks "bytecode" (ConfigR r)
+  => ContractConfig r
+  -> DeployM eff (ContractConfig (bytecode :: HexString | r))
+addContractBytecode cconfig@{filepath, name} = do
+  cfg@(DeployConfig {provider}) <- ask
+  bytecode <- do
+    ebc <- getBytecode filepath
+    case ebc of
+      Left err ->
+        let errMsg = "Couln't find contract bytecode in artifact " <> filepath <> " -- " <> show err
+        in throwError $ ConfigurationError errMsg
+      Right bc -> pure bc
+  pure $ R.insert (SProxy :: SProxy "bytecode") bytecode cconfig
+
+
 -- | `deployContractWithArgs` grabs the bytecode from the artifact and uses the
 -- | args defined in the contract config to deploy, then writes the address
 -- | to the artifact.
@@ -192,3 +213,18 @@ deployContractAndWriteToArtifact filepath name deployAction = do
           let errMsg = "Failed to write address for artifact " <> filepath <> " -- " <> err
           in throwError $ PostDeploymentError errMsg
         Right _ -> pure contractAddress
+
+--data Deployment =
+--  Deployment { constructor :: forall eff. TransactionOptions NoPay -> DeployM HexString
+--             }
+--
+--makeDeploymentWithArgs
+--  :: forall eff args.
+--     (TransactionOptions -> HexString -> args -> Web3 eff HexString)
+--  -> ContractConfig args
+--  -> Deployment
+--makeDeploymentWithArgs constructor =
+--  let deployAction 
+--  DeploymentT { constructor = }
+--
+
