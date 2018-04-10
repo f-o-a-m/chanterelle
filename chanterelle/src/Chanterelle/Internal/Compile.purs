@@ -25,6 +25,8 @@ import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpe
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Utils (assertDirectory)
 
+--------------------------------------------------------------------------------
+
 foreign import data SolcInputCallbackResult :: Type
 foreign import solcInputCallbackSuccess :: String -> SolcInputCallbackResult
 foreign import solcInputCallbackFailure :: String -> SolcInputCallbackResult
@@ -62,6 +64,8 @@ loadSolcCallback root (ChanterelleProjectSpec project) filePath = do
   catchException (pure <<< solcInputCallbackFailure <<< show) (solcInputCallbackSuccess <$> (FSS.readTextFile UTF8 fullPath))
 
 --------------------------------------------------------------------------------
+-- | SolcInput
+--------------------------------------------------------------------------------
 
 newtype SolcInput =
   SolcInput { language :: String
@@ -98,9 +102,10 @@ makeSolcInput (ChanterelleProjectSpec project) root moduleName sourcePath = do
 
 type ContractName = String
 
-newtype SolcSettings = SolcSettings { outputSelection :: (M.StrMap (M.StrMap (Array String)))
-                                    , remappings      :: Array String
-                                    }
+newtype SolcSettings =
+  SolcSettings { outputSelection :: (M.StrMap (M.StrMap (Array String)))
+               , remappings      :: Array String
+               }
 
 instance encodeSolcSettings :: A.EncodeJson SolcSettings where
   encodeJson (SolcSettings {outputSelection, remappings}) =
@@ -166,6 +171,9 @@ instance decodeSolcError :: A.DecodeJson SolcError where
                 , message
                 , formattedMessage
                 }
+
+--------------------------------------------------------------------------------
+-- | Solc Output
 --------------------------------------------------------------------------------
 
 -- | This is the artifact we want, compatible with truffle (subset)
@@ -176,7 +184,7 @@ newtype OutputContract =
 
 -- NOTE: We don't use the codecs here because they aren't mutual inverses of eachother,
 -- for example we serialize an empty networks object for truffle compatibility,
--- but this is not output from the compiler. 
+-- but this is not output from the compiler.
 parseOutputContract
   :: A.Json
   -> Either String OutputContract
@@ -210,6 +218,8 @@ decodeContract srcName json = do
   contractMap <- A.decodeJson json'
   for contractMap $ parseOutputContract
 
+--------------------------------------------------------------------------------
+
 foreign import jsonStringifyWithSpaces :: Int -> A.Json -> String
 
 writeBuildArtifact
@@ -225,14 +235,13 @@ writeBuildArtifact srcName filepath output solContractName = liftAff $
     Left err -> throwError <<< error $ "Malformed solc output: " <> err
     Right co -> do
       let dn = Path.dirname filepath
-          contractsMainModule = M.lookup solContractName co -- | HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
-      case contractsMainModule of -- | HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+          contractsMainModule = M.lookup solContractName co -- | TODO: clean up
+      case contractsMainModule of -- | TODO: Clean up
         Nothing -> (throwError <<< error $ ("Couldn't find an object named " <> show solContractName <> " in " <> show filepath <> "!"))
         Just co' -> do
             assertDirectory dn
             liftEff $ log Debug ("writing " <> filepath)
             FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co'
-
 
 --------------------------------------------------------------------------------
 
@@ -240,100 +249,3 @@ newtype SolcOutput =
   SolcOutput { errors :: Maybe (Array SolcError)
              , contracts :: M.StrMap OutputContract -- mapping of Filepath
              }
-
-{-
-
-
-{ "contractName": "SimpleStorage"
-, "abi" : [..]
-, "bytecode" : String
-, "source" : String
-}
-
-{
-  // Optional: not present if no errors/warnings were encountered
-  // This contains the file-level outputs. In can be limited/filtered by the outputSelection settings.
-  sources: {
-    "sourceFile.sol": {
-      // Identifier (used in source maps)
-      id: 1,
-      // The AST object
-      ast: {},
-      // The legacy AST object
-      legacyAST: {}
-    }
-  },
-  // This contains the contract-level outputs. It can be limited/filtered by the outputSelection settings.
-  contracts: {
-    "sourceFile.sol": {
-      // If the language used has no contract names, this field should equal to an empty string.
-      "ContractName": {
-        // The Ethereum Contract ABI. If empty, it is represented as an empty array.
-        // See https://github.com/ethereum/wiki/wiki/Ethereum-Contract-ABI
-        abi: [],
-        // See the Metadata Output documentation (serialised JSON string)
-        metadata: "{...}",
-        // User documentation (natspec)
-        userdoc: {},
-        // Developer documentation (natspec)
-        devdoc: {},
-        // Intermediate representation (string)
-        ir: "",
-        // EVM-related outputs
-        evm: {
-          // Assembly (string)
-          assembly: "",
-          // Old-style assembly (object)
-          legacyAssembly: {},
-          // Bytecode and related details.
-          bytecode: {
-            // The bytecode as a hex string.
-            object: "00fe",
-            // Opcodes list (string)
-            opcodes: "",
-            // The source mapping as a string. See the source mapping definition.
-            sourceMap: "",
-            // If given, this is an unlinked object.
-            linkReferences: {
-              "libraryFile.sol": {
-                // Byte offsets into the bytecode. Linking replaces the 20 bytes located there.
-                "Library1": [
-                  { start: 0, length: 20 },
-                  { start: 200, length: 20 }
-                ]
-              }
-            }
-          },
-          // The same layout as above.
-          deployedBytecode: { },
-          // The list of function hashes
-          methodIdentifiers: {
-            "delegate(address)": "5c19a95c"
-          },
-          // Function gas estimates
-          gasEstimates: {
-            creation: {
-              codeDepositCost: "420000",
-              executionCost: "infinite",
-              totalCost: "infinite"
-            },
-            external: {
-              "delegate(address)": "25000"
-            },
-            internal: {
-              "heavyLifting()": "infinite"
-            }
-          }
-        },
-        // eWASM related outputs
-        ewasm: {
-          // S-expressions format
-          wast: "",
-          // Binary format (hex string)
-          wasm: ""
-        }
-      }
-    }
-  }
-}
--}
