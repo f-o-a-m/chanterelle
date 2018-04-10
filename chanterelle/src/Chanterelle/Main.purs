@@ -28,7 +28,7 @@ import Chanterelle.Internal.Codegen (generatePS) as Chanterelle
 import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..))
 
 loadProject :: forall m eff.
-               MonadAff (fs :: FS | eff) m 
+               MonadAff (fs :: FS | eff) m
             => FilePath
             -> m ChanterelleProject
 loadProject root = liftAff $ do

@@ -4,6 +4,7 @@ module ParkingAuthoritySpec (parkingAuthoritySpec) where
 import Prelude
 
 import Chanterelle.Internal.Deploy (readDeployAddress)
+import Chanterelle.Internal.Test (assertWeb3, takeEvent)
 import Chanterelle.Internal.Types (DeployConfig(..), ContractConfig)
 import Chanterelle.Internal.Utils (pollTransactionReceipt, validateDeployArgs)
 import ContractConfig (foamCSRConfig, makeParkingAuthorityConfig)
@@ -11,7 +12,7 @@ import Contracts.ParkingAnchor as ParkingAnchor
 import Contracts.ParkingAuthority as PA
 import Contracts.User as User
 import Control.Monad.Aff (Aff)
-import Control.Monad.Aff.AVar (AVAR, makeEmptyVar, putVar, takeVar)
+import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Aff.Console (CONSOLE, log)
 import Control.Monad.Except (runExceptT)
@@ -22,9 +23,8 @@ import Data.Lens.Setter ((?~))
 import Data.Maybe (Maybe(..))
 import Data.String (take)
 import Data.Tuple (Tuple(..))
-import Network.Ethereum.Web3 (class EventFilter, EventAction(..), event, eventFilter, forkWeb3', runWeb3)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
-import Network.Ethereum.Web3.Solidity (class DecodeEvent, BytesN, D2, D3, D4, D8, type (:&), fromByteString)
+import Network.Ethereum.Web3.Solidity (BytesN, D2, D3, D4, D8, type (:&), fromByteString)
 import Network.Ethereum.Web3.Types (Address, BigNumber, ChainCursor(..), TransactionReceipt(..), ETH, Web3, _from, _gas, _to, decimal, _value, defaultTransactionOptions, parseBigNumber, sha3, unHex, embed, fromWei)
 import Node.FS.Aff (FS)
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
@@ -44,26 +44,20 @@ parkingAuthoritySpec
           ) Unit
 parkingAuthoritySpec deployCfg@(DeployConfig deployConfig) = do
 
-  let
-    run :: forall e' a. Web3 e' a -> Aff (eth :: ETH | e') a
-    run a = runWeb3 deployConfig.provider a <#> case _ of
-      Right x -> x
-      Left err -> unsafeCrashWith $ "expected Right in `run`, got error" <> show err
-
   describe "Testing basic functionality of the parking authority" do
     it "has the correct foamCSR contract" do
       (Tuple parkingCfg addr) <- buildParkingAuthorityConfig deployConfig.networkId
       let txOpts = defaultTransactionOptions # _to ?~ addr
-      ecsr <- run $ PA.parkingCSR txOpts Latest
+      ecsr <- assertWeb3 deployConfig.provider $ PA.parkingCSR txOpts Latest
       let csr = validateDeployArgs (parkingCfg :: ContractConfig (foamCSR :: Address))
       ecsr `shouldEqual` Right (unsafePartial fromRight $ csr).foamCSR
 
   describe "App Flow" do
-    it "can register a user and that user is owned by the right account" $ run do
+    it "can register a user and that user is owned by the right account" $ assertWeb3 deployConfig.provider do
       void $ createUser deployCfg 1
 
 
-    it "can create a user and that user can request more zones from the authority" $ run do
+    it "can create a user and that user can request more zones from the authority" $ assertWeb3 deployConfig.provider do
       {user, owner} <- createUser deployCfg 1
       let
         zone :: BytesN D4
@@ -73,11 +67,12 @@ parkingAuthoritySpec deployCfg@(DeployConfig deployConfig) = do
         txOpts = defaultTransactionOptions # _from ?~ owner
                                            # _gas ?~ bigGasLimit
                                            # _to ?~ user
-      Tuple _ (User.ZoneGranted {zone: eventZone}) <- takeEvent (Proxy :: Proxy User.ZoneGranted) user
+      Tuple _ e@(User.ZoneGranted {zone: eventZone}) <- takeEvent (Proxy :: Proxy User.ZoneGranted) user
         $ User.requestZone txOpts { _zone: zone }
+      liftAff <<< log $ "Received Event: " <> show e
       liftAff $ zone `shouldEqual` eventZone
 
-    it "can create an anchor, and that anchor is owned by the right account" $ run do
+    it "can create an anchor, and that anchor is owned by the right account" $ assertWeb3 deployConfig.provider do
       let _anchorId = case fromByteString =<< BS.fromString (unHex $ sha3 "I'm an anchor!") BS.Hex of
             Just x -> x
             Nothing -> unsafeCrashWith "anchorId should result in valid BytesN 32"
@@ -86,7 +81,7 @@ parkingAuthoritySpec deployCfg@(DeployConfig deployConfig) = do
             Nothing -> unsafeCrashWith "geohash should result in valid BytesN 8"
       void $ createParkingAnchor deployCfg 2 {_geohash, _anchorId}
 
-    it "can create a user and an anchor, the user requests permission at the anchor, then parks there, but not another zone" $ run do
+    it "can create a user and an anchor, the user requests permission at the anchor, then parks there, but not another zone" $ assertWeb3 deployConfig.provider do
       userResult <- createUser deployCfg 1
       let _anchorId = case fromByteString =<< BS.fromString (unHex $ sha3 "I'm an anchor!") BS.Hex of
             Just x -> x
@@ -104,7 +99,8 @@ parkingAuthoritySpec deployCfg@(DeployConfig deployConfig) = do
         txOpts = defaultTransactionOptions # _from ?~ userResult.owner
                                            # _gas ?~ bigGasLimit
                                            # _to ?~ userResult.user
-      _ <- takeEvent (Proxy :: Proxy User.ZoneGranted) userResult.user $ User.requestZone txOpts { _zone: zone }
+      (Tuple _ e) <- takeEvent (Proxy :: Proxy User.ZoneGranted) userResult.user $ User.requestZone txOpts { _zone: zone }
+      liftAff <<< log $ "Received Event: " <> show e
       let parkingReqOpts = txOpts # _value ?~ (fromWei $ embed 1)
       Tuple _ (User.CheckIn {user, anchor}) <- takeEvent (Proxy :: Proxy User.CheckIn) userResult.user $
         User.payForParking parkingReqOpts {_anchor: parkingAnchorResult.anchor}
@@ -181,27 +177,6 @@ createParkingAnchor deployConfig accountIndex args = do
   liftAff $ geohash `shouldEqual` args._geohash
   liftAff $ anchorId `shouldEqual` args._anchorId
   pure res
-
-
-takeEvent
-  :: forall eff a ev i ni.
-     DecodeEvent i ni ev
-  => Show ev
-  => EventFilter ev
-  => Proxy ev
-  -> Address
-  -> Web3 (console :: CONSOLE, avar :: AVAR | eff) a
-  -> Web3 (console :: CONSOLE, avar :: AVAR | eff) (Tuple a ev)
-takeEvent prx addrs web3Action = do
-  var <- liftAff $ makeEmptyVar
-  _ <- forkWeb3' do
-    event (eventFilter prx addrs) $ \e -> do
-      liftAff <<< log $ "Received Event: " <> show e
-      _ <- liftAff $ putVar e var
-      pure TerminateEvent
-  efRes <- web3Action
-  event <- liftAff $ takeVar var
-  pure $ Tuple efRes event
 
 
 registerUser
