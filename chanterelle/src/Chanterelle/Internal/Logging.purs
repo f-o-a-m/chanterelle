@@ -5,10 +5,12 @@ module Chanterelle.Internal.Logging
     ) where
 
 import Prelude
+import Ansi.Codes (Color(..))
+import Ansi.Output (withGraphics, foreground)
 import Control.Logger as Logger
 import Control.Monad.Eff.Class (liftEff, class MonadEff)
 import Control.Monad.Eff.Console as Console
-import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
+import Control.Monad.Eff.Unsafe (unsafeCoerceEff, unsafePerformEff)
 import Data.JSDate (now, toISOString)
 
 data LogLevel = Debug | Info | Warn | Error
@@ -23,17 +25,33 @@ instance showLogLevel :: Show LogLevel where
 foreign import getLogLevel :: forall eff m. MonadEff eff m => LogLevel -> m LogLevel
 foreign import setLogLevel :: forall eff m. MonadEff eff m => LogLevel -> m Unit
 
-log :: forall eff m.
-       MonadEff eff m
+class Loggable a where
+  logify :: a -> String
+
+instance loggableString :: Loggable String where
+  logify = id
+
+fancyColorLogger :: forall eff m a
+                  . MonadEff eff m 
+                 => Loggable a
+                 => Logger.Logger m { level :: LogLevel, msg :: a }
+fancyColorLogger = Logger.Logger $ \{ level, msg } -> liftEff <<< unsafeCoerceEff $ do 
+  dt <- now
+  iso <- toISOString dt
+  Console.log $ colorize level (iso <> " [" <> show level <> "] " <> logify msg)
+
+  where colorize level = withGraphics (foreground $ logLevelColor level)
+        logLevelColor = case _ of
+                          Debug -> White
+                          Info  -> Green
+                          Warn  -> Yellow
+                          Error -> Red
+
+log :: forall eff m
+     . MonadEff eff m
     => LogLevel
     -> String
     -> m Unit
-log level msg = Logger.log toConsole unit
-    where toConsole = Logger.Logger $ \_ -> liftEff <<< unsafeCoerceEff $ do
-              glog <- getLogLevel Info
-              if level >= glog
-                then do
-                    dt <- now
-                    iso <- toISOString dt
-                    liftEff $ Console.log (iso <> " [" <> show level <> "] " <> msg)
-                else pure unit
+log level msg = Logger.log filteredLogger { level, msg }
+    where filteredLogger = fancyColorLogger # Logger.cfilter levelFilter
+          levelFilter m = m.level >= (unsafePerformEff $ getLogLevel Info)

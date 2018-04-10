@@ -6,6 +6,8 @@ module Chanterelle.Internal.Utils
   , withTimeout
   , reportIfErrored
   , validateDeployArgs
+  , unparsePath
+  , assertDirectory
   ) where
 
 import Prelude
@@ -14,7 +16,7 @@ import Control.Monad.Aff (Aff, Milliseconds(..), delay)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as C
-import Control.Monad.Eff.Exception (error, try)
+import Control.Monad.Eff.Exception (Error, error, try)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Parallel (parOneOf)
 import Data.Array ((!!))
@@ -25,7 +27,13 @@ import Network.Ethereum.Web3.Api (eth_getAccounts, eth_getTransactionReceipt, ne
 import Network.Ethereum.Web3.Types (TransactionReceipt, Web3Error(NullError))
 import Network.Ethereum.Web3.Types.Provider (Provider, httpProvider)
 import Node.Process (PROCESS, lookupEnv)
+import Node.FS.Aff as FS
+import Node.FS.Stats as Stats
+import Node.FS.Sync.Mkdirp (mkdirp)
+import Node.Path (FilePath)
+import Node.Path as Path
 import Chanterelle.Internal.Types (DeployError(..), DeployConfig(..), ContractConfig)
+import Chanterelle.Internal.Logging (LogLevel(Debug), log)
 
 -- | Make an http provider with address given by NODE_URL, falling back
 -- | to localhost.
@@ -122,3 +130,21 @@ validateDeployArgs cfg =
   case cfg.deployArgs of
     Nothing -> throwError $ ConfigurationError ("Couldn't validate args for contract deployment: " <> cfg.name)
     Just args -> pure $ cfg {deployArgs = args}
+
+unparsePath :: forall p. { dir :: String, name :: String, ext :: String | p} -> Path.FilePath
+unparsePath p = Path.concat [p.dir, p.name <> p.ext]
+
+assertDirectory :: forall eff m
+                 . MonadAff (fs :: FS.FS | eff) m
+                => MonadThrow Error m
+                => FilePath
+                -> m Unit
+assertDirectory dn = do
+  dnExists <- liftAff (FS.exists dn)
+  if not dnExists
+    then liftEff $ ((log Debug ("creating directory " <> dn)) *> (mkdirp dn))
+    else do
+      isDir <- liftAff (Stats.isDirectory <$> FS.stat dn)
+      if not isDir
+        then (throwError <<< error $ ("Path " <> dn <> " exists but is not a directory!"))
+        else liftEff $ (log Debug ("path " <>  dn <> " exists and is a directory"))

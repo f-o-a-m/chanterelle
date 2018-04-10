@@ -1,9 +1,8 @@
 module Chanterelle.Internal.Compile where
 
-import Prelude (Unit, bind, discard, not, pure, show, ($), (*>), (<$>), (<<<), (<>))
+import Prelude (Unit, bind, discard, pure, show, ($), (<$>), (<<<), (<>))
 import Control.Monad.Eff.Exception (catchException, error)
 import Control.Monad.Error.Class (throwError)
-import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
@@ -19,30 +18,12 @@ import Node.Path as Path
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Sync as FSS
 import Node.FS.Aff as FS
-import Node.FS.Sync.Mkdirp (mkdirp)
-import Node.FS.Stats as Stats
 import Node.Process as P
 import Data.StrMap as M
 import Network.Ethereum.Web3 (HexString, unHex, sha3)
-import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), Dependency(..))
+import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..))
 import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Data.CodeGen (generatePS) -- purescript-web3-generator
-
---------------------------------------------------------------------------------
-generate :: forall eff m. 
-            MonadAff (console :: CONSOLE, fs :: FS.FS | eff) m 
-         => ChanterelleProject
-         -> m Unit
-generate (ChanterelleProject project) =
-  let (ChanterelleProjectSpec spec) = project.spec
-      psGenArgs = { jsonDir: project.jsonOut
-                  , pursDir: project.psOut
-                  , truffle: true
-                  , exprPrefix: spec.psGen.exprPrefix
-                  , modulePrefix: spec.psGen.modulePrefix
-                  }
-    in liftAff $ generatePS psGenArgs
---------------------------------------------------------------------------------
+import Chanterelle.Internal.Utils (assertDirectory, unparsePath)
 
 foreign import data SolcInputCallbackResult :: Type
 foreign import solcInputCallbackSuccess :: String -> SolcInputCallbackResult
@@ -53,21 +34,20 @@ foreign import _compile :: forall eff cbEff. Fn2 String (String -> Eff cbEff Sol
 compile :: forall eff m.
            MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
         => ChanterelleProject
-        -> m (M.StrMap A.Json)
+        -> m (M.StrMap (Tuple ChanterelleModule A.Json))
 compile (ChanterelleProject project) = do
   let (ChanterelleProjectSpec spec) = project.spec
-  solcInputs <- for spec.sources $ \srcName -> do
-      input <- makeSolcInput project.spec project.root srcName (Path.concat [project.srcIn, srcName])
-      pure $ Tuple srcName input
-  solcOutputs <-for solcInputs $ \(Tuple srcName solcInput) -> do
-      liftEff $ log Info ("compiling " <> srcName)
+  solcInputs <- for project.modules $ \(ChanterelleModule mod) -> do
+      input <- makeSolcInput project.spec project.root mod.solContractName mod.solPath
+      pure $ Tuple mod input
+  solcOutputs <-  for solcInputs $ \(Tuple mod solcInput) -> do
+      liftEff $ log Info ("compiling " <> mod.moduleName)
       output <- liftEff $ runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback project.root project.spec)
       case AP.jsonParser output of
         Left err -> liftAff <<< throwError <<< error $ "Malformed solc output: " <> err
         Right output' -> do
-          let outputPath = Path.concat [project.jsonOut, srcName]
-          writeBuildArtifact srcName outputPath output'
-          pure $ Tuple srcName output'
+          writeBuildArtifact mod.solContractName mod.jsonPath output'
+          pure $ Tuple mod.moduleName (Tuple (ChanterelleModule mod) output')
   pure $ M.fromFoldable solcOutputs
 
 -- | load a file when solc requests it
@@ -78,7 +58,7 @@ loadSolcCallback :: forall eff. FilePath -> ChanterelleProjectSpec -> String -> 
 loadSolcCallback root (ChanterelleProjectSpec project) filePath = do
   let isAbs = Path.isAbsolute filePath
       fullPath = if isAbs then filePath else Path.normalize (Path.concat [root, project.sourceDir, filePath])
-  liftEff $ log Debug ("solc is requesting that we load " <> show filePath <> ", so we'll give it " <> show fullPath)
+  liftEff $ log Debug ("solc load: " <> filePath <> " -> " <> fullPath)
   catchException (pure <<< solcInputCallbackFailure <<< show) (solcInputCallbackSuccess <$> (FSS.readTextFile UTF8 fullPath))
 
 --------------------------------------------------------------------------------
@@ -106,7 +86,7 @@ makeSolcInput
 makeSolcInput (ChanterelleProjectSpec project) root moduleName sourcePath = do
   code <- liftAff $ FS.readTextFile UTF8 sourcePath
   let language = "Solidity"
-      sources = M.singleton moduleName (makeSolcContract code)
+      sources = M.singleton (moduleName <> ".sol") (makeSolcContract code)
       outputSelection = M.singleton "*" (M.singleton "*" (["abi", "evm.bytecode.object"] <> project.solcOutputSelection))
       depMappings = (\(Dependency dep) -> dep <> "=" <> (root <> "/node_modules/" <> dep)) <$> project.dependencies
       sourceDirMapping = [":g" <> (Path.concat [root, project.sourceDir])]
@@ -223,17 +203,18 @@ decodeContract
   -> A.Json
   -> Either String (M.StrMap OutputContract)
 decodeContract srcName json = do
+  let srcNameWithSol = srcName <> ".sol"
   obj <- A.decodeJson json
   contracts <- obj A..? "contracts"
-  json' <- maybe (Left $ "couldn't find " <> show srcName <> " in object") Right (M.lookup srcName contracts)
+  json' <- maybe (Left $ "couldn't find " <> show srcNameWithSol <> " in object") Right (M.lookup srcNameWithSol contracts)
   contractMap <- A.decodeJson json'
   for contractMap $ parseOutputContract
 
 foreign import jsonStringifyWithSpaces :: Int -> A.Json -> String
 
 writeBuildArtifact
-  :: forall eff m.
-     MonadAff (fs :: FS.FS | eff) m
+  :: forall eff m
+   . MonadAff (fs :: FS.FS | eff) m
   => String
   -> FilePath
   -> A.Json
@@ -243,20 +224,13 @@ writeBuildArtifact srcName filepath output = liftAff $
     Left err -> throwError <<< error $ "Malformed solc output: " <> err
     Right co -> do
       let dn = Path.dirname filepath
-      dnExists <- FS.exists dn
-      if not dnExists
-        then liftEff $ ((log Debug ("creating directory " <> dn)) *> (mkdirp dn))
-        else do
-          isDir <- Stats.isDirectory <$> FS.stat dn
-          if not isDir
-            then (throwError <<< error $ ("Path " <> dn <> " exists but is not a directory!"))
-            else (log Debug ("path " <>  dn <> " exists and is a directory"))
-      let parsedPath = Path.parse filepath
-          withNewExtension = Path.concat [parsedPath.dir, parsedPath.name <> ".json"]
+          parsedPath = Path.parse filepath
+          withNewExtension = unparsePath (parsedPath { ext = ".json" })
           contractsMainModule = M.lookup parsedPath.name co -- | HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
       case contractsMainModule of -- | HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
         Nothing -> (throwError <<< error $ ("Couldn't find an object named " <> show parsedPath.name <> " in " <> show filepath <> "!"))
         Just co' -> do
+            assertDirectory dn
             liftEff $ log Debug ("writing " <> withNewExtension)
             FS.writeTextFile UTF8 withNewExtension <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co'
 

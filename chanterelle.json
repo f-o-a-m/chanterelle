@@ -2,11 +2,12 @@
     "name": "test-app",
     "version": "0.0.1",
     "source-dir": "contracts",
-    "sources": [ "FoamCSR.sol"
-               , "ParkingAuthority.sol"
-               , "SimpleStorage.sol"
-               , "User.sol"
-               , "ParkingAnchor.sol"
+    "modules": [ "FoamCSR"
+               , "ParkingAuthority"
+               , "SimpleStorage"
+               , "User"
+               , "ParkingAnchor"
+               , "Nested.SimpleStorage"
                ],
     "dependencies": ["zeppelin-solidity"],
     "solc-output-selection": [],
