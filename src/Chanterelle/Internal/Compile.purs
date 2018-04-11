@@ -224,10 +224,10 @@ instance encodeSolcContract :: A.EncodeJson SolcContract where
 -- Solc Errors
 -- TODO: pretty print these later
 newtype SolcError =
-  SolcError { sourceLocation :: { file :: String
-                                , start :: Int
-                                , end :: Int
-                                }
+  SolcError { sourceLocation :: Maybe { file :: String
+                                      , start :: Int
+                                      , end :: Int
+                                      }
             , type :: String
             , severity :: String
             , message :: String
@@ -237,12 +237,14 @@ newtype SolcError =
 instance decodeSolcError :: A.DecodeJson SolcError where
   decodeJson json = do
     obj <- A.decodeJson json
-    loc <- obj A..? "sourceLocation"
-    sourceLocation <- do
-      file <- loc A..? "file"
-      start <- loc A..? "start"
-      end <- loc A..? "end"
-      pure {file, start, end}
+    loc <- obj A..?? "sourceLocation"
+    sourceLocation <- case loc of 
+                        Nothing -> pure Nothing
+                        Just loc' -> do
+                          file <- loc' A..? "file"
+                          start <- loc' A..? "start"
+                          end <- loc' A..? "end"
+                          pure $ Just {file, start, end}
     _type <- obj A..? "type"
     severity <- obj A..? "severity"
     message <- obj A..? "message"
