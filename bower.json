@@ -1,5 +1,5 @@
 {
-  "name": "chanterelle",
+  "name": "purescript-chanterelle",
   "ignore": [
     "**/.*",
     "node_modules",
