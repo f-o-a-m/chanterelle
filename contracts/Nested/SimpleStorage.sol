@@ -1,6 +1,6 @@
 pragma solidity ^0.4.15;
 
-contract SimpleStorage {
+contract SimpleStorage 
     uint public count;
 
     event CountSet(uint _count);

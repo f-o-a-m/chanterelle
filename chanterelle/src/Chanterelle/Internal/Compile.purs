@@ -10,9 +10,11 @@ import Control.Monad.Eff.Exception (catchException)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
-import Data.Either (Either(..))
+import Data.Either (Either(..), either)
 import Data.Function.Uncurried (Fn2, runFn2)
-import Data.Maybe (Maybe(..), maybe)
+import Data.Lens ((^?))
+import Data.Lens.Index (ix)
+import Data.Maybe (Maybe(..), fromJust)
 import Data.StrMap as M
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
@@ -24,6 +26,8 @@ import Node.Path (FilePath)
 import Node.Path as Path
 import Node.Process as P
 import Prelude (Unit, bind, discard, pure, show, ($), (<$>), (<<<), (<>))
+import Partial.Unsafe (unsafePartial)
+
 
 --------------------------------------------------------------------------------
 
@@ -214,16 +218,20 @@ encodeOutputContract (OutputContract {abi, bytecode}) =
     A.jsonEmptyObject
 
 decodeContract
-  :: String
+  :: forall m.
+     MonadThrow CompileError m
+  => String
   -> A.Json
-  -> Either String (M.StrMap OutputContract)
+  -> m (Either String (M.StrMap OutputContract))
 decodeContract srcName json = do
   let srcNameWithSol = srcName <> ".sol"
-  obj <- A.decodeJson json
-  contracts <- obj A..? "contracts"
-  json' <- maybe (Left $ "Couldn't find " <> show srcNameWithSol <> " in object.") Right (M.lookup srcNameWithSol contracts)
-  contractMap <- A.decodeJson json'
-  for contractMap $ parseOutputContract
+      contractMap = json ^? A._Object <<< ix srcNameWithSol <<< A._Object
+  case contractMap of
+    Nothing ->
+      let errs = unsafePartial fromJust (json ^? A._Object <<< ix "errors")
+          msg = "Couldn't find " <> show srcNameWithSol <> " in object.\n" <> jsonStringifyWithSpaces 4 errs
+      in throwError $ CompileParseError msg
+    Just contractMap' -> pure $ for contractMap' parseOutputContract
 
 --------------------------------------------------------------------------------
 
@@ -238,20 +246,19 @@ writeBuildArtifact
   -> A.Json
   -> String
   -> m Unit
-writeBuildArtifact srcName filepath output solContractName =
-  case decodeContract srcName output of
-    Left err -> throwError $ CompileParseError ("Malformed solc output: " <> err)
-    Right co -> do
-      let dn = Path.dirname filepath
-          contractsMainModule = M.lookup solContractName co
-      case contractsMainModule of
-        Nothing -> let errMsg = "Couldn't find an object named " <> show solContractName <>
-                                  " in " <> show filepath <> "!"
-                   in throwError $ MissingArtifactError errMsg
-        Just co' -> do
-            assertDirectory dn
-            log Debug $ "Writing artifact " <> filepath
-            liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co'
+writeBuildArtifact srcName filepath output solContractName = do
+  eco <- decodeContract srcName output
+  co <- either (throwError <<< CompileParseError) pure eco
+  let dn = Path.dirname filepath
+      contractsMainModule = M.lookup solContractName co
+  case contractsMainModule of
+    Nothing -> let errMsg = "Couldn't find an object named " <> show solContractName <>
+                              " in " <> show filepath <> "!"
+               in throwError $ MissingArtifactError errMsg
+    Just co' -> do
+        assertDirectory dn
+        log Debug $ "Writing artifact " <> filepath
+        liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co'
 
 --------------------------------------------------------------------------------
 

@@ -43,7 +43,8 @@ loadProject root = do
         let solPath      = Path.concat [srcIn, pathModName <> ".sol"]
             jsonPath     = Path.concat [jsonOut, pathModName <> ".json"]
             pursPath     = Path.concat [psOut, psModBase, pathModName <> ".purs"]
-            solContractName = unsafePartialBecause "String.split always returns a non-empty Array" $ fromJust $ last $ split (Pattern ".") moduleName
+            solContractName = unsafePartialBecause "String.split always returns a non-empty Array" $
+                                fromJust $ last $ split (Pattern ".") moduleName
             pathModName = replaceAll (Pattern ".") (Replacement Path.sep) moduleName
             psModBase = replaceAll (Pattern ".") (Replacement Path.sep) project.psGen.modulePrefix
          in ChanterelleModule { moduleName, solContractName, solPath, jsonPath, pursPath }
