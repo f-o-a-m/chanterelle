@@ -67,7 +67,7 @@ compileModule (Tuple m@(ChanterelleModule mod) solcInput) = do
   log Info ("compiling " <> mod.moduleName)
   output <- liftEff $ runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback project.root project.spec)
   case AP.jsonParser output >>= parseSolcOutput of
-    Left err -> throwError $ CompileParseError ("Solc output not valid Json: " <> err)
+    Left err -> throwError $ CompileParseError ("solc output not valid Json: " <> err)
     Right output' -> do
       writeBuildArtifact mod.solContractName mod.jsonPath output' mod.solContractName
       pure $ Tuple mod.moduleName (Tuple m output')
@@ -120,7 +120,7 @@ makeSolcInput moduleName sourcePath = do
       sourceDirMapping = [":g" <> (Path.concat [project.root, spec.sourceDir])]
       remappings = sourceDirMapping <> depMappings
       settings = SolcSettings { outputSelection, remappings, libraries }
-      libraries = spec.libraries
+      libraries = M.singleton (moduleName <> ".sol") spec.libraries
   pure $ SolcInput { language, sources, settings }
 
 --------------------------------------------------------------------------------
@@ -193,9 +193,9 @@ instance encodeSolcInput :: A.EncodeJson SolcInput where
 type ContractName = String
 
 newtype SolcSettings =
-  SolcSettings { outputSelection :: (M.StrMap (M.StrMap (Array String)))
+  SolcSettings { outputSelection :: M.StrMap (M.StrMap (Array String))
                , remappings      :: Array String
-               , libraries       :: Libraries
+               , libraries       :: M.StrMap Libraries
                }
 
 instance encodeSolcSettings :: A.EncodeJson SolcSettings where
