@@ -10,7 +10,6 @@ import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
@@ -50,7 +49,7 @@ loadProject root = do
          in ChanterelleModule { moduleName, solContractName, solPath, jsonPath, pursPath }
   pure $ ChanterelleProject { root, srcIn, jsonOut, psOut, spec, modules }
 
-main :: forall e. Eff (console :: CONSOLE, fs :: FS.FS, exception :: EXCEPTION, process :: PROCESS | e) Unit
+main :: forall e. Eff (console :: CONSOLE, fs :: FS.FS, process :: PROCESS | e) Unit
 main = do
     root <- liftEff P.cwd
     void $ launchAff $ do
