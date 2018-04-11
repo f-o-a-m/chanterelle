@@ -1,7 +1,13 @@
 var theGlobalLevel = null;
 
-exports.getLogLevel = function () {
-    return theGlobalLevel;
+exports.getLogLevelWithDefault = function (defaultLogLevel) {
+    return function () {
+        if (theGlobalLevel == null) {
+            return defaultLogLevel;
+        } else {
+          return theGlobalLevel;
+        };
+    };
 };
 
 exports.setLogLevel = function (newValue) {

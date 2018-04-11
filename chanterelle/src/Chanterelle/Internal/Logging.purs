@@ -35,7 +35,7 @@ instance showLogLevel :: Show LogLevel where
     show Warn  = "WARN"
     show Error = "ERROR"
 
-foreign import getLogLevel :: forall eff. Eff eff LogLevel
+foreign import getLogLevelWithDefault :: forall eff. LogLevel -> Eff eff LogLevel
 foreign import setLogLevel :: forall eff. LogLevel -> Eff eff Unit
 
 readLogLevel
@@ -80,6 +80,6 @@ log
   -> String
   -> m Unit
 log level msg = do
-      currentLevel <- liftEff getLogLevel
+      currentLevel <- liftEff $ getLogLevelWithDefault Info
       when (level >= currentLevel) $
         Logger.log fancyColorLogger { level, msg }
