@@ -80,25 +80,23 @@ loadSolcCallback
   -> Eff (fs :: FS.FS | eff) SolcInputCallbackResult
 loadSolcCallback root (ChanterelleProjectSpec project) filePath = do
   let isAbs = Path.isAbsolute filePath
-      fullPath = if isAbs then filePath else Path.normalize (Path.concat [root, project.sourceDir, filePath])
-  log Debug ("solc load: " <> filePath <> " -> " <> fullPath)
+      fullPath = if isAbs
+                   then filePath
+                   else Path.normalize (Path.concat [root, project.sourceDir, filePath])
+  log Debug ("Solc load: " <> filePath <> " -> " <> fullPath)
   catchException (pure <<< solcInputCallbackFailure <<< show) (solcInputCallbackSuccess <$> (FSS.readTextFile UTF8 fullPath))
+
+makeSolcContract
+  :: String
+  -> SolcContract
+makeSolcContract  sourceCode =
+  SolcContract { content: sourceCode
+               , hash: sha3 sourceCode
+               }
 
 --------------------------------------------------------------------------------
 -- | SolcInput
 --------------------------------------------------------------------------------
-
-newtype SolcInput =
-  SolcInput { language :: String
-            , sources :: M.StrMap SolcContract
-            , settings :: SolcSettings
-            }
-instance encodeSolcInput :: A.EncodeJson SolcInput where
-  encodeJson (SolcInput {language, sources, settings}) =
-    "language" A.:= A.fromString "Solidity" A.~>
-    "sources" A.:= A.encodeJson sources A.~>
-    "settings" A.:= A.encodeJson settings A.~>
-    A.jsonEmptyObject
 
 makeSolcInput
   :: forall eff m.
@@ -120,6 +118,69 @@ makeSolcInput (ChanterelleProjectSpec project) root moduleName sourcePath = do
   pure $ SolcInput { language, sources, settings }
 
 --------------------------------------------------------------------------------
+-- | Solc Output
+--------------------------------------------------------------------------------
+
+decodeContract
+  :: forall m eff.
+     MonadEff eff m
+  => MonadThrow CompileError m
+  => String
+  -> SolcOutput
+  -> m (M.StrMap OutputContract)
+decodeContract srcName (SolcOutput output) = do
+    let srcNameWithSol = srcName <> ".sol"
+    case M.lookup srcNameWithSol output.contracts of
+      Nothing -> throwError <<< CompilationError $ map (\(SolcError se) -> se.formattedMessage) output.errors
+      Just contractMap' -> do
+        for_ output.errors $ \(SolcError err) -> log Warn err.formattedMessage
+        pure contractMap'
+
+foreign import jsonStringifyWithSpaces :: Int -> A.Json -> String
+
+writeBuildArtifact
+  :: forall eff m.
+     MonadAff (fs :: FS.FS | eff) m
+  => MonadThrow CompileError m
+  => String
+  -> FilePath
+  -> SolcOutput
+  -> String
+  -> m Unit
+writeBuildArtifact srcName filepath output solContractName = do
+  co <- decodeContract srcName output
+  let dn = Path.dirname filepath
+      contractsMainModule = M.lookup solContractName co
+  case contractsMainModule of
+    Nothing -> let errMsg = "Couldn't find an object named " <> show solContractName <>
+                              " in " <> show filepath <> "!"
+               in throwError $ MissingArtifactError errMsg
+    Just co' -> do
+        assertDirectory dn
+        log Debug $ "Writing artifact " <> filepath
+        liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co'
+
+--------------------------------------------------------------------------------
+-- | Solc Types and Codecs
+--------------------------------------------------------------------------------
+
+-- NOTE: We don't use classes here because parse and encode aren't mutual inverses,
+-- we sometimes add (e.g. networks object) or remove (most things) data from solc
+-- input/output.
+
+newtype SolcInput =
+  SolcInput { language :: String
+            , sources :: M.StrMap SolcContract
+            , settings :: SolcSettings
+            }
+instance encodeSolcInput :: A.EncodeJson SolcInput where
+  encodeJson (SolcInput {language, sources, settings}) =
+    "language" A.:= A.fromString "Solidity" A.~>
+    "sources" A.:= A.encodeJson sources A.~>
+    "settings" A.:= A.encodeJson settings A.~>
+    A.jsonEmptyObject
+
+--------------------------------------------------------------------------------
 
 type ContractName = String
 
@@ -136,8 +197,8 @@ instance encodeSolcSettings :: A.EncodeJson SolcSettings where
 
 --------------------------------------------------------------------------------
 
--- | as per http://solidity.readthedocs.io/en/v0.4.21/using-the-compiler.html,
--- | "content" is the source code.
+-- as per http://solidity.readthedocs.io/en/v0.4.21/using-the-compiler.html,
+-- "content" is the source code.
 newtype SolcContract =
   SolcContract { content :: String
                , hash :: HexString
@@ -148,19 +209,10 @@ instance encodeSolcContract :: A.EncodeJson SolcContract where
     "keccak256" A.:= A.fromString (unHex hash) A.~>
     A.jsonEmptyObject
 
-makeSolcContract
-  :: String
-  -> SolcContract
-makeSolcContract  sourceCode =
-  SolcContract { content: sourceCode
-               , hash: sha3 sourceCode
-               }
-
--- TODO write the relevant contract outputs from our project to the build directory
-
 --------------------------------------------------------------------------------
 
--- | we pretty print these later
+-- Solc Errors
+-- TODO: pretty print these later
 newtype SolcError =
   SolcError { sourceLocation :: { file :: String
                                 , start :: Int
@@ -194,18 +246,13 @@ instance decodeSolcError :: A.DecodeJson SolcError where
                 }
 
 --------------------------------------------------------------------------------
--- | Solc Output
---------------------------------------------------------------------------------
 
--- | This is the artifact we want, compatible with truffle (subset)
+-- This is the artifact we want, compatible with truffle (subset)
 newtype OutputContract =
   OutputContract { abi :: A.JArray
                  , bytecode :: String
                  }
 
--- NOTE: We don't use the codecs here because they aren't mutual inverses of eachother,
--- for example we serialize an empty networks object for truffle compatibility,
--- but this is not output from the compiler.
 parseOutputContract
   :: A.Json
   -> Either String OutputContract
@@ -227,48 +274,6 @@ encodeOutputContract (OutputContract {abi, bytecode}) =
     "networks" A.:= A.jsonEmptyObject A.~>
     A.jsonEmptyObject
 
-decodeContract
-  :: forall m eff.
-     MonadEff eff m
-  => MonadThrow CompileError m
-  => String
-  -> SolcOutput
-  -> m (M.StrMap OutputContract)
-decodeContract srcName (SolcOutput output) = do
-    let srcNameWithSol = srcName <> ".sol"
-    case M.lookup srcNameWithSol output.contracts of
-      Nothing -> throwError <<< CompilationError $ map (\(SolcError se) -> se.formattedMessage) output.errors
-      Just contractMap' -> do
-        for_ output.errors $ \(SolcError err) -> log Warn err.formattedMessage
-        pure contractMap'
-
---------------------------------------------------------------------------------
-
-foreign import jsonStringifyWithSpaces :: Int -> A.Json -> String
-
-writeBuildArtifact
-  :: forall eff m.
-     MonadAff (fs :: FS.FS | eff) m
-  => MonadThrow CompileError m
-  => String
-  -> FilePath
-  -> SolcOutput
-  -> String
-  -> m Unit
-writeBuildArtifact srcName filepath output solContractName = do
-  co <- decodeContract srcName output
-  let dn = Path.dirname filepath
-      contractsMainModule = M.lookup solContractName co
-  case contractsMainModule of
-    Nothing -> let errMsg = "Couldn't find an object named " <> show solContractName <>
-                              " in " <> show filepath <> "!"
-               in throwError $ MissingArtifactError errMsg
-    Just co' -> do
-        assertDirectory dn
-        log Debug $ "Writing artifact " <> filepath
-        liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co'
-
---------------------------------------------------------------------------------
 
 newtype SolcOutput =
   SolcOutput { errors :: Array SolcError
