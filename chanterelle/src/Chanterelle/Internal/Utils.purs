@@ -24,6 +24,7 @@ import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Parallel (parOneOf)
 import Data.Array ((!!))
 import Data.Either (Either(..))
+import Data.Int (toNumber)
 import Data.Maybe (maybe)
 import Data.Validation.Semigroup (unV)
 import Network.Ethereum.Web3 (ETH, Web3, HexString, Address, runWeb3)
@@ -35,35 +36,35 @@ import Node.FS.Stats as Stats
 import Node.FS.Sync.Mkdirp (mkdirp)
 import Node.Path (FilePath)
 import Node.Path as Path
-import Node.Process (PROCESS, lookupEnv)
 
 -- | Make an http provider with address given by NODE_URL, falling back
 -- | to localhost.
 makeProvider
   :: forall eff m.
-     MonadEff (eth :: ETH, process :: PROCESS | eff) m
+     MonadEff (eth :: ETH | eff) m
   => MonadThrow DeployError m
-  => m Provider
-makeProvider = do
-  eProvider <- liftEff do
-    murl <- lookupEnv "NODE_URL"
-    url <- maybe (pure "http://localhost:8545") pure murl
-    try $ httpProvider url
+  => String
+  -> m Provider
+makeProvider url = do
+  eProvider <- liftEff $ try $ httpProvider url
   case eProvider of
     Left _ -> throwError $ ConfigurationError "Cannot connect to Provider, check NODE_URL"
     Right p -> pure p
 
 makeDeployConfig
   :: forall eff m.
-     MonadAff (eth :: ETH, console :: CONSOLE, process :: PROCESS | eff) m
+     MonadAff (eth :: ETH, console :: CONSOLE | eff) m
   => MonadThrow DeployError m
-  => m DeployConfig
-makeDeployConfig = do
-  provider <- makeProvider
+  => String
+  -> Int
+  -> m DeployConfig
+makeDeployConfig url tout = do
+  provider <- makeProvider url
+  let timeout = Milliseconds (toNumber tout)
   econfig <- liftAff $ runWeb3 provider do
     primaryAccount <- getPrimaryAccount
     networkId <- net_version
-    pure $ DeployConfig {provider, primaryAccount, networkId}
+    pure $ DeployConfig {provider, primaryAccount, networkId, timeout}
   case econfig of
     Left err ->
       let errMsg = "Couldn't create DeployConfig -- " <> show err
