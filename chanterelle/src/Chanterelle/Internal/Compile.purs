@@ -1,29 +1,29 @@
 module Chanterelle.Internal.Compile (compile) where
 
-import Prelude (Unit, bind, discard, pure, show, ($), (<$>), (<<<), (<>))
-import Control.Monad.Eff.Exception (catchException, error)
-import Control.Monad.Error.Class (throwError)
+import Chanterelle.Internal.Logging (LogLevel(..), log)
+import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), CompileError(..))
+import Chanterelle.Internal.Utils (assertDirectory)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
+import Control.Monad.Eff.Exception (catchException)
+import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
 import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn2, runFn2)
 import Data.Maybe (Maybe(..), maybe)
+import Data.StrMap as M
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
+import Network.Ethereum.Web3 (HexString, unHex, sha3)
+import Node.Encoding (Encoding(UTF8))
+import Node.FS.Aff as FS
+import Node.FS.Sync as FSS
 import Node.Path (FilePath)
 import Node.Path as Path
-import Node.Encoding (Encoding(UTF8))
-import Node.FS.Sync as FSS
-import Node.FS.Aff as FS
 import Node.Process as P
-import Data.StrMap as M
-import Network.Ethereum.Web3 (HexString, unHex, sha3)
-import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..))
-import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Utils (assertDirectory)
+import Prelude (Unit, bind, discard, pure, show, ($), (<$>), (<<<), (<>))
 
 --------------------------------------------------------------------------------
 
@@ -33,20 +33,22 @@ foreign import solcInputCallbackFailure :: String -> SolcInputCallbackResult
 foreign import _compile :: forall eff cbEff. Fn2 String (String -> Eff cbEff SolcInputCallbackResult) (Eff eff String)
 
 -- | compile and write the artifact
-compile :: forall eff m.
-           MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
-        => ChanterelleProject
-        -> m (M.StrMap (Tuple ChanterelleModule A.Json))
+compile
+  :: forall eff m.
+     MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
+  => MonadThrow CompileError m
+  => ChanterelleProject
+  -> m (M.StrMap (Tuple ChanterelleModule A.Json))
 compile (ChanterelleProject project) = do
   let (ChanterelleProjectSpec spec) = project.spec
   solcInputs <- for project.modules $ \(ChanterelleModule mod) -> do
       input <- makeSolcInput project.spec project.root mod.solContractName mod.solPath
       pure $ Tuple mod input
   solcOutputs <-  for solcInputs $ \(Tuple mod solcInput) -> do
-      liftEff $ log Info ("compiling " <> mod.moduleName)
+      log Info ("compiling " <> mod.moduleName)
       output <- liftEff $ runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback project.root project.spec)
       case AP.jsonParser output of
-        Left err -> liftAff <<< throwError <<< error $ "Malformed solc output: " <> err
+        Left err -> throwError $ CompileParseError ("solc output not valid Json: " <> err)
         Right output' -> do
           writeBuildArtifact mod.solContractName mod.jsonPath output' mod.solContractName
           pure $ Tuple mod.moduleName (Tuple (ChanterelleModule mod) output')
@@ -56,11 +58,16 @@ compile (ChanterelleProject project) = do
 -- | TODO: secure it so that it doesnt try loading crap like /etc/passwd, etc. :P
 -- | TODO: be more clever about dependency resolution, that way we don't even have to do
 -- |       any remappings!
-loadSolcCallback :: forall eff. FilePath -> ChanterelleProjectSpec -> String -> Eff (fs :: FS.FS | eff) SolcInputCallbackResult
+loadSolcCallback
+  :: forall eff.
+     FilePath
+  -> ChanterelleProjectSpec
+  -> String
+  -> Eff (fs :: FS.FS | eff) SolcInputCallbackResult
 loadSolcCallback root (ChanterelleProjectSpec project) filePath = do
   let isAbs = Path.isAbsolute filePath
       fullPath = if isAbs then filePath else Path.normalize (Path.concat [root, project.sourceDir, filePath])
-  liftEff $ log Debug ("solc load: " <> filePath <> " -> " <> fullPath)
+  log Debug ("solc load: " <> filePath <> " -> " <> fullPath)
   catchException (pure <<< solcInputCallbackFailure <<< show) (solcInputCallbackSuccess <$> (FSS.readTextFile UTF8 fullPath))
 
 --------------------------------------------------------------------------------
@@ -214,7 +221,7 @@ decodeContract srcName json = do
   let srcNameWithSol = srcName <> ".sol"
   obj <- A.decodeJson json
   contracts <- obj A..? "contracts"
-  json' <- maybe (Left $ "couldn't find " <> show srcNameWithSol <> " in object") Right (M.lookup srcNameWithSol contracts)
+  json' <- maybe (Left $ "Couldn't find " <> show srcNameWithSol <> " in object.") Right (M.lookup srcNameWithSol contracts)
   contractMap <- A.decodeJson json'
   for contractMap $ parseOutputContract
 
@@ -223,25 +230,28 @@ decodeContract srcName json = do
 foreign import jsonStringifyWithSpaces :: Int -> A.Json -> String
 
 writeBuildArtifact
-  :: forall eff m
-   . MonadAff (fs :: FS.FS | eff) m
+  :: forall eff m.
+     MonadAff (fs :: FS.FS | eff) m
+  => MonadThrow CompileError m
   => String
   -> FilePath
   -> A.Json
   -> String
   -> m Unit
-writeBuildArtifact srcName filepath output solContractName = liftAff $
+writeBuildArtifact srcName filepath output solContractName =
   case decodeContract srcName output of
-    Left err -> throwError <<< error $ "Malformed solc output: " <> err
+    Left err -> throwError $ CompileParseError ("Malformed solc output: " <> err)
     Right co -> do
       let dn = Path.dirname filepath
-          contractsMainModule = M.lookup solContractName co -- | TODO: clean up
-      case contractsMainModule of -- | TODO: Clean up
-        Nothing -> (throwError <<< error $ ("Couldn't find an object named " <> show solContractName <> " in " <> show filepath <> "!"))
+          contractsMainModule = M.lookup solContractName co
+      case contractsMainModule of
+        Nothing -> let errMsg = "Couldn't find an object named " <> show solContractName <>
+                                  " in " <> show filepath <> "!"
+                   in throwError $ MissingArtifactError errMsg
         Just co' -> do
             assertDirectory dn
-            liftEff $ log Debug ("writing " <> filepath)
-            FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co'
+            log Debug $ "Writing artifact " <> filepath
+            liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co'
 
 --------------------------------------------------------------------------------
 
