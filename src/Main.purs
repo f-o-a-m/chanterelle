@@ -32,7 +32,7 @@ mainDeploy = void $ do
     Right deployConfig -> do
       eRes <- flip runDeployM deployConfig $ do
         deployCfg@(DeployConfig {primaryAccount}) <- ask
-        let bigGasLimit = unsafePartial fromJust $ parseBigNumber decimal "9000000"
+        let bigGasLimit = unsafePartial fromJust $ parseBigNumber decimal "4712388"
             txOpts = defaultTransactionOptions # _from ?~ primaryAccount
                                                # _gas ?~ bigGasLimit
         _ <- deployContract txOpts simpleStorageConfig
