@@ -44,13 +44,19 @@ A Chanterelle project is primarily described in `chanterelle.json`, which should
                , "Nested.SimpleStorage"
                ],
 
-    // External Solidity libraries/dependencies to use when compiling (see `Dependencies`)
-    // REQUIRED
+    // External Solidity (source-code) libraries/dependencies to use when compiling (see `Dependencies`)
+    // OPTIONAL
     "dependencies": ["zeppelin-solidity"],
 
+    // External Solidity libraries to link against when compiling
+    // OPTIONAL
+    "libraries": {
+        "MyLib": "0x1337011b5...",
+        "AnotherOne": "0xdeadbeef..."
+    }
 
     // additional outputs to request from `solc` (currently unsupported)
-    // REQUIRED
+    // OPTIONAL
     "solc-output-selection": [],
 
     // options for purescript-web3-generator
@@ -87,3 +93,7 @@ If a `module-prefix` is specified in the `purescript-generator` section, that mo
 As the Ethereum ecosystem has not conclusively settled on a Solidity package management structure yet, we support referencing any modules installed in `node_modules` as additional include paths for use in your Solidity imports. In the example, we have `zeppelin-solidity` as a listed dependency, and so we will tell `solc` that any imports starting with `zeppelin-solidity/` should be fetched from `/path/to/project/node_modules/zeppelin-solidity/`.
 
 In the future we aim to have a more clever system in place for handling this usage scenario.
+
+#### Libraries
+
+When linking against Solidity libraries already deployed on your target chain, you may specify them in the `"libraries"` section of your project spec.

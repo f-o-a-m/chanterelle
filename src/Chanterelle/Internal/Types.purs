@@ -3,6 +3,7 @@ module Chanterelle.Internal.Types where
 import Prelude
 
 import Chanterelle.Internal.Logging (LogLevel(..), log)
+import Control.Error.Util (note)
 import Control.Monad.Aff (Aff, Milliseconds, liftEff')
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
@@ -19,9 +20,12 @@ import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Lens ((?~))
 import Data.Maybe (fromMaybe)
-import Data.Traversable (for_)
+import Data.Monoid (class Monoid, mempty)
+import Data.StrMap as M
+import Data.Traversable (for, for_)
+import Data.Tuple (Tuple(..))
 import Data.Validation.Semigroup (V)
-import Network.Ethereum.Web3 (Address, BigNumber, ETH, HexString, TransactionOptions, Web3, _value, _data, fromWei)
+import Network.Ethereum.Web3 (Address, BigNumber, ETH, HexString, TransactionOptions, Web3, _value, _data, fromWei, unAddress, mkAddress, mkHexString)
 import Network.Ethereum.Web3.Api (eth_sendTransaction)
 import Network.Ethereum.Web3.Types (NoPay)
 import Network.Ethereum.Web3.Types.Provider (Provider)
@@ -43,6 +47,33 @@ instance encodeJsonDependency :: A.EncodeJson Dependency where
 instance decodeJsonDependency :: A.DecodeJson Dependency where
   decodeJson d = Dependency <$> A.decodeJson d
 
+---------------------------------------------------------------------
+
+newtype Library = Library { name :: String, address :: Address }
+newtype Libraries = Libraries (Array Library)
+
+derive instance eqLibrary                   :: Eq Library
+derive instance eqLibraries                 :: Eq Libraries
+derive newtype instance monoidLibraries     :: Monoid Libraries
+derive newtype instance semigroiupLibraries :: Semigroup Libraries
+
+instance encodeJsonLibraries :: A.EncodeJson Libraries where
+  encodeJson (Libraries libs) =
+    let asAssocs = mkTuple <$> libs
+        mkTuple (Library l) = Tuple l.name (A.encodeJson (show $ unAddress l.address))
+        asMap    = M.fromFoldable asAssocs
+     in A.encodeJson asMap      
+
+instance decodeJsonLibraries :: A.DecodeJson Libraries where
+  decodeJson j = do
+    obj <- A.decodeJson j
+    libs <- for (M.toUnfoldable obj) $ \(Tuple name addressStr) -> do
+      address <- note ("Invalid address " <> addressStr) (mkHexString addressStr >>= mkAddress)
+      pure $ Library { name, address }
+    pure (Libraries libs)
+      
+---------------------------------------------------------------------
+
 data ChanterelleModule =
   ChanterelleModule { moduleName      :: String
                     , solContractName :: String
@@ -57,6 +88,7 @@ newtype ChanterelleProjectSpec =
                          , sourceDir           :: FilePath
                          , modules             :: Array String
                          , dependencies        :: Array Dependency
+                         , libraries           :: Libraries
                          , solcOutputSelection :: Array String
                          , psGen               :: { exprPrefix   :: String
                                                   , modulePrefix :: String
@@ -73,6 +105,7 @@ instance encodeJsonChanterelleProjectSpec :: A.EncodeJson ChanterelleProjectSpec
       ~> "source-dir"            := A.encodeJson project.sourceDir
       ~> "modules"               := A.encodeJson project.modules
       ~> "dependencies"          := A.encodeJson project.dependencies
+      ~> "libraries"             := A.encodeJson project.libraries
       ~> "solc-output-selection" := A.encodeJson project.solcOutputSelection
       ~> "purescript-generator"  := psGenEncode
       ~> A.jsonEmptyObject
@@ -89,14 +122,15 @@ instance decodeJsonChanterelleProjectSpec :: A.DecodeJson ChanterelleProjectSpec
     version             <- obj .? "version"
     sourceDir           <- obj .? "source-dir"
     modules             <- obj .? "modules"
-    dependencies        <- obj .? "dependencies"
-    solcOutputSelection <- obj .? "solc-output-selection"
+    dependencies        <- fromMaybe mempty <$> obj .?? "dependencies"
+    libraries           <- fromMaybe mempty <$> obj .?? "libraries"
+    solcOutputSelection <- fromMaybe mempty <$> obj .?? "solc-output-selection"
     psGenObj            <- obj .? "purescript-generator"
     psGenOutputPath     <- psGenObj .? "output-path"
     psGenExprPrefix     <- fromMaybe "" <$> psGenObj .?? "expression-prefix"
     psGenModulePrefix   <- fromMaybe "" <$> psGenObj .?? "module-prefix"
     let psGen = { exprPrefix: psGenExprPrefix, modulePrefix: psGenModulePrefix, outputPath: psGenOutputPath }
-    pure $ ChanterelleProjectSpec { name, version, sourceDir, modules, dependencies, solcOutputSelection, psGen }
+    pure $ ChanterelleProjectSpec { name, version, sourceDir, modules, dependencies, libraries, solcOutputSelection, psGen }
 
 data ChanterelleProject =
      ChanterelleProject { root     :: FilePath -- ^ parent directory containing chanterelle.json
