@@ -33,27 +33,30 @@ class Loggable a where
 instance loggableString :: Loggable String where
   logify = id
 
-fancyColorLogger :: forall eff m a
-                  . MonadEff eff m 
-                 => Loggable a
-                 => Logger.Logger m { level :: LogLevel, msg :: a }
-fancyColorLogger = Logger.Logger $ \{ level, msg } -> liftEff <<< unsafeCoerceEff $ do 
-  dt <- now
-  iso <- toISOString dt
-  Console.log $ colorize level (iso <> " [" <> show level <> "] " <> logify msg)
+fancyColorLogger
+  :: forall eff m a.
+     MonadEff eff m
+  => Loggable a
+  => Logger.Logger m { level :: LogLevel, msg :: a }
+fancyColorLogger = Logger.Logger $ \{ level, msg } -> liftEff <<< unsafeCoerceEff $ do
+    dt <- now
+    iso <- toISOString dt
+    Console.log $ colorize level (iso <> " [" <> show level <> "] " <> logify msg)
+  where
+    colorize level = withGraphics (foreground $ logLevelColor level)
+    logLevelColor = case _ of
+      Debug -> White
+      Info  -> Green
+      Warn  -> Yellow
+      Error -> Red
 
-  where colorize level = withGraphics (foreground $ logLevelColor level)
-        logLevelColor = case _ of
-                          Debug -> White
-                          Info  -> Green
-                          Warn  -> Yellow
-                          Error -> Red
-
-log :: forall eff m
-     . MonadEff eff m
-    => LogLevel
-    -> String
-    -> m Unit
+log
+  :: forall eff m.
+     MonadEff eff m
+  => LogLevel
+  -> String
+  -> m Unit
 log level msg = Logger.log filteredLogger { level, msg }
-    where filteredLogger = fancyColorLogger # Logger.cfilter levelFilter
-          levelFilter m = m.level >= (unsafePerformEff $ getLogLevel Info)
+    where
+      filteredLogger = fancyColorLogger # Logger.cfilter levelFilter
+      levelFilter m = m.level >= (unsafePerformEff $ getLogLevel Info)

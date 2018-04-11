@@ -19,6 +19,7 @@ import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Lens ((?~))
 import Data.Maybe (fromMaybe)
+import Data.Traversable (for_)
 import Data.Validation.Semigroup (V)
 import Network.Ethereum.Web3 (Address, BigNumber, ETH, HexString, TransactionOptions, Web3, _value, _data, fromWei)
 import Network.Ethereum.Web3.Api (eth_sendTransaction)
@@ -26,6 +27,7 @@ import Network.Ethereum.Web3.Types (NoPay)
 import Network.Ethereum.Web3.Types.Provider (Provider)
 import Node.FS.Aff (FS)
 import Node.Path (FilePath)
+import Node.Process (PROCESS)
 
 --------------------------------------------------------------------------------
 -- | Chanterelle Project Types
@@ -106,6 +108,29 @@ data ChanterelleProject =
                         }
 
 --------------------------------------------------------------------------------
+-- | CompileM Compilement monad
+--------------------------------------------------------------------------------
+
+-- | Monad Stack for contract deployment.
+newtype CompileM eff a =
+  CompileM (ExceptT CompileError (Aff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff)) a)
+
+runCompileM
+  :: forall eff a.
+     CompileM eff a
+  -> Aff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff) (Either CompileError a)
+runCompileM (CompileM deploy) = runExceptT deploy
+
+derive newtype instance functorCompileM :: Functor (CompileM eff)
+derive newtype instance applyCompileM :: Apply (CompileM eff)
+derive newtype instance applicativeCompileM :: Applicative (CompileM eff)
+derive newtype instance bindCompileM :: Bind (CompileM eff)
+derive newtype instance monadCompileM :: Monad (CompileM eff)
+derive newtype instance monadThrowCompileM :: MonadThrow CompileError (CompileM eff)
+derive newtype instance monadEffCompileM :: MonadEff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff) (CompileM eff)
+derive newtype instance monadAffCompileM :: MonadAff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff) (CompileM eff)
+
+--------------------------------------------------------------------------------
 -- | DeployM Deployment monad
 --------------------------------------------------------------------------------
 
@@ -160,6 +185,28 @@ throwDeploy
      Error
   -> DeployM eff a
 throwDeploy = liftAff <<< liftEff' <<< throwException
+
+data CompileError =
+    CompileParseError String
+  | MissingArtifactError String
+  | FSError String
+  | CompilationError (Array String)
+
+derive instance genericCompileError :: Generic CompileError _
+
+instance showCompileError :: Show CompileError where
+  show = genericShow
+
+logCompileError
+  :: forall eff m.
+     MonadAff (console :: CONSOLE | eff) m
+  => CompileError
+  -> m Unit
+logCompileError err = liftAff $ case err of
+    CompileParseError errMsg -> log Error errMsg
+    MissingArtifactError errMsg -> log Error errMsg
+    FSError errMsg -> log Error errMsg
+    CompilationError errs -> for_ errs (log Error)
 
 --------------------------------------------------------------------------------
 -- | Config Types

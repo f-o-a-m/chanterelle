@@ -1,29 +1,34 @@
-module Chanterelle.Internal.Compile (compile) where
+module Chanterelle.Internal.Compile
+  ( compile
+  , SolcOutput(..)
+  , SolcError(..)
+  , OutputContract(..)
+  ) where
 
-import Prelude (Unit, bind, discard, pure, show, ($), (<$>), (<<<), (<>))
-import Control.Monad.Eff.Exception (catchException, error)
-import Control.Monad.Error.Class (throwError)
+import Prelude
+import Chanterelle.Internal.Logging (LogLevel(..), log)
+import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), CompileError(..))
+import Chanterelle.Internal.Utils (assertDirectory)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Class (liftEff)
+import Control.Monad.Eff.Class (class MonadEff, liftEff)
+import Control.Monad.Eff.Exception (catchException)
+import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
 import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn2, runFn2)
-import Data.Maybe (Maybe(..), maybe)
-import Data.Traversable (for)
+import Data.Maybe (Maybe(..))
+import Data.StrMap as M
+import Data.Traversable (for, for_, traverse)
 import Data.Tuple (Tuple(..))
+import Network.Ethereum.Web3 (HexString, unHex, sha3)
+import Node.Encoding (Encoding(UTF8))
+import Node.FS.Aff as FS
+import Node.FS.Sync as FSS
 import Node.Path (FilePath)
 import Node.Path as Path
-import Node.Encoding (Encoding(UTF8))
-import Node.FS.Sync as FSS
-import Node.FS.Aff as FS
 import Node.Process as P
-import Data.StrMap as M
-import Network.Ethereum.Web3 (HexString, unHex, sha3)
-import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..))
-import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Utils (assertDirectory)
 
 --------------------------------------------------------------------------------
 
@@ -33,20 +38,22 @@ foreign import solcInputCallbackFailure :: String -> SolcInputCallbackResult
 foreign import _compile :: forall eff cbEff. Fn2 String (String -> Eff cbEff SolcInputCallbackResult) (Eff eff String)
 
 -- | compile and write the artifact
-compile :: forall eff m.
-           MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
-        => ChanterelleProject
-        -> m (M.StrMap (Tuple ChanterelleModule A.Json))
+compile
+  :: forall eff m.
+     MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
+  => MonadThrow CompileError m
+  => ChanterelleProject
+  -> m (M.StrMap (Tuple ChanterelleModule SolcOutput))
 compile (ChanterelleProject project) = do
   let (ChanterelleProjectSpec spec) = project.spec
   solcInputs <- for project.modules $ \(ChanterelleModule mod) -> do
       input <- makeSolcInput project.spec project.root mod.solContractName mod.solPath
       pure $ Tuple mod input
   solcOutputs <-  for solcInputs $ \(Tuple mod solcInput) -> do
-      liftEff $ log Info ("compiling " <> mod.moduleName)
+      log Info ("compiling " <> mod.moduleName)
       output <- liftEff $ runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback project.root project.spec)
-      case AP.jsonParser output of
-        Left err -> liftAff <<< throwError <<< error $ "Malformed solc output: " <> err
+      case AP.jsonParser output >>= parseSolcOutput of
+        Left err -> throwError $ CompileParseError ("Solc output not valid Json: " <> err)
         Right output' -> do
           writeBuildArtifact mod.solContractName mod.jsonPath output' mod.solContractName
           pure $ Tuple mod.moduleName (Tuple (ChanterelleModule mod) output')
@@ -56,11 +63,16 @@ compile (ChanterelleProject project) = do
 -- | TODO: secure it so that it doesnt try loading crap like /etc/passwd, etc. :P
 -- | TODO: be more clever about dependency resolution, that way we don't even have to do
 -- |       any remappings!
-loadSolcCallback :: forall eff. FilePath -> ChanterelleProjectSpec -> String -> Eff (fs :: FS.FS | eff) SolcInputCallbackResult
+loadSolcCallback
+  :: forall eff.
+     FilePath
+  -> ChanterelleProjectSpec
+  -> String
+  -> Eff (fs :: FS.FS | eff) SolcInputCallbackResult
 loadSolcCallback root (ChanterelleProjectSpec project) filePath = do
   let isAbs = Path.isAbsolute filePath
       fullPath = if isAbs then filePath else Path.normalize (Path.concat [root, project.sourceDir, filePath])
-  liftEff $ log Debug ("solc load: " <> filePath <> " -> " <> fullPath)
+  log Debug ("solc load: " <> filePath <> " -> " <> fullPath)
   catchException (pure <<< solcInputCallbackFailure <<< show) (solcInputCallbackSuccess <$> (FSS.readTextFile UTF8 fullPath))
 
 --------------------------------------------------------------------------------
@@ -207,45 +219,59 @@ encodeOutputContract (OutputContract {abi, bytecode}) =
     A.jsonEmptyObject
 
 decodeContract
-  :: String
-  -> A.Json
-  -> Either String (M.StrMap OutputContract)
-decodeContract srcName json = do
-  let srcNameWithSol = srcName <> ".sol"
-  obj <- A.decodeJson json
-  contracts <- obj A..? "contracts"
-  json' <- maybe (Left $ "couldn't find " <> show srcNameWithSol <> " in object") Right (M.lookup srcNameWithSol contracts)
-  contractMap <- A.decodeJson json'
-  for contractMap $ parseOutputContract
+  :: forall m eff.
+     MonadEff eff m
+  => MonadThrow CompileError m
+  => String
+  -> SolcOutput
+  -> m (M.StrMap OutputContract)
+decodeContract srcName (SolcOutput output) = do
+    let srcNameWithSol = srcName <> ".sol"
+    case M.lookup srcNameWithSol output.contracts of
+      Nothing -> throwError <<< CompilationError $ map (\(SolcError se) -> se.formattedMessage) output.errors
+      Just contractMap' -> do
+        for_ output.errors $ \(SolcError err) -> log Warn err.formattedMessage
+        pure contractMap'
 
 --------------------------------------------------------------------------------
 
 foreign import jsonStringifyWithSpaces :: Int -> A.Json -> String
 
 writeBuildArtifact
-  :: forall eff m
-   . MonadAff (fs :: FS.FS | eff) m
+  :: forall eff m.
+     MonadAff (fs :: FS.FS | eff) m
+  => MonadThrow CompileError m
   => String
   -> FilePath
-  -> A.Json
+  -> SolcOutput
   -> String
   -> m Unit
-writeBuildArtifact srcName filepath output solContractName = liftAff $
-  case decodeContract srcName output of
-    Left err -> throwError <<< error $ "Malformed solc output: " <> err
-    Right co -> do
-      let dn = Path.dirname filepath
-          contractsMainModule = M.lookup solContractName co -- | TODO: clean up
-      case contractsMainModule of -- | TODO: Clean up
-        Nothing -> (throwError <<< error $ ("Couldn't find an object named " <> show solContractName <> " in " <> show filepath <> "!"))
-        Just co' -> do
-            assertDirectory dn
-            liftEff $ log Debug ("writing " <> filepath)
-            FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co'
+writeBuildArtifact srcName filepath output solContractName = do
+  co <- decodeContract srcName output
+  let dn = Path.dirname filepath
+      contractsMainModule = M.lookup solContractName co
+  case contractsMainModule of
+    Nothing -> let errMsg = "Couldn't find an object named " <> show solContractName <>
+                              " in " <> show filepath <> "!"
+               in throwError $ MissingArtifactError errMsg
+    Just co' -> do
+        assertDirectory dn
+        log Debug $ "Writing artifact " <> filepath
+        liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co'
 
 --------------------------------------------------------------------------------
 
 newtype SolcOutput =
-  SolcOutput { errors :: Maybe (Array SolcError)
-             , contracts :: M.StrMap OutputContract -- mapping of Filepath
+  SolcOutput { errors :: Array SolcError
+             , contracts :: M.StrMap (M.StrMap OutputContract)
              }
+
+parseSolcOutput
+  :: A.Json
+  -> Either String SolcOutput
+parseSolcOutput json = do
+  o <- A.decodeJson json
+  errors <- o A..? "errors"
+  contractsMap <- o A..? "contracts"
+  contracts <- for contractsMap (traverse parseOutputContract)
+  pure $ SolcOutput {errors, contracts}
