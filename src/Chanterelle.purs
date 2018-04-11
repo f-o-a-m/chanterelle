@@ -1,9 +1,9 @@
-module Chanterelle where
+module Chanterelle (compileMain) where
 
 import Prelude
 
 import Chanterelle.Compile (compileProject)
-import Chanterelle.Internal.Deploy (deploy)
+import Chanterelle.Deploy (deploy)
 import Chanterelle.Internal.Logging (setLogLevel, readLogLevel)
 import Chanterelle.Internal.Types (DeployM)
 import Control.Monad.Aff.Console (CONSOLE)
@@ -18,10 +18,10 @@ import Node.Process (PROCESS)
 import Node.Yargs.Applicative (yarg, runY)
 import Node.Yargs.Setup (usage, defaultVersion, defaultHelp, example)
 
-main
+compileMain
   :: forall eff.
      Eff (console :: CONSOLE, fs :: FS, process :: PROCESS, exception :: EXCEPTION | eff) Unit
-main =
+compileMain =
     let setup = usage "$0 --log-level <level>"
              <> example "$0 --log-level debug" "Run the compile phase with the given log level."
              <> defaultVersion
