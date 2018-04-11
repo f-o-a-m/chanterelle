@@ -14,6 +14,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (class MonadEff, liftEff)
 import Control.Monad.Eff.Exception (catchException)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
+import Control.Monad.Reader (class MonadAsk, ask)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
 import Data.Either (Either(..))
@@ -42,24 +43,26 @@ compile
   :: forall eff m.
      MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
   => MonadThrow CompileError m
-  => ChanterelleProject
-  -> m (M.StrMap (Tuple ChanterelleModule SolcOutput))
-compile p@(ChanterelleProject project) = do
+  => MonadAsk ChanterelleProject m
+  => m (M.StrMap (Tuple ChanterelleModule SolcOutput))
+compile = do
+  p@(ChanterelleProject project) <- ask
   let (ChanterelleProjectSpec spec) = project.spec
   solcInputs <- for project.modules $ \m@(ChanterelleModule mod) -> do
-      input <- makeSolcInput project.spec project.root mod.solContractName mod.solPath
+      input <- makeSolcInput mod.solContractName mod.solPath
       pure $ Tuple m input
-  solcOutputs <-  for solcInputs (compileModule p)
+  solcOutputs <-  for solcInputs compileModule
   pure $ M.fromFoldable solcOutputs
 
 compileModule
   :: forall eff m.
      MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
   => MonadThrow CompileError m
-  => ChanterelleProject
-  -> Tuple ChanterelleModule SolcInput
+  => MonadAsk ChanterelleProject m
+  => Tuple ChanterelleModule SolcInput
   -> m (Tuple String (Tuple ChanterelleModule SolcOutput))
-compileModule (ChanterelleProject project) (Tuple m@(ChanterelleModule mod) solcInput) = do
+compileModule (Tuple m@(ChanterelleModule mod) solcInput) = do
+  (ChanterelleProject project) <- ask
   log Info ("compiling " <> mod.moduleName)
   output <- liftEff $ runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback project.root project.spec)
   case AP.jsonParser output >>= parseSolcOutput of
@@ -101,18 +104,19 @@ makeSolcContract  sourceCode =
 makeSolcInput
   :: forall eff m.
      MonadAff (fs :: FS.FS | eff) m
-  => ChanterelleProjectSpec
-  -> FilePath
-  -> String
+  => MonadAsk ChanterelleProject m
+  => String
   -> FilePath
   -> m SolcInput
-makeSolcInput (ChanterelleProjectSpec project) root moduleName sourcePath = do
+makeSolcInput moduleName sourcePath = do
+  (ChanterelleProject project) <- ask
+  let (ChanterelleProjectSpec spec) = project.spec
   code <- liftAff $ FS.readTextFile UTF8 sourcePath
   let language = "Solidity"
       sources = M.singleton (moduleName <> ".sol") (makeSolcContract code)
-      outputSelection = M.singleton "*" (M.singleton "*" (["abi", "evm.bytecode.object"] <> project.solcOutputSelection))
-      depMappings = (\(Dependency dep) -> dep <> "=" <> (root <> "/node_modules/" <> dep)) <$> project.dependencies
-      sourceDirMapping = [":g" <> (Path.concat [root, project.sourceDir])]
+      outputSelection = M.singleton "*" (M.singleton "*" (["abi", "evm.bytecode.object"] <> spec.solcOutputSelection))
+      depMappings = (\(Dependency dep) -> dep <> "=" <> (project.root <> "/node_modules/" <> dep)) <$> spec.dependencies
+      sourceDirMapping = [":g" <> (Path.concat [project.root, spec.sourceDir])]
       remappings = sourceDirMapping <> depMappings
       settings = SolcSettings { outputSelection, remappings }
   pure $ SolcInput { language, sources, settings }

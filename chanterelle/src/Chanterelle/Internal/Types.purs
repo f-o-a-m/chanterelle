@@ -113,13 +113,14 @@ data ChanterelleProject =
 
 -- | Monad Stack for contract deployment.
 newtype CompileM eff a =
-  CompileM (ExceptT CompileError (Aff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff)) a)
+  CompileM (ReaderT ChanterelleProject (ExceptT CompileError (Aff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff))) a)
 
 runCompileM
   :: forall eff a.
      CompileM eff a
+  -> ChanterelleProject
   -> Aff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff) (Either CompileError a)
-runCompileM (CompileM deploy) = runExceptT deploy
+runCompileM (CompileM deploy) = runExceptT <<< runReaderT deploy
 
 derive newtype instance functorCompileM :: Functor (CompileM eff)
 derive newtype instance applyCompileM :: Apply (CompileM eff)
@@ -127,6 +128,7 @@ derive newtype instance applicativeCompileM :: Applicative (CompileM eff)
 derive newtype instance bindCompileM :: Bind (CompileM eff)
 derive newtype instance monadCompileM :: Monad (CompileM eff)
 derive newtype instance monadThrowCompileM :: MonadThrow CompileError (CompileM eff)
+derive newtype instance monadAskCompileM :: MonadAsk ChanterelleProject (CompileM eff)
 derive newtype instance monadEffCompileM :: MonadEff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff) (CompileM eff)
 derive newtype instance monadAffCompileM :: MonadAff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff) (CompileM eff)
 
