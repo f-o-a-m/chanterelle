@@ -1,5 +1,5 @@
 {
-    "name": "test-app",
+    "name": "parking-dao",
     "version": "0.0.1",
     "source-dir": "contracts",
     "modules": [ "FoamCSR"
