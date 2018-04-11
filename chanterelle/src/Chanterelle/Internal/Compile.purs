@@ -228,8 +228,8 @@ decodeContract srcName json = do
       contractMap = json ^? A._Object <<< ix srcNameWithSol <<< A._Object
   case contractMap of
     Nothing ->
-      let errs = unsafePartial fromJust (json ^? A._Object <<< ix "errors")
-          msg = "Couldn't find " <> show srcNameWithSol <> " in object.\n" <> jsonStringifyWithSpaces 4 errs
+      let -- errs = unsafePartial fromJust (json ^? A._Object <<< ix "errors")
+          msg = "Couldn't find " <> show srcNameWithSol <> " in object.\n" <> jsonStringifyWithSpaces 4 json
       in throwError $ CompileParseError msg
     Just contractMap' -> pure $ for contractMap' parseOutputContract
 
