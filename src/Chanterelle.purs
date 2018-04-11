@@ -1,4 +1,7 @@
-module Chanterelle (compileMain) where
+module Chanterelle
+  ( compileMain
+  , deployMain
+  ) where
 
 import Prelude
 
