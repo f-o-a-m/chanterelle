@@ -4,7 +4,8 @@
 
 <img src=https://github.com/f-o-a-m/purescript-web3/blob/master/purescript-web3-logo.png width="75">
 
-_a build tool with example application_
+_
+a more functional truffle_
 
 ## Build/Deploy Overview
 
@@ -54,7 +55,7 @@ This is embodied in the `chanterelle.json` file which should be located in the
 root of your project. It also supports the notion of dependencies (very rudimentary at the moment), as well as automatically generates PureScript bindings for your contracts using `purescript-web3-generator`.
 
 #### `chanterelle.json`
-A Chanterelle project is primarily described in `chanterelle.json`, which should be placed in the root of your project. A sample project is defined below, and explanations of the concepts defined follow based on the example.
+A Chanterelle project is primarily described in `chanterelle.json`, which should be placed in the root of your project. A sample project is defined below, and explanations of the concepts defined follow based on the example taken from the example [parking-dao](https://github.com/f-o-a-m/parking-dao) application.
 
 ```javascript
 {
