@@ -213,9 +213,9 @@ registerAnchor fromAccount args (DeployConfig {provider, networkId}) = do
   pure ev
 
 bigGasLimit :: BigNumber
-bigGasLimit = case parseBigNumber decimal "9000000" of
+bigGasLimit = case parseBigNumber decimal "4712388" of
   Just x -> x
-  Nothing -> unsafeCrashWith "expected to get big number from 9000000 but it failed"
+  Nothing -> unsafeCrashWith "expected to get big number from 4712388 but it failed"
 
 buildParkingAuthorityConfig
   :: forall eff.
