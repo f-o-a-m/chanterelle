@@ -1,4 +1,4 @@
-module Chanterelle.Main where
+module Chanterelle.Compile (compileProject) where
 
 import Prelude
 
@@ -48,8 +48,10 @@ loadProject root = do
          in ChanterelleModule { moduleName, solContractName, solPath, jsonPath, pursPath }
   pure $ ChanterelleProject { root, srcIn, jsonOut, psOut, spec, modules }
 
-main :: forall e. Eff (console :: CONSOLE, fs :: FS.FS, process :: PROCESS | e) Unit
-main = do
+compileProject
+  :: forall e.
+     Eff (console :: CONSOLE, fs :: FS.FS, process :: PROCESS | e) Unit
+compileProject = do
     root <- liftEff P.cwd
     void $ launchAff $ do
       project <- loadProject root

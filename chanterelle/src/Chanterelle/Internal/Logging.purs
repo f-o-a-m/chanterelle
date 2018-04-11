@@ -2,21 +2,32 @@ module Chanterelle.Internal.Logging
     ( LogLevel(..)
     , log
     , setLogLevel
+    , readLogLevel
     ) where
 
 import Prelude
 import Ansi.Codes (Color(..))
 import Ansi.Output (withGraphics, foreground)
 import Control.Logger as Logger
+import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff, class MonadEff)
 import Control.Monad.Eff.Console as Console
-import Control.Monad.Eff.Unsafe (unsafeCoerceEff, unsafePerformEff)
+import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Data.JSDate (now, toISOString)
+import Data.String (toUpper)
 
 data LogLevel = Debug | Info | Warn | Error
 
 derive instance eqLogLevel   :: Eq LogLevel
-derive instance ordLogLevel  :: Ord LogLevel
+
+instance ordLogLevel :: Ord LogLevel where
+  compare = comparing levelOrder
+    where
+      levelOrder level = case level of
+        Debug -> 1
+        Info -> 2
+        Warn -> 3
+        Error -> 4
 
 instance showLogLevel :: Show LogLevel where
     show Debug = "DEBUG"
@@ -24,8 +35,20 @@ instance showLogLevel :: Show LogLevel where
     show Warn  = "WARN"
     show Error = "ERROR"
 
-foreign import getLogLevel :: forall eff m. MonadEff eff m => LogLevel -> m LogLevel
-foreign import setLogLevel :: forall eff m. MonadEff eff m => LogLevel -> m Unit
+foreign import getLogLevel :: forall eff. Eff eff LogLevel
+foreign import setLogLevel :: forall eff. LogLevel -> Eff eff Unit
+
+readLogLevel
+  :: String
+  -> LogLevel
+readLogLevel level =
+  let normalized = toUpper level
+  in case normalized of
+       "DEBUG" -> Debug
+       "INFO" -> Info
+       "WARN" -> Warn
+       "ERROR" -> Error
+       otherwise -> Info
 
 class Loggable a where
   logify :: a -> String
@@ -56,7 +79,7 @@ log
   => LogLevel
   -> String
   -> m Unit
-log level msg = Logger.log filteredLogger { level, msg }
-    where
-      filteredLogger = fancyColorLogger # Logger.cfilter levelFilter
-      levelFilter m = m.level >= (unsafePerformEff $ getLogLevel Info)
+log level msg = do
+      currentLevel <- liftEff getLogLevel
+      when (level >= currentLevel) $
+        Logger.log fancyColorLogger { level, msg }

@@ -17,6 +17,7 @@ import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Reader (class MonadAsk, ask)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
+import Data.Array (filter)
 import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn2, runFn2)
 import Data.Maybe (Maybe(..))
@@ -134,11 +135,13 @@ decodeContract
   -> m (M.StrMap OutputContract)
 decodeContract srcName (SolcOutput output) = do
     let srcNameWithSol = srcName <> ".sol"
+        warnings = filter (\(SolcError se) -> se.severity == "warning") output.errors
+    for_ warnings $ \(SolcError err) -> log Warn err.formattedMessage
     case M.lookup srcNameWithSol output.contracts of
-      Nothing -> throwError <<< CompilationError $ map (\(SolcError se) -> se.formattedMessage) output.errors
-      Just contractMap' -> do
-        for_ output.errors $ \(SolcError err) -> log Warn err.formattedMessage
-        pure contractMap'
+      Nothing -> do
+        let errs = filter (\(SolcError se) -> se.severity == "error") output.errors
+        throwError <<< CompilationError $ map (\(SolcError se) -> se.formattedMessage) errs
+      Just contractMap' -> pure contractMap'
 
 foreign import jsonStringifyWithSpaces :: Int -> A.Json -> String
 
