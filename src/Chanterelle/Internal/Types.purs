@@ -3,7 +3,7 @@ module Chanterelle.Internal.Types where
 import Prelude
 
 import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Control.Monad.Aff (Aff, Milliseconds(..), liftEff')
+import Control.Monad.Aff (Aff, Milliseconds, liftEff')
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff.Class (class MonadEff)

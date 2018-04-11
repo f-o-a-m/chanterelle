@@ -1,21 +1,18 @@
 module Chanterelle.Internal.Deploy
-  ( deploy
-  , deployContract
+  ( deployContract
   , readDeployAddress
   ) where
 
 import Prelude
 
 import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types (ContractConfig, DeployConfig(..), DeployError(..), DeployM, logDeployError, runDeployM)
-import Chanterelle.Internal.Utils (makeDeployConfig, pollTransactionReceipt, validateDeployArgs, withTimeout)
+import Chanterelle.Internal.Types (ContractConfig, DeployConfig(..), DeployError(..))
+import Chanterelle.Internal.Utils (pollTransactionReceipt, validateDeployArgs, withTimeout)
 import Control.Error.Util ((??))
-import Control.Monad.Aff (Aff, attempt, launchAff)
+import Control.Monad.Aff (attempt)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Unsafe (unsafeCoerceAff)
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Exception (error)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Except (ExceptT(..), runExceptT)
 import Control.Monad.Reader.Class (class MonadAsk, ask)
@@ -168,20 +165,3 @@ deployContractAndWriteToArtifact filepath name deployAction = do
           let errMsg = "Failed to write address for artifact " <> filepath <> " -- " <> err
           in throwError $ PostDeploymentError errMsg
         Right _ -> pure contractAddress
-
--- | Run an arbitrary deployment script in the DeployM monad
-deploy
-  :: forall eff a.
-     String
-  -> Int
-  -> DeployM eff a
-  -> Eff (console :: CONSOLE, eth :: ETH, fs :: FS | eff) Unit
-deploy url tout deployScript = void <<< launchAff $ do
-  edeployConfig <- runExceptT $ makeDeployConfig url tout
-  case edeployConfig of
-    Left err -> logDeployError err *> throwError (error "Error in building DeployConfig!")
-    Right deployConfig -> do
-      eDeployResult <- runDeployM deployScript deployConfig
-      case eDeployResult of
-        Left err -> logDeployError err *> throwError (error "Error during deployment!")
-        Right a -> pure a
