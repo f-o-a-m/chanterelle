@@ -11,7 +11,7 @@ import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpe
 import Chanterelle.Internal.Utils (assertDirectory)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Class (liftEff)
+import Control.Monad.Eff.Class (class MonadEff, liftEff)
 import Control.Monad.Eff.Exception (catchException)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Data.Argonaut as A
@@ -20,7 +20,7 @@ import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn2, runFn2)
 import Data.Maybe (Maybe(..))
 import Data.StrMap as M
-import Data.Traversable (for, traverse)
+import Data.Traversable (for, for_, traverse)
 import Data.Tuple (Tuple(..))
 import Network.Ethereum.Web3 (HexString, unHex, sha3)
 import Node.Encoding (Encoding(UTF8))
@@ -219,16 +219,19 @@ encodeOutputContract (OutputContract {abi, bytecode}) =
     A.jsonEmptyObject
 
 decodeContract
-  :: forall m.
-     MonadThrow CompileError m
+  :: forall m eff.
+     MonadEff eff m
+  => MonadThrow CompileError m
   => String
   -> SolcOutput
   -> m (M.StrMap OutputContract)
 decodeContract srcName (SolcOutput output) = do
-  let srcNameWithSol = srcName <> ".sol"
-  case M.lookup srcNameWithSol output.contracts of
-    Nothing -> throwError <<< CompilationError $ map (\(SolcError se) -> se.formattedMessage) output.errors
-    Just contractMap' -> pure contractMap'
+    let srcNameWithSol = srcName <> ".sol"
+    case M.lookup srcNameWithSol output.contracts of
+      Nothing -> throwError <<< CompilationError $ map (\(SolcError se) -> se.formattedMessage) output.errors
+      Just contractMap' -> do
+        for_ output.errors $ \(SolcError err) -> log Warn err.formattedMessage
+        pure contractMap'
 
 --------------------------------------------------------------------------------
 
