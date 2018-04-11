@@ -7,7 +7,7 @@ module Chanterelle.Internal.Compile
 
 import Prelude
 import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), CompileError(..))
+import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), CompileError(..), Libraries)
 import Chanterelle.Internal.Utils (assertDirectory)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff (Eff)
@@ -119,7 +119,8 @@ makeSolcInput moduleName sourcePath = do
       depMappings = (\(Dependency dep) -> dep <> "=" <> (project.root <> "/node_modules/" <> dep)) <$> spec.dependencies
       sourceDirMapping = [":g" <> (Path.concat [project.root, spec.sourceDir])]
       remappings = sourceDirMapping <> depMappings
-      settings = SolcSettings { outputSelection, remappings }
+      settings = SolcSettings { outputSelection, remappings, libraries }
+      libraries = spec.libraries
   pure $ SolcInput { language, sources, settings }
 
 --------------------------------------------------------------------------------
@@ -182,10 +183,10 @@ newtype SolcInput =
             }
 instance encodeSolcInput :: A.EncodeJson SolcInput where
   encodeJson (SolcInput {language, sources, settings}) =
-    "language" A.:= A.fromString "Solidity" A.~>
-    "sources" A.:= A.encodeJson sources A.~>
-    "settings" A.:= A.encodeJson settings A.~>
-    A.jsonEmptyObject
+         "language" A.:= A.fromString "Solidity"
+    A.~> "sources"  A.:= A.encodeJson sources
+    A.~> "settings" A.:= A.encodeJson settings
+    A.~> A.jsonEmptyObject
 
 --------------------------------------------------------------------------------
 
@@ -194,12 +195,14 @@ type ContractName = String
 newtype SolcSettings =
   SolcSettings { outputSelection :: (M.StrMap (M.StrMap (Array String)))
                , remappings      :: Array String
+               , libraries       :: Libraries
                }
 
 instance encodeSolcSettings :: A.EncodeJson SolcSettings where
-  encodeJson (SolcSettings {outputSelection, remappings}) =
-         "outputSelection" A.:= A.encodeJson outputSelection
-    A.~> "remappings"      A.:= A.encodeJson remappings
+  encodeJson (SolcSettings s) =
+         "outputSelection" A.:= A.encodeJson s.outputSelection
+    A.~> "remappings"      A.:= A.encodeJson s.remappings
+    A.~> "libraries"       A.:= A.encodeJson s.libraries
     A.~> A.jsonEmptyObject
 
 --------------------------------------------------------------------------------
