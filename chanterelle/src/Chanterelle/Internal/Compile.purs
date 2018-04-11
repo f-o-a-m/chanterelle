@@ -44,20 +44,29 @@ compile
   => MonadThrow CompileError m
   => ChanterelleProject
   -> m (M.StrMap (Tuple ChanterelleModule SolcOutput))
-compile (ChanterelleProject project) = do
+compile p@(ChanterelleProject project) = do
   let (ChanterelleProjectSpec spec) = project.spec
-  solcInputs <- for project.modules $ \(ChanterelleModule mod) -> do
+  solcInputs <- for project.modules $ \m@(ChanterelleModule mod) -> do
       input <- makeSolcInput project.spec project.root mod.solContractName mod.solPath
-      pure $ Tuple mod input
-  solcOutputs <-  for solcInputs $ \(Tuple mod solcInput) -> do
-      log Info ("compiling " <> mod.moduleName)
-      output <- liftEff $ runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback project.root project.spec)
-      case AP.jsonParser output >>= parseSolcOutput of
-        Left err -> throwError $ CompileParseError ("Solc output not valid Json: " <> err)
-        Right output' -> do
-          writeBuildArtifact mod.solContractName mod.jsonPath output' mod.solContractName
-          pure $ Tuple mod.moduleName (Tuple (ChanterelleModule mod) output')
+      pure $ Tuple m input
+  solcOutputs <-  for solcInputs (compileModule p)
   pure $ M.fromFoldable solcOutputs
+
+compileModule
+  :: forall eff m.
+     MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
+  => MonadThrow CompileError m
+  => ChanterelleProject
+  -> Tuple ChanterelleModule SolcInput
+  -> m (Tuple String (Tuple ChanterelleModule SolcOutput))
+compileModule (ChanterelleProject project) (Tuple m@(ChanterelleModule mod) solcInput) = do
+  log Info ("compiling " <> mod.moduleName)
+  output <- liftEff $ runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback project.root project.spec)
+  case AP.jsonParser output >>= parseSolcOutput of
+    Left err -> throwError $ CompileParseError ("Solc output not valid Json: " <> err)
+    Right output' -> do
+      writeBuildArtifact mod.solContractName mod.jsonPath output' mod.solContractName
+      pure $ Tuple mod.moduleName (Tuple m output')
 
 -- | load a file when solc requests it
 -- | TODO: secure it so that it doesnt try loading crap like /etc/passwd, etc. :P
