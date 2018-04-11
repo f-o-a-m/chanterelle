@@ -19,6 +19,7 @@ import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Lens ((?~))
 import Data.Maybe (fromMaybe)
+import Data.Traversable (for_)
 import Data.Validation.Semigroup (V)
 import Network.Ethereum.Web3 (Address, BigNumber, ETH, HexString, TransactionOptions, Web3, _value, _data, fromWei)
 import Network.Ethereum.Web3.Api (eth_sendTransaction)
@@ -189,6 +190,7 @@ data CompileError =
     CompileParseError String
   | MissingArtifactError String
   | FSError String
+  | CompilationError (Array String)
 
 derive instance genericCompileError :: Generic CompileError _
 
@@ -204,6 +206,7 @@ logCompileError err = liftAff $ case err of
     CompileParseError errMsg -> log Error errMsg
     MissingArtifactError errMsg -> log Error errMsg
     FSError errMsg -> log Error errMsg
+    CompilationError errs -> for_ errs (log Error)
 
 --------------------------------------------------------------------------------
 -- | Config Types

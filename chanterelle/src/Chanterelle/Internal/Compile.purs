@@ -1,5 +1,11 @@
-module Chanterelle.Internal.Compile (compile) where
+module Chanterelle.Internal.Compile
+  ( compile
+  , SolcOutput(..)
+  , SolcError(..)
+  , OutputContract(..)
+  ) where
 
+import Prelude
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), CompileError(..))
 import Chanterelle.Internal.Utils (assertDirectory)
@@ -10,13 +16,11 @@ import Control.Monad.Eff.Exception (catchException)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
-import Data.Either (Either(..), either)
+import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn2, runFn2)
-import Data.Lens ((^?))
-import Data.Lens.Index (ix)
-import Data.Maybe (Maybe(..), fromJust)
+import Data.Maybe (Maybe(..))
 import Data.StrMap as M
-import Data.Traversable (for)
+import Data.Traversable (for, traverse)
 import Data.Tuple (Tuple(..))
 import Network.Ethereum.Web3 (HexString, unHex, sha3)
 import Node.Encoding (Encoding(UTF8))
@@ -25,9 +29,6 @@ import Node.FS.Sync as FSS
 import Node.Path (FilePath)
 import Node.Path as Path
 import Node.Process as P
-import Prelude (Unit, bind, discard, pure, show, ($), (<$>), (<<<), (<>))
-import Partial.Unsafe (unsafePartial)
-
 
 --------------------------------------------------------------------------------
 
@@ -42,7 +43,7 @@ compile
      MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
   => MonadThrow CompileError m
   => ChanterelleProject
-  -> m (M.StrMap (Tuple ChanterelleModule A.Json))
+  -> m (M.StrMap (Tuple ChanterelleModule SolcOutput))
 compile (ChanterelleProject project) = do
   let (ChanterelleProjectSpec spec) = project.spec
   solcInputs <- for project.modules $ \(ChanterelleModule mod) -> do
@@ -51,8 +52,8 @@ compile (ChanterelleProject project) = do
   solcOutputs <-  for solcInputs $ \(Tuple mod solcInput) -> do
       log Info ("compiling " <> mod.moduleName)
       output <- liftEff $ runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback project.root project.spec)
-      case AP.jsonParser output of
-        Left err -> throwError $ CompileParseError ("solc output not valid Json: " <> err)
+      case AP.jsonParser output >>= parseSolcOutput of
+        Left err -> throwError $ CompileParseError ("Solc output not valid Json: " <> err)
         Right output' -> do
           writeBuildArtifact mod.solContractName mod.jsonPath output' mod.solContractName
           pure $ Tuple mod.moduleName (Tuple (ChanterelleModule mod) output')
@@ -221,17 +222,13 @@ decodeContract
   :: forall m.
      MonadThrow CompileError m
   => String
-  -> A.Json
-  -> m (Either String (M.StrMap OutputContract))
-decodeContract srcName json = do
+  -> SolcOutput
+  -> m (M.StrMap OutputContract)
+decodeContract srcName (SolcOutput output) = do
   let srcNameWithSol = srcName <> ".sol"
-      contractMap = json ^? A._Object <<< ix srcNameWithSol <<< A._Object
-  case contractMap of
-    Nothing ->
-      let -- errs = unsafePartial fromJust (json ^? A._Object <<< ix "errors")
-          msg = "Couldn't find " <> show srcNameWithSol <> " in object.\n" <> jsonStringifyWithSpaces 4 json
-      in throwError $ CompileParseError msg
-    Just contractMap' -> pure $ for contractMap' parseOutputContract
+  case M.lookup srcNameWithSol output.contracts of
+    Nothing -> throwError <<< CompilationError $ map (\(SolcError se) -> se.formattedMessage) output.errors
+    Just contractMap' -> pure contractMap'
 
 --------------------------------------------------------------------------------
 
@@ -243,12 +240,11 @@ writeBuildArtifact
   => MonadThrow CompileError m
   => String
   -> FilePath
-  -> A.Json
+  -> SolcOutput
   -> String
   -> m Unit
 writeBuildArtifact srcName filepath output solContractName = do
-  eco <- decodeContract srcName output
-  co <- either (throwError <<< CompileParseError) pure eco
+  co <- decodeContract srcName output
   let dn = Path.dirname filepath
       contractsMainModule = M.lookup solContractName co
   case contractsMainModule of
@@ -263,6 +259,16 @@ writeBuildArtifact srcName filepath output solContractName = do
 --------------------------------------------------------------------------------
 
 newtype SolcOutput =
-  SolcOutput { errors :: Maybe (Array SolcError)
-             , contracts :: M.StrMap OutputContract -- mapping of Filepath
+  SolcOutput { errors :: Array SolcError
+             , contracts :: M.StrMap (M.StrMap OutputContract)
              }
+
+parseSolcOutput
+  :: A.Json
+  -> Either String SolcOutput
+parseSolcOutput json = do
+  o <- A.decodeJson json
+  errors <- o A..? "errors"
+  contractsMap <- o A..? "contracts"
+  contracts <- for contractsMap (traverse parseOutputContract)
+  pure $ SolcOutput {errors, contracts}
