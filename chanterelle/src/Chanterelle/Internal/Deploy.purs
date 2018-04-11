@@ -1,18 +1,21 @@
 module Chanterelle.Internal.Deploy
-  ( deployContract
+  ( deploy
+  , deployContract
   , readDeployAddress
   ) where
 
 import Prelude
 
 import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types (DeployConfig(..), DeployError(..), ContractConfig)
-import Chanterelle.Internal.Utils (withTimeout, pollTransactionReceipt, validateDeployArgs)
+import Chanterelle.Internal.Types (ContractConfig, DeployConfig(..), DeployError(..), DeployM, logDeployError, runDeployM)
+import Chanterelle.Internal.Utils (makeDeployConfig, pollTransactionReceipt, validateDeployArgs, withTimeout)
 import Control.Error.Util ((??))
-import Control.Monad.Aff (Milliseconds(..), attempt)
+import Control.Monad.Aff (Aff, attempt, launchAff)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Unsafe (unsafeCoerceAff)
+import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Exception (error)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Except (ExceptT(..), runExceptT)
 import Control.Monad.Reader.Class (class MonadAsk, ask)
@@ -26,7 +29,6 @@ import Data.Maybe (isNothing, fromJust)
 import Data.StrMap as M
 import Network.Ethereum.Web3 (runWeb3)
 import Network.Ethereum.Web3.Types (NoPay, ETH, Web3, Address, BigNumber, HexString, TransactionOptions, TransactionReceipt(..), mkHexString, mkAddress)
-import Network.Ethereum.Web3.Types.Provider (Provider)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff (FS, readTextFile, writeTextFile)
 import Node.Path (FilePath)
@@ -75,16 +77,16 @@ getPublishedContractAddress
   :: forall eff m.
      MonadThrow DeployError m
   => MonadAff (console :: CONSOLE, eth :: ETH | eff) m
+  => MonadAsk DeployConfig m
   => HexString
    -- ^ publishing transaction hash
-  -> Provider
-  -- ^ web3 connection
   -> String
   -- ^ contract name
   -> m Address
-getPublishedContractAddress txHash provider name = do
+getPublishedContractAddress txHash name = do
+  (DeployConfig {timeout, provider}) <- ask
   log Info $ "Polling for TransactionReceipt: " <> show txHash
-  etxReceipt <- liftAff <<< attempt $ withTimeout (Milliseconds $ 90.0 * 1000.0) (pollTransactionReceipt txHash provider)
+  etxReceipt <- liftAff <<< attempt $ withTimeout timeout (pollTransactionReceipt txHash provider)
   case etxReceipt of
     Left err ->
       let errMsg = "No Transaction Receipt found for deployment : " <> name <> " : " <> show txHash
@@ -159,10 +161,27 @@ deployContractAndWriteToArtifact filepath name deployAction = do
       let errMsg = "Web3 error during contract deployment for " <> show name <> " -- " <> show err
       in throwError $ OnDeploymentError errMsg
     Right txHash -> do
-      contractAddress <- getPublishedContractAddress txHash provider name
+      contractAddress <- getPublishedContractAddress txHash name
       eWriteRes <- writeDeployAddress filepath networkId contractAddress
       case eWriteRes of
         Left err ->
           let errMsg = "Failed to write address for artifact " <> filepath <> " -- " <> err
           in throwError $ PostDeploymentError errMsg
         Right _ -> pure contractAddress
+
+-- | Run an arbitrary deployment script in the DeployM monad
+deploy
+  :: forall eff a.
+     String
+  -> Int
+  -> DeployM eff a
+  -> Eff (console :: CONSOLE, eth :: ETH, fs :: FS | eff) Unit
+deploy url tout deployScript = void <<< launchAff $ do
+  edeployConfig <- runExceptT $ makeDeployConfig url tout
+  case edeployConfig of
+    Left err -> logDeployError err *> throwError (error "Error in building DeployConfig!")
+    Right deployConfig -> do
+      eDeployResult <- runDeployM deployScript deployConfig
+      case eDeployResult of
+        Left err -> logDeployError err *> throwError (error "Error during deployment!")
+        Right a -> pure a
