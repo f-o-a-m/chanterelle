@@ -16,7 +16,7 @@ import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (class MonadAsk)
 import Data.Argonaut ((:=), (~>), (.?), (.??))
 import Data.Argonaut as A
-import Data.Either (Either)
+import Data.Either (Either(..))
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Lens ((?~))
@@ -74,7 +74,7 @@ instance encodeJsonLibraries :: A.EncodeJson Libraries where
 instance decodeJsonLibraries :: A.DecodeJson Libraries where
   decodeJson j = do
     obj <- A.decodeJson j
-    libs <- for (M.toUnfoldable obj) $ \t -> (decodeFixedLibrary t) <|> (decodeInjectableLibrary t)
+    libs <- for (M.toUnfoldable obj) $ \t -> (decodeFixedLibrary t) <|> (decodeInjectableLibrary t) <|> (failDramatically t)
     pure (Libraries libs)
 
     where decodeFixedLibrary (Tuple name l) = do
@@ -88,6 +88,8 @@ instance decodeJsonLibraries :: A.DecodeJson Libraries where
             address  <- note ("Invalid address " <> address') (mkHexString address' >>= mkAddress)
             source   <- ilo .? "source"
             pure $ InjectableLibrary { name, address, source }
+
+          failDramatically (Tuple name _) = Left ("Malformed library descriptor for " <> name)
 
 ---------------------------------------------------------------------
 
