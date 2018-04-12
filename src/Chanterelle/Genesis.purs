@@ -185,18 +185,27 @@ substituteLibraryAddress hsBytecode target = ret
           -- so 27 bytes of opcodes *2 cause it's hex
           minBytecodeLength = 46
 
+          -- evm opcodes
           op_push20'     = "73"
           op_push20 addr = op_push20' <> (unHex $ unAddress addr)
           op_addr        = "30"
           op_eq          = "14"
 
+          -- work against the raw hex string
           bytecode = unHex hsBytecode
+
+          -- split at minBytecodeLength since we have to edit before that
           bcsplit = case S.splitAt minBytecodeLength bytecode of
                       Nothing -> { preamble: "", code: "" }
                       Just s  -> { preamble: s.before, code: s.after }
 
+          -- is the first instruction a PUSH20?
           firstByteIsPush20 = S.take 2 bcsplit.preamble == op_push20'
+
+          -- are the last instructions in preamble ADDRESS; EQ?
           preambleEndsInAddrEq = S.takeRight 4 bcsplit.preamble == (op_addr <> op_eq)
+
+          -- if yes to both then it's a library
           firstBytesAreLibPreamble = firstByteIsPush20 && preambleEndsInAddrEq
 
           newPreamble = (op_push20 target) <> op_addr <> op_eq
