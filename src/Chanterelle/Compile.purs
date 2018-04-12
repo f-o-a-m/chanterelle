@@ -32,7 +32,8 @@ loadProject
   -> Aff (fs :: FS | eff) ChanterelleProject
 loadProject root = do
   specJson <- liftAff $ FS.readTextFile UTF8 "chanterelle.json"
-  spec@(ChanterelleProjectSpec project) <- either (liftEff' <<< throw) pure (AP.jsonParser specJson >>= A.decodeJson)
+  spec@(ChanterelleProjectSpec project) <- either (\err -> liftEff' <<< throw $ "Error in parsing chanterelle.json: " <> err)
+                                             pure (AP.jsonParser specJson >>= A.decodeJson)
   let jsonOut  = Path.concat [root, "build", project.sourceDir]
       psOut    = Path.concat [root, project.psGen.outputPath]
       srcIn    = Path.concat [root, project.sourceDir]

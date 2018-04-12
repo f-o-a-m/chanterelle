@@ -1,6 +1,6 @@
 module Chanterelle.Internal.Codegen
-       ( generatePS
-       ) where
+  ( generatePS
+  ) where
 
 import Prelude
 import Data.Argonaut (decodeJson)
@@ -78,8 +78,8 @@ loadAbi :: forall eff m
 loadAbi (ChanterelleProject project) abiFile = do
     let (ChanterelleProjectSpec spec) = project.spec
     ejson <- liftAff (jsonParser <$> FS.readTextFile UTF8 abiFile)
-    json <- either (throwError <<< CompileParseError) pure ejson
-    either (throwError <<< CompileParseError) pure $ parseAbi json
+    json <- either (throwError <<< CompileParseError <<< {objectName: "Json File " <> abiFile, parseError:_}) pure ejson
+    either (throwError <<< CompileParseError <<< {objectName: "ABI " <> abiFile, parseError:_}) pure $ parseAbi json
   where
     parseAbi json = let mabi = json ^? _Object <<< ix "abi"
-                    in note ("abi field missing in " <> abiFile) mabi >>= decodeJson
+                    in note ("ABI field missing in " <> abiFile) mabi >>= decodeJson
