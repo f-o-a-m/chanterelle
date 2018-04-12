@@ -6,14 +6,14 @@ import Control.Error.Util (note)
 import Data.Argonaut as A
 import Data.Argonaut (class DecodeJson, class EncodeJson, Json, (:=), (~>), (.?), (.??), decodeJson, encodeJson, jsonEmptyObject)
 import Data.Either (Either(..))
-import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Maybe (Maybe(..), maybe)
 import Data.Monoid (mempty)
 import Data.String as S
 import Data.StrMap (StrMap)
 import Data.StrMap as M
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
-import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber(..), HexString(..), embed, hexadecimal, mkAddress, mkHexString, parseBigNumber, toString, unAddress, unHex)
+import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber(..), HexString, embed, hexadecimal, mkAddress, mkHexString, parseBigNumber, toString, unAddress, unHex)
 
 decodeJsonBlockNumber :: Json -> Either String BlockNumber
 decodeJsonBlockNumber = map BlockNumber <<< decodeJsonBigNumber
