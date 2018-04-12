@@ -4,7 +4,6 @@ module Chanterelle.Internal.Utils
   , getPrimaryAccount
   , pollTransactionReceipt
   , withTimeout
-  , reportIfErrored
   , validateDeployArgs
   , unparsePath
   , assertDirectory
@@ -12,12 +11,11 @@ module Chanterelle.Internal.Utils
 
 import Prelude
 
-import Chanterelle.Internal.Logging (LogLevel(Debug), log)
+import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types (ContractConfig, DeployConfig(..), DeployError(..), CompileError(..))
 import Control.Monad.Aff (Aff, Milliseconds(..), delay)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
-import Control.Monad.Aff.Console as C
 import Control.Monad.Eff.Class (class MonadEff, liftEff)
 import Control.Monad.Eff.Exception (error, try)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
@@ -80,7 +78,7 @@ getPrimaryAccount = do
     maybe accountsError pure $ accounts !! 0
   where
     accountsError = do
-      liftAff $ C.error "No PrimaryAccount found on ethereum client!"
+      log Error "No PrimaryAccount found on ethereum client!"
       throwError NullError
 
 -- | indefinitely poll for a transaction receipt, sleeping for 3
@@ -110,19 +108,6 @@ withTimeout maxTimeout action = do
         delay maxTimeout
         throwError $ error "TimeOut"
   parOneOf [action, timeout]
-
-reportIfErrored
-  :: forall err a eff.
-     Show err
-  => String
-  -> Either err a
-  -> Aff (console :: CONSOLE | eff) a
-reportIfErrored msg eRes =
-  case eRes of
-    Left err -> do
-      C.error msg
-      throwError <<< error <<< show $ err
-    Right res -> pure res
 
 validateDeployArgs
   :: forall m args.

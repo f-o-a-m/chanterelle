@@ -86,13 +86,13 @@ getPublishedContractAddress txHash name = do
   etxReceipt <- liftAff <<< attempt $ withTimeout timeout (pollTransactionReceipt txHash provider)
   case etxReceipt of
     Left err ->
-      let errMsg = "No Transaction Receipt found for deployment : " <> name <> " : " <> show txHash
-      in throwError $ OnDeploymentError errMsg
+      let message = "No Transaction Receipt found for deployment " <> show txHash
+      in throwError $ OnDeploymentError {name, message}
     Right (TransactionReceipt txReceipt) ->
       if txReceipt.status == "0x0" || isNothing (unNullOrUndefined txReceipt.contractAddress)
          then
-            let missingMessage = "Deployment failed to create contract, no address found or status 0x0 in receipt: " <> name
-            in throwError $ OnDeploymentError missingMessage
+            let message = "Deployment failed to create contract, no address found or status 0x0 in receipt: " <> name
+            in throwError $ OnDeploymentError {name, message}
          else do
            let contractAddress = unsafePartial fromJust <<< unNullOrUndefined $ txReceipt.contractAddress
            log Info $ "Contract " <> name <> " deployed to address " <> show contractAddress
@@ -155,13 +155,13 @@ deployContractAndWriteToArtifact filepath name deployAction = do
   etxHash <- liftAff <<< unsafeCoerceAff $ runWeb3 provider deployAction
   case etxHash of
     Left err ->
-      let errMsg = "Web3 error during contract deployment for " <> show name <> " -- " <> show err
-      in throwError $ OnDeploymentError errMsg
+      let message = "Web3 error " <>  show err
+      in throwError $ OnDeploymentError {name, message}
     Right txHash -> do
       contractAddress <- getPublishedContractAddress txHash name
       eWriteRes <- writeDeployAddress filepath networkId contractAddress
       case eWriteRes of
         Left err ->
-          let errMsg = "Failed to write address for artifact " <> filepath <> " -- " <> err
-          in throwError $ PostDeploymentError errMsg
+          let message = "Failed to write address for artifact " <> filepath <> " -- " <> err
+          in throwError $ PostDeploymentError {name, message}
         Right _ -> pure contractAddress

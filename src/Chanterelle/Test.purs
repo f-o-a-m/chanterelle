@@ -88,7 +88,7 @@ buildTestConfig url timeout deployScript = do
     Right deployConfig@(DeployConfig {provider}) -> do
       eDeployResults <- flip runDeployM deployConfig $ do
         eaccounts <- liftAff $ runWeb3 provider eth_getAccounts
-        accounts <- either (throwError <<< ConfigurationError <<< show) pure eaccounts
+        accounts <- either (\err -> throwError <<< ConfigurationError $ "Couldn't find accounts for tests " <> show err) pure eaccounts
         results <- deployScript
         pure $ Tuple accounts results
       case eDeployResults of

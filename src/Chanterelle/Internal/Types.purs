@@ -62,7 +62,7 @@ instance encodeJsonLibraries :: A.EncodeJson Libraries where
     let asAssocs = mkTuple <$> libs
         mkTuple (Library l) = Tuple l.name (A.encodeJson (show $ unAddress l.address))
         asMap    = M.fromFoldable asAssocs
-     in A.encodeJson asMap      
+     in A.encodeJson asMap
 
 instance decodeJsonLibraries :: A.DecodeJson Libraries where
   decodeJson j = do
@@ -71,7 +71,7 @@ instance decodeJsonLibraries :: A.DecodeJson Libraries where
       address <- note ("Invalid address " <> addressStr) (mkHexString addressStr >>= mkAddress)
       pure $ Library { name, address }
     pure (Libraries libs)
-      
+
 ---------------------------------------------------------------------
 
 data ChanterelleModule =
@@ -197,8 +197,8 @@ derive newtype instance monadAffDeployM :: MonadAff (eth :: ETH, fs :: FS, conso
 
 data DeployError =
     ConfigurationError String
-  | OnDeploymentError String
-  | PostDeploymentError String
+  | OnDeploymentError {name :: String, message :: String}
+  | PostDeploymentError {name :: String, message :: String}
 
 derive instance genericError :: Generic DeployError _
 
@@ -212,8 +212,11 @@ logDeployError
   -> m Unit
 logDeployError err = liftAff $ case err of
     ConfigurationError errMsg -> log Error errMsg
-    OnDeploymentError errMsg -> log Error errMsg
-    PostDeploymentError errMsg -> log Error errMsg
+    OnDeploymentError msg -> log Error (onDeployMessage msg)
+    PostDeploymentError msg -> log Error (postDeployMessage msg)
+  where
+    onDeployMessage msg = "Error During Deployment -- Name: " <> msg.name <> ", Message: " <> msg.message
+    postDeployMessage msg = "Error After Deployment -- Name: " <> msg.name <> ", Message: " <> msg.message
 
 -- | Throw an `Error` Exception inside DeployM.
 throwDeploy
@@ -241,7 +244,7 @@ logCompileError
 logCompileError err = liftAff $ case err of
     CompileParseError msg -> log Error (parseErrorMessage msg)
     MissingArtifactError msg -> log Error (artifactErrorMessage msg)
-    FSError errMsg -> log Error errMsg
+    FSError errMsg -> log Error ("File System Error -- " <> errMsg)
     CompilationError errs -> for_ errs (log Error)
   where
     parseErrorMessage msg = "Parse Error -- " <> "Object: " <> msg.objectName <>  ", Message: " <> msg.parseError
