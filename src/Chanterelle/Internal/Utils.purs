@@ -7,6 +7,7 @@ module Chanterelle.Internal.Utils
   , validateDeployArgs
   , unparsePath
   , assertDirectory
+  , jsonStringifyWithSpaces
   ) where
 
 import Prelude
@@ -20,6 +21,7 @@ import Control.Monad.Eff.Class (class MonadEff, liftEff)
 import Control.Monad.Eff.Exception (error, try)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Parallel (parOneOf)
+import Data.Argonaut as A
 import Data.Array ((!!))
 import Data.Either (Either(..))
 import Data.Int (toNumber)
@@ -137,3 +139,5 @@ assertDirectory dn = do
       if not isDir
         then throwError $ FSError ("Path " <> dn <> " exists but is not a directory!")
         else log Debug ("path " <>  dn <> " exists and is a directory")
+
+foreign import jsonStringifyWithSpaces :: Int -> A.Json -> String

@@ -7,7 +7,7 @@ import Prelude
 
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types (ContractConfig, DeployConfig(..), DeployError(..))
-import Chanterelle.Internal.Utils (pollTransactionReceipt, validateDeployArgs, withTimeout)
+import Chanterelle.Internal.Utils (jsonStringifyWithSpaces, pollTransactionReceipt, validateDeployArgs, withTimeout)
 import Control.Error.Util ((??))
 import Control.Monad.Aff (attempt)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
@@ -47,7 +47,7 @@ writeDeployAddress filename nid deployAddress = runExceptT $ do
   artifact <- ExceptT $ jsonParser <$> liftAff (readTextFile UTF8 filename)
   let networkIdObj = "address" := show deployAddress ~> jsonEmptyObject
       artifactWithAddress = artifact # _Object <<< ix "networks" <<< _Object %~ M.insert (show nid) networkIdObj
-  liftAff $ writeTextFile UTF8 filename $ stringify artifactWithAddress
+  liftAff $ writeTextFile UTF8 filename $ jsonStringifyWithSpaces 4 artifactWithAddress
 
 -- | Read the deployment address for a given network id from the solc artifact.
 readDeployAddress
@@ -118,7 +118,7 @@ getContractBytecode cconfig@{filepath, name} = do
     getBytecode filename = runExceptT $ do
       artifact <- ExceptT $ jsonParser <$> liftAff (readTextFile UTF8 filename)
       bytecode <- (artifact ^? _Object <<< ix "bytecode" <<< _String) ?? "artifact missing 'bytecode' field."
-      mkHexString bytecode ?? "bytecode not a valid hex) string"
+      mkHexString bytecode ?? "bytecode not a valid hex string"
 
 -- | Deploy a contract using its ContractConfig object.
 deployContract

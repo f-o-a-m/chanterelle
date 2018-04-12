@@ -6,9 +6,10 @@ module Chanterelle.Internal.Compile
   ) where
 
 import Prelude
+
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), CompileError(..), Libraries)
-import Chanterelle.Internal.Utils (assertDirectory)
+import Chanterelle.Internal.Utils (assertDirectory, jsonStringifyWithSpaces)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (class MonadEff, liftEff)
@@ -144,7 +145,6 @@ decodeContract srcName (SolcOutput output) = do
         throwError <<< CompilationError $ map (\(SolcError se) -> se.formattedMessage) errs
       Just contractMap' -> pure contractMap'
 
-foreign import jsonStringifyWithSpaces :: Int -> A.Json -> String
 
 writeBuildArtifact
   :: forall eff m.
