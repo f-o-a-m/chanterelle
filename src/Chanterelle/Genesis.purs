@@ -178,3 +178,29 @@ instance encodeJsonGenesisBlock :: EncodeJson GenesisBlock where
       ~> "difficulty" := encodeJsonBigNumber gen.difficulty
       ~> jsonEmptyObject
 
+substituteLibraryAddress :: HexString -> Address -> Either String HexString
+substituteLibraryAddress hsBytecode target = ret
+    where -- length of the asm PUSH20 <ownaddr>; ADDRESS; EQ
+          -- which is part of the library's nonpayability guard
+          -- so 27 bytes of opcodes *2 cause it's hex
+          minBytecodeLength = 46
+
+          op_push20'     = "73"
+          op_push20 addr = op_push20' <> (unHex $ unAddress addr)
+          op_addr        = "30"
+          op_eq          = "14"
+
+          bytecode = unHex hsBytecode
+          bcsplit = case S.splitAt minBytecodeLength bytecode of
+                      Nothing -> { preamble: "", code: "" }
+                      Just s  -> { preamble: s.before, code: s.after }
+
+          firstByteIsPush20 = S.take 2 bcsplit.preamble == op_push20'
+          preambleEndsInAddrEq = S.takeRight 4 bcsplit.preamble == (op_addr <> op_eq)
+          firstBytesAreLibPreamble = firstByteIsPush20 && preambleEndsInAddrEq
+
+          newPreamble = (op_push20 target) <> op_addr <> op_eq
+
+          ret | S.length bytecode <= minBytecodeLength = Left "Bytecode too short to be a library"
+              | firstBytesAreLibPreamble == false      = Left "Bytecode does not look like a library"
+              | otherwise                              = note "Couldn't make a valid HexString" $ mkHexString (newPreamble <> bcsplit.code)
