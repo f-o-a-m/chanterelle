@@ -8,7 +8,7 @@ module Chanterelle.Internal.Compile
 import Prelude
 
 import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), CompileError(..), Libraries)
+import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), CompileError(..), Libraries(..), Library(..))
 import Chanterelle.Internal.Utils (assertDirectory, jsonStringifyWithSpaces)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff (Eff)
@@ -25,7 +25,7 @@ import Data.Maybe (Maybe(..))
 import Data.StrMap as M
 import Data.Traversable (for, for_, traverse)
 import Data.Tuple (Tuple(..))
-import Network.Ethereum.Web3 (HexString, unHex, sha3)
+import Network.Ethereum.Web3 (HexString, unHex, sha3, unAddress)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
 import Node.FS.Sync as FSS
@@ -200,8 +200,14 @@ instance encodeSolcSettings :: A.EncodeJson SolcSettings where
   encodeJson (SolcSettings s) =
          "outputSelection" A.:= A.encodeJson s.outputSelection
     A.~> "remappings"      A.:= A.encodeJson s.remappings
-    A.~> "libraries"       A.:= A.encodeJson s.libraries
+    A.~> "libraries"       A.:= A.encodeJson (solcifyAllLibs s.libraries)
     A.~> A.jsonEmptyObject
+
+    where solcifyAllLibs libs = solcifyLibs <$> libs
+          solcifyLibs (Libraries l) = M.fromFoldable (solcifyLib <$> l)
+          solcifyLib (FixedLibrary { name, address} )       = Tuple name (encodeAddress address)
+          solcifyLib (InjectableLibrary { name, address } ) = Tuple name (encodeAddress address)
+          encodeAddress = A.encodeJson <<< show <<< unAddress
 
 --------------------------------------------------------------------------------
 
