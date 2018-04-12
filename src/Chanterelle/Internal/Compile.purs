@@ -67,7 +67,7 @@ compileModule (Tuple m@(ChanterelleModule mod) solcInput) = do
   log Info ("compiling " <> mod.moduleName)
   output <- liftEff $ runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback project.root project.spec)
   case AP.jsonParser output >>= parseSolcOutput of
-    Left err -> throwError $ CompileParseError ("solc output not valid Json: " <> err)
+    Left err -> throwError $ CompileParseError {objectName: "Solc Output", parseError: err}
     Right output' -> do
       writeBuildArtifact mod.solContractName mod.jsonPath output' mod.solContractName
       pure $ Tuple mod.moduleName (Tuple m output')
@@ -160,9 +160,7 @@ writeBuildArtifact srcName filepath output solContractName = do
   let dn = Path.dirname filepath
       contractsMainModule = M.lookup solContractName co
   case contractsMainModule of
-    Nothing -> let errMsg = "Couldn't find an object named " <> show solContractName <>
-                              " in " <> show filepath <> "!"
-               in throwError $ MissingArtifactError errMsg
+    Nothing -> throwError $ MissingArtifactError {fileName: filepath, objectName: solContractName}
     Just co' -> do
         assertDirectory dn
         log Debug $ "Writing artifact " <> filepath

@@ -223,8 +223,8 @@ throwDeploy
 throwDeploy = liftAff <<< liftEff' <<< throwException
 
 data CompileError =
-    CompileParseError String
-  | MissingArtifactError String
+    CompileParseError {objectName :: String, parseError :: String}
+  | MissingArtifactError {fileName :: String, objectName :: String}
   | FSError String
   | CompilationError (Array String)
 
@@ -239,11 +239,13 @@ logCompileError
   => CompileError
   -> m Unit
 logCompileError err = liftAff $ case err of
-    CompileParseError errMsg -> log Error errMsg
-    MissingArtifactError errMsg -> log Error errMsg
+    CompileParseError msg -> log Error (parseErrorMessage msg)
+    MissingArtifactError msg -> log Error (artifactErrorMessage msg)
     FSError errMsg -> log Error errMsg
     CompilationError errs -> for_ errs (log Error)
-
+  where
+    parseErrorMessage msg = "Parse Error -- " <> "Object: " <> msg.objectName <>  ", Message: " <> msg.parseError
+    artifactErrorMessage msg = "Missing Artifact -- " <> "FileName: " <> msg.fileName <> ", Object Name: " <> msg.objectName
 --------------------------------------------------------------------------------
 -- | Config Types
 --------------------------------------------------------------------------------
