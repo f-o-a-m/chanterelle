@@ -1,6 +1,7 @@
 module Chanterelle.Internal.Test
   ( takeEvent
   , assertWeb3
+  , TestConfig
   ) where
 
 import Prelude
@@ -46,3 +47,9 @@ assertWeb3
 assertWeb3 provider a = runWeb3 provider a <#> case _ of
   Right x -> x
   Left err -> unsafeCrashWith $ "expected Right in `assertWeb3`, got error" <> show err
+
+type TestConfig r =
+  { accounts :: Array Address
+  , provider :: Provider
+  | r
+  }
