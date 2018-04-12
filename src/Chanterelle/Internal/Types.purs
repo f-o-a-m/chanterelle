@@ -3,6 +3,7 @@ module Chanterelle.Internal.Types where
 import Prelude
 
 import Chanterelle.Internal.Logging (LogLevel(..), log)
+import Control.Alt ((<|>))
 import Control.Error.Util (note)
 import Control.Monad.Aff (Aff, Milliseconds, liftEff')
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
@@ -49,7 +50,8 @@ instance decodeJsonDependency :: A.DecodeJson Dependency where
 
 ---------------------------------------------------------------------
 
-newtype Library = Library { name :: String, address :: Address }
+data Library = FixedLibrary      { name :: String, address :: Address  }
+             | InjectableLibrary { name :: String, address :: Address , source :: FilePath }
 newtype Libraries = Libraries (Array Library)
 
 derive instance eqLibrary                   :: Eq Library
@@ -60,17 +62,32 @@ derive newtype instance semigroiupLibraries :: Semigroup Libraries
 instance encodeJsonLibraries :: A.EncodeJson Libraries where
   encodeJson (Libraries libs) =
     let asAssocs = mkTuple <$> libs
-        mkTuple (Library l) = Tuple l.name (A.encodeJson (show $ unAddress l.address))
+        encodeAddress = A.encodeJson <<< show <<< unAddress
+        mkTuple (FixedLibrary l)      = Tuple l.name (encodeAddress l.address)
+        mkTuple (InjectableLibrary l) = let dl =  "address" := encodeAddress l.address
+                                               ~> "source"  := A.encodeJson  l.source
+                                               ~> A.jsonEmptyObject
+                                         in Tuple l.name (A.encodeJson dl)
         asMap    = M.fromFoldable asAssocs
      in A.encodeJson asMap
 
 instance decodeJsonLibraries :: A.DecodeJson Libraries where
   decodeJson j = do
     obj <- A.decodeJson j
-    libs <- for (M.toUnfoldable obj) $ \(Tuple name addressStr) -> do
-      address <- note ("Invalid address " <> addressStr) (mkHexString addressStr >>= mkAddress)
-      pure $ Library { name, address }
+    libs <- for (M.toUnfoldable obj) $ \t -> (decodeFixedLibrary t) <|> (decodeInjectableLibrary t)
     pure (Libraries libs)
+
+    where decodeFixedLibrary (Tuple name l) = do
+            address' <- A.decodeJson l
+            address <- note ("Invalid address " <> address') (mkHexString address' >>= mkAddress)
+            pure $ FixedLibrary { name, address }
+
+          decodeInjectableLibrary (Tuple name l) = do
+            ilo <- A.decodeJson l
+            address' <- ilo .? "address"
+            address  <- note ("Invalid address " <> address') (mkHexString address' >>= mkAddress)
+            source   <- ilo .? "source"
+            pure $ InjectableLibrary { name, address, source }
 
 ---------------------------------------------------------------------
 
