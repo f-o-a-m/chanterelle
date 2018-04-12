@@ -6,9 +6,10 @@ module Chanterelle.Internal.Compile
   ) where
 
 import Prelude
+
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), CompileError(..), Libraries)
-import Chanterelle.Internal.Utils (assertDirectory)
+import Chanterelle.Internal.Utils (assertDirectory, jsonStringifyWithSpaces)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (class MonadEff, liftEff)
@@ -67,7 +68,7 @@ compileModule (Tuple m@(ChanterelleModule mod) solcInput) = do
   log Info ("compiling " <> mod.moduleName)
   output <- liftEff $ runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback project.root project.spec)
   case AP.jsonParser output >>= parseSolcOutput of
-    Left err -> throwError $ CompileParseError ("solc output not valid Json: " <> err)
+    Left err -> throwError $ CompileParseError {objectName: "Solc Output", parseError: err}
     Right output' -> do
       writeBuildArtifact mod.solContractName mod.jsonPath output' mod.solContractName
       pure $ Tuple mod.moduleName (Tuple m output')
@@ -144,7 +145,6 @@ decodeContract srcName (SolcOutput output) = do
         throwError <<< CompilationError $ map (\(SolcError se) -> se.formattedMessage) errs
       Just contractMap' -> pure contractMap'
 
-foreign import jsonStringifyWithSpaces :: Int -> A.Json -> String
 
 writeBuildArtifact
   :: forall eff m.
@@ -160,9 +160,7 @@ writeBuildArtifact srcName filepath output solContractName = do
   let dn = Path.dirname filepath
       contractsMainModule = M.lookup solContractName co
   case contractsMainModule of
-    Nothing -> let errMsg = "Couldn't find an object named " <> show solContractName <>
-                              " in " <> show filepath <> "!"
-               in throwError $ MissingArtifactError errMsg
+    Nothing -> throwError $ MissingArtifactError {fileName: filepath, objectName: solContractName}
     Just co' -> do
         assertDirectory dn
         log Debug $ "Writing artifact " <> filepath
@@ -224,11 +222,7 @@ instance encodeSolcContract :: A.EncodeJson SolcContract where
 -- Solc Errors
 -- TODO: pretty print these later
 newtype SolcError =
-  SolcError { sourceLocation :: Maybe { file :: String
-                                      , start :: Int
-                                      , end :: Int
-                                      }
-            , type :: String
+  SolcError { type :: String
             , severity :: String
             , message :: String
             , formattedMessage :: String
@@ -237,21 +231,12 @@ newtype SolcError =
 instance decodeSolcError :: A.DecodeJson SolcError where
   decodeJson json = do
     obj <- A.decodeJson json
-    loc <- obj A..?? "sourceLocation"
-    sourceLocation <- case loc of 
-                        Nothing -> pure Nothing
-                        Just loc' -> do
-                          file <- loc' A..? "file"
-                          start <- loc' A..? "start"
-                          end <- loc' A..? "end"
-                          pure $ Just {file, start, end}
     _type <- obj A..? "type"
     severity <- obj A..? "severity"
     message <- obj A..? "message"
     formattedMessage <-obj A..? "formattedMessage"
     pure $
-      SolcError { sourceLocation
-                , type: _type
+      SolcError { type: _type
                 , severity
                 , message
                 , formattedMessage
