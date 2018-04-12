@@ -1,4 +1,4 @@
-module Chanterelle.Internal.Test
+module Chanterelle.Test
   ( takeEvent
   , assertWeb3
   , TestConfig
