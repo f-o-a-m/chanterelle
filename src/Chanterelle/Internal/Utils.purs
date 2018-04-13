@@ -8,6 +8,7 @@ module Chanterelle.Internal.Utils
   , unparsePath
   , assertDirectory
   , jsonStringifyWithSpaces
+  , web3WithTimeout
   ) where
 
 import Prelude
@@ -107,6 +108,17 @@ withTimeout
   -> Aff eff a
 withTimeout maxTimeout action = do
   let timeout = do
+        delay maxTimeout
+        throwError $ error "TimeOut"
+  parOneOf [action, timeout]
+
+web3WithTimeout
+  :: forall eff a.
+     Milliseconds
+  -> Web3 eff a
+  -> Web3 eff a
+web3WithTimeout maxTimeout action = do
+  let timeout = liftAff do
         delay maxTimeout
         throwError $ error "TimeOut"
   parOneOf [action, timeout]
