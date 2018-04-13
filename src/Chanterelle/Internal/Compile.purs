@@ -27,7 +27,7 @@ import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn2, runFn2)
 import Data.Lens ((^?))
 import Data.Lens.Index (ix)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.StrMap as M
 import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (for, for_, traverse)
@@ -319,7 +319,7 @@ parseSolcOutput
   -> Either String SolcOutput
 parseSolcOutput json = do
   o <- A.decodeJson json
-  errors <- o A..? "errors"
+  errors <- fromMaybe [] <$> o A..?? "errors"
   contractsMap <- o A..? "contracts"
   contracts <- for contractsMap (traverse parseOutputContract)
   pure $ SolcOutput {errors, contracts}
