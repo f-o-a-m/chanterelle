@@ -282,9 +282,11 @@ parseOutputContract
   -> Either String OutputContract
 parseOutputContract json = do
   obj <- A.decodeJson json
+  let compiledAt = case obj A..? "compiledAt" of
+        Left _ -> Nothing
+        Right ts -> Just $ Milliseconds ts
   abi <- obj A..? "abi"
   evm <- obj A..? "evm"
-  compiledAt <- map Milliseconds <$> (obj A..?? "compiledAt")
   evmObj <- A.decodeJson evm
   bytecodeO <- evmObj A..? "bytecode"
   bytecode <- bytecodeO A..? "object"
