@@ -128,13 +128,14 @@ deployContract
   => MonadAff (console :: CONSOLE, eth :: ETH, fs :: FS | eff) m
   => TransactionOptions NoPay
   -> ContractConfig args
-  -> m Address
+  -> m {deployAddress :: Address, deployArgs :: Record args}
 deployContract txOptions ccfg@{filepath, name, constructor} = do
   (DeployConfig {provider, primaryAccount}) <- ask
   validatedArgs <- validateDeployArgs ccfg
   bytecode <- getContractBytecode ccfg
   let deploymentAction = constructor txOptions bytecode validatedArgs
-  deployContractAndWriteToArtifact filepath name deploymentAction
+  deployAddress <- deployContractAndWriteToArtifact filepath name deploymentAction
+  pure {deployAddress, deployArgs: validatedArgs}
 
 -- | Helper function which deploys a contract and writes the new contract address to the solc artifact.
 deployContractAndWriteToArtifact
