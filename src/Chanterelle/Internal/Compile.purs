@@ -64,9 +64,13 @@ compile = do
   solcOutputs <-  for solcInputs compileModule
   pure $ M.fromFoldable solcOutputs
 
+-- | Get all of the dirty modules that need to be recompiled
+-- NOTE: This is pretty ugly because there are many things that could go wrong,
+-- should probably fix.
 modulesToCompile
   :: forall eff m.
      MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
+  => MonadThrow CompileError m
   => Array ChanterelleModule
   -> m (Array ChanterelleModule)
 modulesToCompile modules = do
@@ -77,8 +81,13 @@ modulesToCompile modules = do
       Right json -> case hush (AP.jsonParser json) >>= \json' -> json' ^? A._Object <<< ix "compiledAt" <<< A._Number of
         Nothing -> log Debug ("Couldn't find 'compiledAt' timestamp for dirty file checking: " <> mod.jsonPath) *> pure (Just m)
         Just compiledAt -> do
-          isDirty <- fileIsDirty mod.solPath (Milliseconds compiledAt)
-          if not isDirty then log Debug ("File is clean: " <> mod.solPath) *> pure Nothing else pure (Just m)
+          eIsDirty <- liftAff <<< attempt $ fileIsDirty mod.solPath (Milliseconds compiledAt)
+          case eIsDirty of
+            Left err -> throwError $ MissingArtifactError {fileName: mod.solPath, objectName: mod.solContractName}
+            Right isDirty ->
+              if not isDirty
+                then log Debug ("File is clean: " <> mod.solPath) *> pure Nothing
+                else pure (Just m)
   pure $ catMaybes mModules
 
 compileModule
