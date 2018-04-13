@@ -9,6 +9,7 @@ module Chanterelle.Internal.Utils
   , assertDirectory
   , jsonStringifyWithSpaces
   , web3WithTimeout
+  , fileIsDirty
   ) where
 
 import Prelude
@@ -24,6 +25,8 @@ import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Parallel (parOneOf)
 import Data.Argonaut as A
 import Data.Array ((!!))
+import Data.DateTime (DateTime)
+import Data.DateTime.Instant (fromDateTime, unInstant)
 import Data.Either (Either(..))
 import Data.Int (toNumber)
 import Data.Maybe (maybe)
@@ -153,3 +156,13 @@ assertDirectory dn = do
         else log Debug ("path " <>  dn <> " exists and is a directory")
 
 foreign import jsonStringifyWithSpaces :: Int -> A.Json -> String
+
+fileIsDirty
+  :: forall eff m.
+     MonadAff (fs :: FS.FS | eff) m
+  => FilePath
+  -> Milliseconds
+  -> m Boolean
+fileIsDirty filepath compiledAt = do
+  modifiedAt <- Stats.modifiedTime <$> liftAff (FS.stat filepath)
+  pure $ compiledAt < unInstant (fromDateTime modifiedAt)

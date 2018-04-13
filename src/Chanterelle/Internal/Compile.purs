@@ -9,20 +9,24 @@ import Prelude
 
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), CompileError(..), Libraries)
-import Chanterelle.Internal.Utils (assertDirectory, jsonStringifyWithSpaces)
+import Chanterelle.Internal.Utils (assertDirectory, fileIsDirty, jsonStringifyWithSpaces)
+import Control.Monad.Aff (attempt)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (class MonadEff, liftEff)
 import Control.Monad.Eff.Exception (catchException)
+import Control.Monad.Eff.Now (NOW, now)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Reader (class MonadAsk, ask)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
-import Data.Array (filter)
+import Data.Array (catMaybes, filter)
+import Data.DateTime.Instant (unInstant)
 import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn2, runFn2)
 import Data.Maybe (Maybe(..))
 import Data.StrMap as M
+import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (for, for_, traverse)
 import Data.Tuple (Tuple(..))
 import Network.Ethereum.Web3 (HexString, unHex, sha3)
@@ -43,22 +47,40 @@ foreign import _compile :: forall eff cbEff. Fn2 String (String -> Eff cbEff Sol
 -- | compile and write the artifact
 compile
   :: forall eff m.
-     MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
+     MonadAff (fs :: FS.FS, process :: P.PROCESS, now :: NOW | eff) m
   => MonadThrow CompileError m
   => MonadAsk ChanterelleProject m
   => m (M.StrMap (Tuple ChanterelleModule SolcOutput))
 compile = do
   p@(ChanterelleProject project) <- ask
   let (ChanterelleProjectSpec spec) = project.spec
-  solcInputs <- for project.modules $ \m@(ChanterelleModule mod) -> do
+  dirtyModules <- modulesToCompile project.modules
+  solcInputs <- for dirtyModules $ \m@(ChanterelleModule mod) -> do
       input <- makeSolcInput mod.solContractName mod.solPath
       pure $ Tuple m input
   solcOutputs <-  for solcInputs compileModule
   pure $ M.fromFoldable solcOutputs
 
-compileModule
+modulesToCompile
   :: forall eff m.
      MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
+  => Array ChanterelleModule
+  -> m (Array ChanterelleModule)
+modulesToCompile modules = do
+  mModules <- for modules $ \m@(ChanterelleModule mod) -> do
+    ejson <- liftAff $ attempt $ FS.readTextFile UTF8 mod.jsonPath
+    case ejson of
+      Left _ -> pure $ Just m
+      Right json -> case AP.jsonParser json >>= parseOutputContract of
+        Left err -> log Warn ("Couldn't decode existing artifact for dirty file checking: " <> mod.jsonPath) *> pure (Just m)
+        Right (OutputContract {compiledAt}) -> do
+          isDirty <- fileIsDirty mod.solPath compiledAt
+          if isDirty then pure (Just m) else pure Nothing
+  pure $ catMaybes mModules
+
+compileModule
+  :: forall eff m.
+     MonadAff (fs :: FS.FS, process :: P.PROCESS, now :: NOW | eff) m
   => MonadThrow CompileError m
   => MonadAsk ChanterelleProject m
   => Tuple ChanterelleModule SolcInput
@@ -148,7 +170,7 @@ decodeContract srcName (SolcOutput output) = do
 
 writeBuildArtifact
   :: forall eff m.
-     MonadAff (fs :: FS.FS | eff) m
+     MonadAff (fs :: FS.FS, now :: NOW | eff) m
   => MonadThrow CompileError m
   => String
   -> FilePath
@@ -163,8 +185,9 @@ writeBuildArtifact srcName filepath output solContractName = do
     Nothing -> throwError $ MissingArtifactError {fileName: filepath, objectName: solContractName}
     Just co' -> do
         assertDirectory dn
+        epochTime <- unInstant <$> liftEff now
         log Debug $ "Writing artifact " <> filepath
-        liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co'
+        liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co' epochTime
 
 --------------------------------------------------------------------------------
 -- | Solc Types and Codecs
@@ -248,6 +271,7 @@ instance decodeSolcError :: A.DecodeJson SolcError where
 newtype OutputContract =
   OutputContract { abi :: A.JArray
                  , bytecode :: String
+                 , compiledAt :: Milliseconds
                  }
 
 parseOutputContract
@@ -257,18 +281,21 @@ parseOutputContract json = do
   obj <- A.decodeJson json
   abi <- obj A..? "abi"
   evm <- obj A..? "evm"
+  compiledAt <- Milliseconds <$> (obj A..? "compiledAt")
   evmObj <- A.decodeJson evm
   bytecodeO <- evmObj A..? "bytecode"
   bytecode <- bytecodeO A..? "object"
-  pure $ OutputContract {abi, bytecode}
+  pure $ OutputContract {abi, bytecode, compiledAt}
 
 encodeOutputContract
   :: OutputContract
+  -> Milliseconds
   -> A.Json
-encodeOutputContract (OutputContract {abi, bytecode}) =
+encodeOutputContract (OutputContract {abi, bytecode}) (Milliseconds ts)=
     "abi" A.:= A.fromArray abi A.~>
     "bytecode" A.:= bytecode A.~>
     "networks" A.:= A.jsonEmptyObject A.~>
+    "compiledAt" A.:= ts A.~>
     A.jsonEmptyObject
 
 
