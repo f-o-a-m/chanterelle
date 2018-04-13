@@ -77,7 +77,7 @@ modulesToCompile modules = do
           case compiledAt of
             Just compiledAtTime -> do
               isDirty <- fileIsDirty mod.solPath compiledAtTime
-              if isDirty then log Debug ("File is clean: " <> mod.solPath) *> pure (Just m) else pure Nothing
+              if not isDirty then log Debug ("File is clean: " <> mod.solPath) *> pure (Just m) else pure Nothing
             Nothing -> pure $ Just m
   pure $ catMaybes mModules
 
