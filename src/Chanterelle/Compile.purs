@@ -11,6 +11,7 @@ import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Exception (throw)
+import Control.Monad.Eff.Now (NOW)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
 import Data.Array (last)
@@ -51,7 +52,7 @@ loadProject root = do
 
 compileProject
   :: forall e.
-     Eff (console :: CONSOLE, fs :: FS.FS, process :: PROCESS | e) Unit
+     Eff (console :: CONSOLE, fs :: FS.FS, process :: PROCESS, now :: NOW | e) Unit
 compileProject = do
     root <- liftEff P.cwd
     void $ launchAff $ do

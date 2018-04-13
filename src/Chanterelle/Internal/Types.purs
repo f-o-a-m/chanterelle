@@ -10,6 +10,7 @@ import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff.Class (class MonadEff)
 import Control.Monad.Eff.Exception (Error, throwException)
+import Control.Monad.Eff.Now (NOW)
 import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Reader (ReaderT, runReaderT)
@@ -166,13 +167,13 @@ data ChanterelleProject =
 
 -- | Monad Stack for contract deployment.
 newtype CompileM eff a =
-  CompileM (ReaderT ChanterelleProject (ExceptT CompileError (Aff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff))) a)
+  CompileM (ReaderT ChanterelleProject (ExceptT CompileError (Aff (fs :: FS, console :: CONSOLE, process :: PROCESS, now :: NOW | eff))) a)
 
 runCompileM
   :: forall eff a.
      CompileM eff a
   -> ChanterelleProject
-  -> Aff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff) (Either CompileError a)
+  -> Aff (fs :: FS, console :: CONSOLE, process :: PROCESS, now :: NOW | eff) (Either CompileError a)
 runCompileM (CompileM deploy) = runExceptT <<< runReaderT deploy
 
 derive newtype instance functorCompileM :: Functor (CompileM eff)
@@ -182,8 +183,8 @@ derive newtype instance bindCompileM :: Bind (CompileM eff)
 derive newtype instance monadCompileM :: Monad (CompileM eff)
 derive newtype instance monadThrowCompileM :: MonadThrow CompileError (CompileM eff)
 derive newtype instance monadAskCompileM :: MonadAsk ChanterelleProject (CompileM eff)
-derive newtype instance monadEffCompileM :: MonadEff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff) (CompileM eff)
-derive newtype instance monadAffCompileM :: MonadAff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff) (CompileM eff)
+derive newtype instance monadEffCompileM :: MonadEff (fs :: FS, console :: CONSOLE, process :: PROCESS, now :: NOW | eff) (CompileM eff)
+derive newtype instance monadAffCompileM :: MonadAff (fs :: FS, console :: CONSOLE, process :: PROCESS, now :: NOW | eff) (CompileM eff)
 
 --------------------------------------------------------------------------------
 -- | DeployM Deployment monad
