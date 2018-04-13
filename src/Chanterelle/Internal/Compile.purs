@@ -72,10 +72,13 @@ modulesToCompile modules = do
     case ejson of
       Left _ -> pure $ Just m
       Right json -> case AP.jsonParser json >>= parseOutputContract of
-        Left err -> log Warn ("Couldn't decode existing artifact for dirty file checking: " <> mod.jsonPath) *> pure (Just m)
+        Left err -> log Debug ("Couldn't decode existing artifact for dirty file checking: " <> mod.jsonPath) *> pure (Just m)
         Right (OutputContract {compiledAt}) -> do
-          isDirty <- fileIsDirty mod.solPath compiledAt
-          if isDirty then pure (Just m) else pure Nothing
+          case compiledAt of
+            Just compiledAtTime -> do
+              isDirty <- fileIsDirty mod.solPath compiledAtTime
+              if isDirty then log Debug ("File is clean: " <> mod.solPath) *> pure (Just m) else pure Nothing
+            Nothing -> pure $ Just m
   pure $ catMaybes mModules
 
 compileModule
@@ -271,7 +274,7 @@ instance decodeSolcError :: A.DecodeJson SolcError where
 newtype OutputContract =
   OutputContract { abi :: A.JArray
                  , bytecode :: String
-                 , compiledAt :: Milliseconds
+                 , compiledAt :: Maybe Milliseconds
                  }
 
 parseOutputContract
@@ -281,7 +284,7 @@ parseOutputContract json = do
   obj <- A.decodeJson json
   abi <- obj A..? "abi"
   evm <- obj A..? "evm"
-  compiledAt <- Milliseconds <$> (obj A..? "compiledAt")
+  compiledAt <- map Milliseconds <$> (obj A..?? "compiledAt")
   evmObj <- A.decodeJson evm
   bytecodeO <- evmObj A..? "bytecode"
   bytecode <- bytecodeO A..? "object"

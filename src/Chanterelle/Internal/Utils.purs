@@ -25,7 +25,6 @@ import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Parallel (parOneOf)
 import Data.Argonaut as A
 import Data.Array ((!!))
-import Data.DateTime (DateTime)
 import Data.DateTime.Instant (fromDateTime, unInstant)
 import Data.Either (Either(..))
 import Data.Int (toNumber)
