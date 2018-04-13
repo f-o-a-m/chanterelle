@@ -1,18 +1,30 @@
 module Chanterelle.Genesis where
 
 import Prelude
+import Chanterelle.Internal.Logging (LogLevel(..), log)
+import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Libraries(..), Library(..), runCompileM, logCompileError, isFixedLibrary)
 import Control.Alt ((<|>))
 import Control.Error.Util (note)
+import Control.Monad.Eff.Class (class MonadEff, liftEff)
+import Control.Monad.Eff.Random (RANDOM, randomRange)
+import Control.Monad.Eff.Exception (try)
 import Data.Argonaut as A
 import Data.Argonaut (class DecodeJson, class EncodeJson, Json, (:=), (~>), (.?), (.??), decodeJson, encodeJson, jsonEmptyObject)
+import Data.Array ((!!), replicate, null, all)
 import Data.Either (Either(..))
-import Data.Maybe (Maybe(..), maybe)
+import Data.Foldable (class Foldable, elem)
+import Data.Int (floor, toNumber)
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Monoid (mempty)
 import Data.String as S
 import Data.StrMap (StrMap)
 import Data.StrMap as M
-import Data.Traversable (for)
+import Data.Traversable (for, sequence)
 import Data.Tuple (Tuple(..))
+import Node.Encoding (Encoding(UTF8))
+import Node.FS (FS)
+import Node.FS.Sync as FSS
+import Node.Path (FilePath)
 import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber(..), HexString, embed, hexadecimal, mkAddress, mkHexString, parseBigNumber, toString, unAddress, unHex)
 
 decodeJsonBlockNumber :: Json -> Either String BlockNumber
@@ -213,3 +225,50 @@ substituteLibraryAddress hsBytecode target = ret
           ret | S.length bytecode <= minBytecodeLength = Left "Bytecode too short to be a library"
               | firstBytesAreLibPreamble == false      = Left "Bytecode does not look like a library"
               | otherwise                              = note "Couldn't make a valid HexString" $ mkHexString (newPreamble <> bcsplit.code)
+
+generateAddress :: forall eff m f
+                 . MonadEff (random :: RANDOM | eff) m
+                => Foldable f
+                => f Address
+                -> m Address
+generateAddress blacklist = do
+  addr' <- randomAddress
+  case mkHexAddress addr' of
+    Nothing -> do
+      log Debug $ "Generated address " <> show addr' <> " which isn't actually a valid address"
+      generateAddress blacklist
+    Just addr -> if addr `elem` blacklist
+                   then do
+                     log Debug $ "Generated address " <> show addr <> " which is blacklisted, retrying"
+                     generateAddress blacklist
+                   else do
+                     log Debug $ "Successfully generated address " <> show addr
+                     pure addr
+  where randomHexDigit = toHex <<< floor <$> liftEff (randomRange (toNumber 0) (toNumber 16)) -- 0 inclusive, 16 exclusive, aka 0-F
+        hexDigits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F']
+        randomAddress = S.fromCharArray <$> (sequence $ replicate 40 randomHexDigit)
+        toHex n = fromMaybe '0' $ hexDigits !! n
+        mkHexAddress s = mkHexString s >>= mkAddress
+
+data GenesisGenerationError = CouldntLoadGenesisBlock FilePath String
+                            | CouldntInjectLibraryAddress String String
+                            | NothingToDo String
+
+-- should ExceptT this stuff tbh
+generateGenesis :: forall eff m
+                 . MonadEff (random :: RANDOM, fs :: FS | eff) m
+                => ChanterelleProject
+                -> FilePath
+                -> m (Either GenesisGenerationError GenesisBlock)
+generateGenesis (ChanterelleProject project) genesisIn =
+  if nothingToDo
+    then loadGenesisIn
+    else loadGenesisIn
+  where (ChanterelleProjectSpec spec) = project.spec
+        (Libraries libs)              = spec.libraries
+        nothingToDo = null libs || all isFixedLibrary libs
+        loadGenesisIn = (liftEff <<< try $ FSS.readTextFile UTF8 genesisIn) >>= case _ of
+                          Left err -> pure $ Left (CouldntLoadGenesisBlock genesisIn $ show err)
+                          Right gen' -> pure $ case (A.jsonParser gen' >>= A.decodeJson) of
+                            Left err      -> Left $ CouldntLoadGenesisBlock genesisIn err
+                            Right genesis -> Right genesis

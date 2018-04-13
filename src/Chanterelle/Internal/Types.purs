@@ -53,6 +53,11 @@ instance decodeJsonDependency :: A.DecodeJson Dependency where
 
 data Library = FixedLibrary      { name :: String, address :: Address  }
              | InjectableLibrary { name :: String, address :: Address , source :: FilePath }
+
+isFixedLibrary :: Library -> Boolean
+isFixedLibrary (FixedLibrary _) = true
+isFixedLibrary _                = false
+
 newtype Libraries = Libraries (Array Library)
 
 derive instance eqLibrary                   :: Eq Library
