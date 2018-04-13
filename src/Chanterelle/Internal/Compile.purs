@@ -10,6 +10,7 @@ import Prelude
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), CompileError(..), Libraries)
 import Chanterelle.Internal.Utils (assertDirectory, fileIsDirty, jsonStringifyWithSpaces)
+import Control.Error.Util (hush)
 import Control.Monad.Aff (attempt)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff (Eff)
@@ -24,6 +25,8 @@ import Data.Array (catMaybes, filter)
 import Data.DateTime.Instant (unInstant)
 import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn2, runFn2)
+import Data.Lens ((^?))
+import Data.Lens.Index (ix)
 import Data.Maybe (Maybe(..))
 import Data.StrMap as M
 import Data.Time.Duration (Milliseconds(..))
@@ -71,14 +74,11 @@ modulesToCompile modules = do
     ejson <- liftAff $ attempt $ FS.readTextFile UTF8 mod.jsonPath
     case ejson of
       Left _ -> pure $ Just m
-      Right json -> case AP.jsonParser json >>= parseOutputContract of
-        Left err -> log Debug ("Couldn't decode existing artifact for dirty file checking: " <> mod.jsonPath) *> pure (Just m)
-        Right (OutputContract {compiledAt}) -> do
-          case compiledAt of
-            Just compiledAtTime -> do
-              isDirty <- fileIsDirty mod.solPath compiledAtTime
-              if not isDirty then log Debug ("File is clean: " <> mod.solPath) *> pure Nothing else pure (Just m)
-            Nothing -> pure $ Just m
+      Right json -> case hush (AP.jsonParser json) >>= \json' -> json' ^? A._Object <<< ix "compiledAt" <<< A._Number of
+        Nothing -> log Debug ("Couldn't find 'compiledAt' timestamp for dirty file checking: " <> mod.jsonPath) *> pure (Just m)
+        Just compiledAt -> do
+          isDirty <- fileIsDirty mod.solPath (Milliseconds compiledAt)
+          if not isDirty then log Debug ("File is clean: " <> mod.solPath) *> pure Nothing else pure (Just m)
   pure $ catMaybes mModules
 
 compileModule
@@ -274,7 +274,6 @@ instance decodeSolcError :: A.DecodeJson SolcError where
 newtype OutputContract =
   OutputContract { abi :: A.JArray
                  , bytecode :: String
-                 , compiledAt :: Maybe Milliseconds
                  }
 
 parseOutputContract
@@ -282,15 +281,12 @@ parseOutputContract
   -> Either String OutputContract
 parseOutputContract json = do
   obj <- A.decodeJson json
-  let compiledAt = case obj A..? "compiledAt" of
-        Left _ -> Nothing
-        Right ts -> Just $ Milliseconds ts
   abi <- obj A..? "abi"
   evm <- obj A..? "evm"
   evmObj <- A.decodeJson evm
   bytecodeO <- evmObj A..? "bytecode"
   bytecode <- bytecodeO A..? "object"
-  pure $ OutputContract {abi, bytecode, compiledAt}
+  pure $ OutputContract {abi, bytecode}
 
 encodeOutputContract
   :: OutputContract
