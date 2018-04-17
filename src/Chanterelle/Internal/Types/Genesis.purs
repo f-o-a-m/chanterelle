@@ -12,7 +12,8 @@ import Data.StrMap (StrMap)
 import Data.StrMap as M
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
-import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber, HexString, hexadecimal, mkAddress, mkHexString, parseBigNumber, toString, unAddress, unHex)
+import Network.Ethereum.Core.BigNumber (parseBigNumber, toString, hexadecimal)
+import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber, HexString,  mkAddress, mkHexString, unAddress, unHex)
 import Node.Path (FilePath)
 
 data TemplatableHexString = UntemplatedHexString HexString

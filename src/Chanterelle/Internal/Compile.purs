@@ -40,7 +40,9 @@ import Data.StrMap as M
 import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (for, for_, traverse)
 import Data.Tuple (Tuple(..))
-import Network.Ethereum.Web3 (HexString, unHex, sha3, unAddress)
+import Network.Ethereum.Core.HexString (fromByteString)
+import Network.Ethereum.Core.Keccak256 (keccak256)
+import Network.Ethereum.Web3 (HexString, unAddress, unHex)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
 import Node.FS.Sync as FSS
@@ -150,7 +152,7 @@ makeSolcContract
   -> SolcContract
 makeSolcContract  sourceCode =
   SolcContract { content: sourceCode
-               , hash: sha3 sourceCode
+               , hash: fromByteString $ keccak256 sourceCode
                }
 
 --------------------------------------------------------------------------------
