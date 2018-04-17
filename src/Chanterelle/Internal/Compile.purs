@@ -170,7 +170,7 @@ makeSolcInput moduleName sourcePath = do
   code <- liftAff $ FS.readTextFile UTF8 sourcePath
   let language = "Solidity"
       sources = M.singleton (moduleName <> ".sol") (makeSolcContract code)
-      outputSelection = M.singleton "*" (M.singleton "*" (["abi", "evm.bytecode.object"] <> spec.solcOutputSelection))
+      outputSelection = M.singleton "*" (M.singleton "*" (["abi", "evm.deployedBytecode.object", "evm.bytecode.object"] <> spec.solcOutputSelection))
       depMappings = (\(Dependency dep) -> dep <> "=" <> (project.root <> "/node_modules/" <> dep)) <$> spec.dependencies
       sourceDirMapping = [":g" <> (Path.concat [project.root, spec.sourceDir])]
       remappings = sourceDirMapping <> depMappings
@@ -319,6 +319,7 @@ instance decodeSolcError :: A.DecodeJson SolcError where
 newtype OutputContract =
   OutputContract { abi :: A.JArray
                  , bytecode :: String
+                 , deployedBytecode :: String
                  }
 
 parseOutputContract
@@ -331,7 +332,9 @@ parseOutputContract json = do
   evmObj <- A.decodeJson evm
   bytecodeO <- evmObj A..? "bytecode"
   bytecode <- bytecodeO A..? "object"
-  pure $ OutputContract {abi, bytecode}
+  deployedBytecodeO <- evmObj A..? "deployedBytecode"
+  deployedBytecode <- deployedBytecodeO A..? "object"
+  pure $ OutputContract { abi, bytecode, deployedBytecode }
 
 encodeOutputContract
   :: OutputContract

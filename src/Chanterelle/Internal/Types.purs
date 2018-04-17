@@ -292,19 +292,20 @@ instance showCompileError :: Show CompileError where
 
 logCompileError
   :: forall eff m.
-     MonadAff (console :: CONSOLE | eff) m
+     MonadEff (console :: CONSOLE | eff) m
   => CompileError
   -> m Unit
-logCompileError err = liftAff $ case err of
-    CompileParseError msg -> log Error (parseErrorMessage msg)
-    MissingArtifactError msg -> log Error (artifactErrorMessage msg)
-    FSError errMsg -> log Error ("File System Error -- " <> errMsg)
-    CompilationError errs -> for_ errs (log Error)
+logCompileError = case _ of
+    CompileParseError msg     -> log Error (parseErrorMessage msg)
+    MissingArtifactError msg  -> log Error (artifactErrorMessage msg)
+    FSError errMsg            -> log Error ("File System Error -- " <> errMsg)
+    CompilationError errs     -> for_ errs (log Error)
     MalformedProjectError mpe -> log Error ("Couldn't parse chanterelle.json: " <> mpe)
-    UnexpectedSolcOutput e -> log Error ("Unexpected output from solc: " <> e)
+    UnexpectedSolcOutput e    -> log Error ("Unexpected output from solc: " <> e)
   where
     parseErrorMessage msg = "Parse Error -- " <> "Object: " <> msg.objectName <>  ", Message: " <> msg.parseError
     artifactErrorMessage msg = "Missing Artifact -- " <> "FileName: " <> msg.fileName <> ", Object Name: " <> msg.objectName
+
 --------------------------------------------------------------------------------
 -- | Config Types
 --------------------------------------------------------------------------------

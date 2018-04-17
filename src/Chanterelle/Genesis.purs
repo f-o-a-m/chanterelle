@@ -1,18 +1,22 @@
 module Chanterelle.Genesis where
 
-import Prelude (class Functor, class Show, bind, discard, flip, map, otherwise, pure, show, ($), (&&), (<$>), (<<<), (<=), (<>), (=<<), (==), (>>=))
+import Prelude
+import Chanterelle.Project (loadProject)
 import Chanterelle.Internal.Compile (OutputContract(..), compileModuleWithoutWriting, decodeContract, makeSolcInput, resolveContractMainModule)
 import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Libraries(..), Library(..), InjectableLibraryCode(..), CompileError(..), runCompileMExceptT, isFixedLibrary)
+import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Libraries(..), Library(..), InjectableLibraryCode(..), CompileError(..), runCompileMExceptT, isFixedLibrary, logCompileError)
+import Chanterelle.Internal.Utils (jsonStringifyWithSpaces)
 import Control.Alt ((<|>))
 import Control.Error.Util (note)
+import Control.Monad.Aff (launchAff)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
+import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (class MonadEff, liftEff)
 import Control.Monad.Eff.Now (NOW)
 import Control.Monad.Eff.Random (RANDOM, randomRange)
-import Control.Monad.Eff.Exception (try)
-import Control.Monad.Error.Class (throwError)
+import Control.Monad.Eff.Exception (message)
+import Control.Monad.Error.Class (try, throwError)
 import Control.Monad.Except.Trans (ExceptT(..), except, runExceptT, withExceptT)
 import Control.Monad.State.Trans (execStateT, get, put)
 import Data.Argonaut as A
@@ -30,10 +34,11 @@ import Data.Traversable (for, sequence)
 import Data.Tuple (Tuple(..))
 import Node.Encoding (Encoding(UTF8))
 import Node.FS (FS)
-import Node.FS.Sync as FSS
+import Node.FS.Aff as FS
 import Node.Path (FilePath)
 import Node.Path as Path
 import Node.Process (PROCESS)
+import Node.Process as P
 import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber(..), HexString, embed, hexadecimal, mkAddress, mkHexString, parseBigNumber, toString, unAddress, unHex)
 
 decodeJsonBlockNumber :: Json -> Either String BlockNumber
@@ -135,6 +140,13 @@ newtype GenesisAlloc = GenesisAlloc { code    :: Maybe HexString
                                     , balance :: BigNumber
                                     }
 newtype GenesisAllocs = GenesisAllocs (StrMap GenesisAlloc)
+
+lookupGenesisAllocs :: Address -> GenesisAllocs -> Maybe GenesisAlloc
+lookupGenesisAllocs addr (GenesisAllocs allocs) =  M.lookup (show addr) allocs 
+                                               <|> M.lookup (unHex $ unAddress addr) allocs
+
+insertGenesisAllocs :: Address -> GenesisAlloc -> GenesisAllocs -> GenesisAllocs
+insertGenesisAllocs addr alloc (GenesisAllocs allocs) = GenesisAllocs $ M.insert (unHex $ unAddress addr) alloc allocs
 
 instance decodeJsonGenesisAlloc :: DecodeJson GenesisAlloc where
     decodeJson j = do
@@ -264,11 +276,24 @@ data GenesisGenerationError = CouldntLoadGenesisBlock FilePath String
                             | CouldntInjectLibraryAddress String String
                             | CouldntInjectLibrary String String
                             | CouldntCompileLibrary String CompileError
+                            | MalformedProjectErrorG String
                             | NothingToDo String
+
+logGenesisGenerationError :: forall eff m
+                           . MonadEff (console :: CONSOLE | eff) m
+                          => GenesisGenerationError
+                          -> m Unit
+logGenesisGenerationError = case _ of
+    CouldntLoadGenesisBlock path msg    -> log Error $ "Couldn't load the genesis block at " <> show path <> ": " <> msg
+    CouldntInjectLibraryAddress lib msg -> log Error $ "Couldn't inject the address for " <> show lib <> ": " <> msg
+    CouldntInjectLibrary lib msg        -> log Error $ "Couldn't inject " <> show lib <> ": " <> msg
+    CouldntCompileLibrary lib ce        -> log Error ("Couldn't compile " <> show lib) *> logCompileError ce
+    MalformedProjectErrorG msg          -> log Error $ "Couldn't load chanterelle.json: " <> msg
+    NothingToDo reason                  -> log Warn  $ "Nothing to do! " <> reason
 
 -- should ExceptT this stuff tbh
 generateGenesis :: forall eff m
-                 . MonadAff (random :: RANDOM, fs :: FS, console :: CONSOLE, now :: NOW, process :: PROCESS | eff) m
+                 . MonadAff (fs :: FS, console :: CONSOLE, now :: NOW, process :: PROCESS | eff) m
                 => ChanterelleProject
                 -> FilePath
                 -> m (Either GenesisGenerationError GenesisBlock)
@@ -290,15 +315,19 @@ generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExcep
                     input <-  makeSolcInput name f
                     output <- compileModuleWithoutWriting mfi input
                     decoded <- decodeContract name output
-                    OutputContract { bytecode } <- resolveContractMainModule f decoded mfi'.solContractName
-                    pure bytecode
+                    OutputContract { deployedBytecode } <- resolveContractMainModule f decoded mfi'.solContractName
+                    pure deployedBytecode
                 hexBytecode <- withExceptT (CouldntCompileLibrary name <<< UnexpectedSolcOutput) <<< except $ note "Solc somehow gave us invalid hex" (mkHexString rawBytecode)
                 injectedBytecode <- withExceptT (CouldntInjectLibraryAddress name) <<< except $ substituteLibraryAddress hexBytecode address
                 pure { name, address, injectedBytecode }
-      injectedGenesis <- flip execStateT genesis $ do
+      injectedGenesis <- flip execStateT genesis <<< for injects $ \{ name, address, injectedBytecode } -> do
         (GenesisBlock currGen) <- get
-        let newGen = currGen
-        put (GenesisBlock newGen)
+        newAllocs <- case lookupGenesisAllocs address currGen.allocs of
+            Nothing -> pure $ insertGenesisAllocs address (GenesisAlloc { code: Just injectedBytecode, storage: Nothing, balance: embed 0 }) currGen.allocs
+            Just (GenesisAlloc existingAlloc) -> if existingAlloc.code == Just injectedBytecode
+                                   then pure currGen.allocs
+                                   else throwError $ CouldntInjectLibraryAddress name $ "Genesis block already contains an entry for address " <> show address <> " with different bytecode"
+        put $ GenesisBlock currGen { allocs = newAllocs }
       pure injectedGenesis
 
   where (ChanterelleProjectSpec spec) = project.spec
@@ -306,7 +335,7 @@ generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExcep
 
         moduleForInput {name, root, filePath } = 
             let { root, dir, base, ext, name } = Path.parse filePath
-             in ChanterelleModule { moduleName: name, solContractName: base, solPath: filePath, jsonPath: "", pursPath: "" }
+             in ChanterelleModule { moduleName: name, solContractName: name, solPath: filePath, jsonPath: "", pursPath: "" }
 
         { nothingToDo, ntdReason } = if null libs
                                           then { nothingToDo: true, ntdReason: "No libraries specified in project" }
@@ -318,5 +347,19 @@ generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExcep
         wrapLoadFailure = withExceptT (CouldntLoadGenesisBlock genesisIn <<< show) <<< ExceptT
         
         loadGenesisIn = do
-            genTxt <- wrapLoadFailure (liftEff <<< try $ FSS.readTextFile UTF8 genesisIn)
+            genTxt <- wrapLoadFailure (try $ FS.readTextFile UTF8 genesisIn)
             wrapLoadFailure (pure $ A.jsonParser genTxt >>= A.decodeJson)
+
+runGenesisGenerator :: forall e. FilePath -> FilePath -> Eff (console :: CONSOLE, fs :: FS, now :: NOW, process :: PROCESS | e) Unit 
+runGenesisGenerator genesisIn genesisOut = do
+    root <- liftEff P.cwd
+    void <<< launchAff $
+      (try $ loadProject root) >>= case _ of
+        Left err -> liftAff <<< logGenesisGenerationError $ MalformedProjectErrorG (message err)
+        Right project -> (liftAff $ generateGenesis project genesisIn) >>= case _ of
+            Right gb -> do
+                let strungGb = jsonStringifyWithSpaces 4 (A.encodeJson gb)
+                try (FS.writeTextFile UTF8 genesisOut strungGb) >>= case _ of
+                    Left err -> log Error $ "Couldn't write genesis block to " <> show genesisOut <> ": " <> show err
+                    Right _  -> log Info $ "Successfully wrote generated genesis block to " <> show genesisOut
+            Left err -> liftAff $ logGenesisGenerationError err
