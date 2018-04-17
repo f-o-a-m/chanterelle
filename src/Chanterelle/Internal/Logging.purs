@@ -56,11 +56,10 @@ class Loggable a where
 instance loggableString :: Loggable String where
   logify = id
 
-fancyColorLogger
-  :: forall eff m a.
-     MonadEff eff m
-  => Loggable a
-  => Logger.Logger m { level :: LogLevel, msg :: a }
+fancyColorLogger :: forall eff m a
+                  . MonadEff eff m
+                 => Loggable a
+                 => Logger.Logger m { level :: LogLevel, msg :: a }
 fancyColorLogger = Logger.Logger $ \{ level, msg } -> liftEff <<< unsafeCoerceEff $ do
     dt <- now
     iso <- toISOString dt
@@ -73,12 +72,11 @@ fancyColorLogger = Logger.Logger $ \{ level, msg } -> liftEff <<< unsafeCoerceEf
       Warn  -> Yellow
       Error -> Red
 
-log
-  :: forall eff m.
-     MonadEff eff m
-  => LogLevel
-  -> String
-  -> m Unit
+log :: forall eff m
+     . MonadEff eff m
+    => LogLevel
+    -> String
+    -> m Unit
 log level msg = do
       currentLevel <- liftEff $ getLogLevelWithDefault Info
       when (level >= currentLevel) $
