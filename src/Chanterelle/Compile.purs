@@ -4,14 +4,15 @@ import Prelude
 
 import Chanterelle.Internal.Codegen (generatePS) as Chanterelle
 import Chanterelle.Internal.Compile (compile) as Chanterelle
-import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), runCompileM, logCompileError)
-import Control.Monad.Aff (Aff, launchAff, liftEff')
+import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), CompileError(..), runCompileM, logCompileError)
+import Control.Monad.Aff (Aff, launchAff)
 import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Exception (throw)
+import Control.Monad.Eff.Exception (error, message)
 import Control.Monad.Eff.Now (NOW)
+import Control.Monad.Error.Class (try, throwError)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
 import Data.Array (last)
@@ -33,7 +34,7 @@ loadProject
   -> Aff (fs :: FS | eff) ChanterelleProject
 loadProject root = do
   specJson <- liftAff $ FS.readTextFile UTF8 "chanterelle.json"
-  spec@(ChanterelleProjectSpec project) <- either (\err -> liftEff' <<< throw $ "Error in parsing chanterelle.json: " <> err)
+  spec@(ChanterelleProjectSpec project) <- either (throwError <<< error)
                                              pure (AP.jsonParser specJson >>= A.decodeJson)
   let jsonOut  = Path.concat [root, "build", project.sourceDir]
       psOut    = Path.concat [root, project.psGen.outputPath]
@@ -56,10 +57,13 @@ compileProject
 compileProject = do
     root <- liftEff P.cwd
     void $ launchAff $ do
-      project <- loadProject root
-      eres <- flip runCompileM project $ do
-        _ <- Chanterelle.compile
-        Chanterelle.generatePS project
-      case eres of
-        Right _ -> pure unit
-        Left err -> logCompileError err
+      proj <- try $ loadProject root
+      case proj of
+        Left err -> logCompileError $ MalformedProjectError (message err)
+        Right project -> do
+          eres <- flip runCompileM project $ do
+            _ <- Chanterelle.compile
+            Chanterelle.generatePS project
+          case eres of
+            Right _ -> pure unit
+            Left err -> logCompileError err

@@ -1,13 +1,20 @@
 module Chanterelle.Genesis where
 
-import Prelude
+import Prelude (class Functor, class Show, bind, discard, flip, map, otherwise, pure, show, ($), (&&), (<$>), (<<<), (<=), (<>), (=<<), (==), (>>=))
+import Chanterelle.Internal.Compile (OutputContract(..), compileModuleWithoutWriting, decodeContract, makeSolcInput, resolveContractMainModule)
 import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Libraries(..), Library(..), runCompileM, logCompileError, isFixedLibrary)
+import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Libraries(..), Library(..), InjectableLibraryCode(..), CompileError(..), runCompileMExceptT, isFixedLibrary)
 import Control.Alt ((<|>))
 import Control.Error.Util (note)
+import Control.Monad.Aff.Class (class MonadAff, liftAff)
+import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff.Class (class MonadEff, liftEff)
+import Control.Monad.Eff.Now (NOW)
 import Control.Monad.Eff.Random (RANDOM, randomRange)
 import Control.Monad.Eff.Exception (try)
+import Control.Monad.Error.Class (throwError)
+import Control.Monad.Except.Trans (ExceptT(..), except, runExceptT, withExceptT)
+import Control.Monad.State.Trans (execStateT, get, put)
 import Data.Argonaut as A
 import Data.Argonaut (class DecodeJson, class EncodeJson, Json, (:=), (~>), (.?), (.??), decodeJson, encodeJson, jsonEmptyObject)
 import Data.Array ((!!), replicate, null, all)
@@ -25,6 +32,8 @@ import Node.Encoding (Encoding(UTF8))
 import Node.FS (FS)
 import Node.FS.Sync as FSS
 import Node.Path (FilePath)
+import Node.Path as Path
+import Node.Process (PROCESS)
 import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber(..), HexString, embed, hexadecimal, mkAddress, mkHexString, parseBigNumber, toString, unAddress, unHex)
 
 decodeJsonBlockNumber :: Json -> Either String BlockNumber
@@ -226,6 +235,7 @@ substituteLibraryAddress hsBytecode target = ret
               | firstBytesAreLibPreamble == false      = Left "Bytecode does not look like a library"
               | otherwise                              = note "Couldn't make a valid HexString" $ mkHexString (newPreamble <> bcsplit.code)
 
+-- this might actually be useless in retrospect
 generateAddress :: forall eff m f
                  . MonadEff (random :: RANDOM | eff) m
                 => Foldable f
@@ -252,23 +262,61 @@ generateAddress blacklist = do
 
 data GenesisGenerationError = CouldntLoadGenesisBlock FilePath String
                             | CouldntInjectLibraryAddress String String
+                            | CouldntInjectLibrary String String
+                            | CouldntCompileLibrary String CompileError
                             | NothingToDo String
 
 -- should ExceptT this stuff tbh
 generateGenesis :: forall eff m
-                 . MonadEff (random :: RANDOM, fs :: FS | eff) m
+                 . MonadAff (random :: RANDOM, fs :: FS, console :: CONSOLE, now :: NOW, process :: PROCESS | eff) m
                 => ChanterelleProject
                 -> FilePath
                 -> m (Either GenesisGenerationError GenesisBlock)
-generateGenesis (ChanterelleProject project) genesisIn =
+generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExceptT $ 
   if nothingToDo
-    then loadGenesisIn
-    else loadGenesisIn
+    then throwError $ NothingToDo ntdReason
+    else do
+      genesis <- loadGenesisIn
+      injects <- for libs $ case _ of
+        FixedLibrary { name } -> throwError $ CouldntInjectLibrary name "is a fixed library without any source code" -- we should eventually try fetching this from network!
+        InjectableLibrary { name, address, code } -> case code of
+            InjectableWithBytecode bc -> do
+                injectedBytecode <- withExceptT (CouldntInjectLibraryAddress name) <<< except $ substituteLibraryAddress bc address
+                pure { name, address, injectedBytecode }
+            InjectableWithSourceCode r f -> do
+                let libProject = cp
+                rawBytecode <- withExceptT (CouldntCompileLibrary name) <<< flip runCompileMExceptT libProject $ do
+                    let mfi@(ChanterelleModule mfi') = moduleForInput { name, root: r, filePath: f }
+                    input <-  makeSolcInput name f
+                    output <- compileModuleWithoutWriting mfi input
+                    decoded <- decodeContract name output
+                    OutputContract { bytecode } <- resolveContractMainModule f decoded mfi'.solContractName
+                    pure bytecode
+                hexBytecode <- withExceptT (CouldntCompileLibrary name <<< UnexpectedSolcOutput) <<< except $ note "Solc somehow gave us invalid hex" (mkHexString rawBytecode)
+                injectedBytecode <- withExceptT (CouldntInjectLibraryAddress name) <<< except $ substituteLibraryAddress hexBytecode address
+                pure { name, address, injectedBytecode }
+      injectedGenesis <- flip execStateT genesis $ do
+        (GenesisBlock currGen) <- get
+        let newGen = currGen
+        put (GenesisBlock newGen)
+      pure injectedGenesis
+
   where (ChanterelleProjectSpec spec) = project.spec
         (Libraries libs)              = spec.libraries
-        nothingToDo = null libs || all isFixedLibrary libs
-        loadGenesisIn = (liftEff <<< try $ FSS.readTextFile UTF8 genesisIn) >>= case _ of
-                          Left err -> pure $ Left (CouldntLoadGenesisBlock genesisIn $ show err)
-                          Right gen' -> pure $ case (A.jsonParser gen' >>= A.decodeJson) of
-                            Left err      -> Left $ CouldntLoadGenesisBlock genesisIn err
-                            Right genesis -> Right genesis
+
+        moduleForInput {name, root, filePath } = 
+            let { root, dir, base, ext, name } = Path.parse filePath
+             in ChanterelleModule { moduleName: name, solContractName: base, solPath: filePath, jsonPath: "", pursPath: "" }
+
+        { nothingToDo, ntdReason } = if null libs
+                                          then { nothingToDo: true, ntdReason: "No libraries specified in project" }
+                                          else if all isFixedLibrary libs
+                                                 then { nothingToDo: true, ntdReason: "All libraries are fixed libraries" }
+                                                 else { nothingToDo: false, ntdReason: "There's stuff to do!" }
+        
+        wrapLoadFailure :: forall e m' a. Show e => Functor m' => m' (Either e a) -> ExceptT GenesisGenerationError m' a
+        wrapLoadFailure = withExceptT (CouldntLoadGenesisBlock genesisIn <<< show) <<< ExceptT
+        
+        loadGenesisIn = do
+            genTxt <- wrapLoadFailure (liftEff <<< try $ FSS.readTextFile UTF8 genesisIn)
+            wrapLoadFailure (pure $ A.jsonParser genTxt >>= A.decodeJson)

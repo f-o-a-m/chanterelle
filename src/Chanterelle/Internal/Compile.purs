@@ -1,5 +1,13 @@
 module Chanterelle.Internal.Compile
   ( compile
+  , makeSolcInput
+  , compileModuleWithoutWriting
+  , decodeContract
+  , parseOutputContract
+  , resolveContractMainModule
+  , SolcContract(..)
+  , SolcSettings(..)
+  , SolcInput(..)
   , SolcOutput(..)
   , SolcError(..)
   , OutputContract(..)
@@ -98,14 +106,26 @@ compileModule
   => Tuple ChanterelleModule SolcInput
   -> m (Tuple String (Tuple ChanterelleModule SolcOutput))
 compileModule (Tuple m@(ChanterelleModule mod) solcInput) = do
+  output <- compileModuleWithoutWriting m solcInput
+  writeBuildArtifact mod.solContractName mod.jsonPath output mod.solContractName
+  pure $ Tuple mod.moduleName (Tuple m output)
+
+compileModuleWithoutWriting
+  :: forall eff m.
+     MonadAff (fs :: FS.FS, process :: P.PROCESS, now :: NOW | eff) m
+  => MonadThrow CompileError m
+  => MonadAsk ChanterelleProject m
+  => ChanterelleModule
+  -> SolcInput
+  -> m SolcOutput
+compileModuleWithoutWriting m@(ChanterelleModule mod) solcInput = do
   (ChanterelleProject project) <- ask
   log Info ("compiling " <> mod.moduleName)
   output <- liftEff $ runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback project.root project.spec)
   case AP.jsonParser output >>= parseSolcOutput of
     Left err -> throwError $ CompileParseError {objectName: "Solc Output", parseError: err}
-    Right output' -> do
-      writeBuildArtifact mod.solContractName mod.jsonPath output' mod.solContractName
-      pure $ Tuple mod.moduleName (Tuple m output')
+    Right output' -> pure output'
+
 
 -- | load a file when solc requests it
 -- | TODO: secure it so that it doesnt try loading crap like /etc/passwd, etc. :P
@@ -191,15 +211,25 @@ writeBuildArtifact
   -> m Unit
 writeBuildArtifact srcName filepath output solContractName = do
   co <- decodeContract srcName output
-  let dn = Path.dirname filepath
-      contractsMainModule = M.lookup solContractName co
-  case contractsMainModule of
-    Nothing -> throwError $ MissingArtifactError {fileName: filepath, objectName: solContractName}
-    Just co' -> do
-        assertDirectory dn
-        epochTime <- unInstant <$> liftEff now
-        log Debug $ "Writing artifact " <> filepath
-        liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co' epochTime
+  co' <- resolveContractMainModule filepath co solContractName
+        
+  assertDirectory (Path.dirname filepath)
+  epochTime <- unInstant <$> liftEff now
+  log Debug $ "Writing artifact " <> filepath
+  liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co' epochTime
+
+resolveContractMainModule
+  :: forall eff m.
+     MonadAff eff m
+  => MonadThrow CompileError m
+  => FilePath
+  -> M.StrMap OutputContract
+  -> String
+  -> m OutputContract
+resolveContractMainModule fileName decodedOutputs solContractName =
+  case M.lookup solContractName decodedOutputs of
+    Nothing -> throwError $ MissingArtifactError {fileName, objectName: solContractName}
+    Just co' -> pure co'
 
 --------------------------------------------------------------------------------
 -- | Solc Types and Codecs
@@ -313,7 +343,6 @@ encodeOutputContract (OutputContract {abi, bytecode}) (Milliseconds ts)=
     "networks" A.:= A.jsonEmptyObject A.~>
     "compiledAt" A.:= ts A.~>
     A.jsonEmptyObject
-
 
 newtype SolcOutput =
   SolcOutput { errors :: Array SolcError
