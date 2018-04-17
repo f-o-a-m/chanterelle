@@ -1,13 +1,5 @@
 module Chanterelle.Internal.Compile
   ( compile
-  , makeSolcInput
-  , compileModuleWithoutWriting
-  , decodeContract
-  , parseOutputContract
-  , resolveContractMainModule
-  , SolcContract(..)
-  , SolcSettings(..)
-  , SolcInput(..)
   , SolcOutput(..)
   , SolcError(..)
   , OutputContract(..)
@@ -16,7 +8,7 @@ module Chanterelle.Internal.Compile
 import Prelude
 
 import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), CompileError(..), Libraries(..), Library(..))
+import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), CompileError(..), Libraries)
 import Chanterelle.Internal.Utils (assertDirectory, fileIsDirty, jsonStringifyWithSpaces)
 import Control.Error.Util (hush)
 import Control.Monad.Aff (attempt)
@@ -40,7 +32,7 @@ import Data.StrMap as M
 import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (for, for_, traverse)
 import Data.Tuple (Tuple(..))
-import Network.Ethereum.Web3 (HexString, unHex, sha3, unAddress)
+import Network.Ethereum.Web3 (HexString, unHex, sha3)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
 import Node.FS.Sync as FSS
@@ -106,26 +98,14 @@ compileModule
   => Tuple ChanterelleModule SolcInput
   -> m (Tuple String (Tuple ChanterelleModule SolcOutput))
 compileModule (Tuple m@(ChanterelleModule mod) solcInput) = do
-  output <- compileModuleWithoutWriting m solcInput
-  writeBuildArtifact mod.solContractName mod.jsonPath output mod.solContractName
-  pure $ Tuple mod.moduleName (Tuple m output)
-
-compileModuleWithoutWriting
-  :: forall eff m.
-     MonadAff (fs :: FS.FS, process :: P.PROCESS, now :: NOW | eff) m
-  => MonadThrow CompileError m
-  => MonadAsk ChanterelleProject m
-  => ChanterelleModule
-  -> SolcInput
-  -> m SolcOutput
-compileModuleWithoutWriting m@(ChanterelleModule mod) solcInput = do
   (ChanterelleProject project) <- ask
   log Info ("compiling " <> mod.moduleName)
   output <- liftEff $ runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback project.root project.spec)
   case AP.jsonParser output >>= parseSolcOutput of
     Left err -> throwError $ CompileParseError {objectName: "Solc Output", parseError: err}
-    Right output' -> pure output'
-
+    Right output' -> do
+      writeBuildArtifact mod.solContractName mod.jsonPath output' mod.solContractName
+      pure $ Tuple mod.moduleName (Tuple m output')
 
 -- | load a file when solc requests it
 -- | TODO: secure it so that it doesnt try loading crap like /etc/passwd, etc. :P
@@ -170,7 +150,7 @@ makeSolcInput moduleName sourcePath = do
   code <- liftAff $ FS.readTextFile UTF8 sourcePath
   let language = "Solidity"
       sources = M.singleton (moduleName <> ".sol") (makeSolcContract code)
-      outputSelection = M.singleton "*" (M.singleton "*" (["abi", "evm.deployedBytecode.object", "evm.bytecode.object"] <> spec.solcOutputSelection))
+      outputSelection = M.singleton "*" (M.singleton "*" (["abi", "evm.bytecode.object"] <> spec.solcOutputSelection))
       depMappings = (\(Dependency dep) -> dep <> "=" <> (project.root <> "/node_modules/" <> dep)) <$> spec.dependencies
       sourceDirMapping = [":g" <> (Path.concat [project.root, spec.sourceDir])]
       remappings = sourceDirMapping <> depMappings
@@ -211,25 +191,15 @@ writeBuildArtifact
   -> m Unit
 writeBuildArtifact srcName filepath output solContractName = do
   co <- decodeContract srcName output
-  co' <- resolveContractMainModule filepath co solContractName
-        
-  assertDirectory (Path.dirname filepath)
-  epochTime <- unInstant <$> liftEff now
-  log Debug $ "Writing artifact " <> filepath
-  liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co' epochTime
-
-resolveContractMainModule
-  :: forall eff m.
-     MonadAff eff m
-  => MonadThrow CompileError m
-  => FilePath
-  -> M.StrMap OutputContract
-  -> String
-  -> m OutputContract
-resolveContractMainModule fileName decodedOutputs solContractName =
-  case M.lookup solContractName decodedOutputs of
-    Nothing -> throwError $ MissingArtifactError {fileName, objectName: solContractName}
-    Just co' -> pure co'
+  let dn = Path.dirname filepath
+      contractsMainModule = M.lookup solContractName co
+  case contractsMainModule of
+    Nothing -> throwError $ MissingArtifactError {fileName: filepath, objectName: solContractName}
+    Just co' -> do
+        assertDirectory dn
+        epochTime <- unInstant <$> liftEff now
+        log Debug $ "Writing artifact " <> filepath
+        liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co' epochTime
 
 --------------------------------------------------------------------------------
 -- | Solc Types and Codecs
@@ -265,14 +235,8 @@ instance encodeSolcSettings :: A.EncodeJson SolcSettings where
   encodeJson (SolcSettings s) =
          "outputSelection" A.:= A.encodeJson s.outputSelection
     A.~> "remappings"      A.:= A.encodeJson s.remappings
-    A.~> "libraries"       A.:= A.encodeJson (solcifyAllLibs s.libraries)
+    A.~> "libraries"       A.:= A.encodeJson s.libraries
     A.~> A.jsonEmptyObject
-
-    where solcifyAllLibs libs = solcifyLibs <$> libs
-          solcifyLibs (Libraries l) = M.fromFoldable (solcifyLib <$> l)
-          solcifyLib (FixedLibrary { name, address} )       = Tuple name (encodeAddress address)
-          solcifyLib (InjectableLibrary { name, address } ) = Tuple name (encodeAddress address)
-          encodeAddress = A.encodeJson <<< show <<< unAddress
 
 --------------------------------------------------------------------------------
 
@@ -319,7 +283,6 @@ instance decodeSolcError :: A.DecodeJson SolcError where
 newtype OutputContract =
   OutputContract { abi :: A.JArray
                  , bytecode :: String
-                 , deployedBytecode :: String
                  }
 
 parseOutputContract
@@ -332,9 +295,7 @@ parseOutputContract json = do
   evmObj <- A.decodeJson evm
   bytecodeO <- evmObj A..? "bytecode"
   bytecode <- bytecodeO A..? "object"
-  deployedBytecodeO <- evmObj A..? "deployedBytecode"
-  deployedBytecode <- deployedBytecodeO A..? "object"
-  pure $ OutputContract { abi, bytecode, deployedBytecode }
+  pure $ OutputContract {abi, bytecode}
 
 encodeOutputContract
   :: OutputContract
@@ -346,6 +307,7 @@ encodeOutputContract (OutputContract {abi, bytecode}) (Milliseconds ts)=
     "networks" A.:= A.jsonEmptyObject A.~>
     "compiledAt" A.:= ts A.~>
     A.jsonEmptyObject
+
 
 newtype SolcOutput =
   SolcOutput { errors :: Array SolcError
