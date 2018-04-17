@@ -39,7 +39,7 @@ import Node.Path (FilePath)
 import Node.Path as Path
 import Node.Process (PROCESS)
 import Node.Process as P
-import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber(..), HexString, embed, hexadecimal, mkAddress, mkHexString, parseBigNumber, toString, unAddress, unHex)
+import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber(..), HexString, embed, hexadecimal, mkAddress, mkHexString, parseBigNumber, toString, unAddress, unHex, unsafeToInt)
 
 decodeJsonBlockNumber :: Json -> Either String BlockNumber
 decodeJsonBlockNumber = map BlockNumber <<< decodeJsonBigNumber
@@ -54,6 +54,12 @@ decodeJsonBigNumber j = decodeFromString <|> decodeFromNumber <|> (Left "Value i
 
 encodeJsonBigNumber :: BigNumber -> Json
 encodeJsonBigNumber n = encodeJson ("0x" <> toString hexadecimal n)
+
+encodeJsonConfigBigNumber :: BigNumber -> Json
+encodeJsonConfigBigNumber = encodeJson <<< unsafeToInt
+
+encodeJsonConfigBlockNumber :: BlockNumber -> Json
+encodeJsonConfigBlockNumber (BlockNumber n) = encodeJsonConfigBigNumber (n)
 
 decodeJsonHexString :: Json -> Either String HexString
 decodeJsonHexString j = decodeJson j >>= note "HexString is not a valid Hex String" <<< mkHexString
@@ -113,13 +119,13 @@ instance decodeJsonGenesisConfig :: DecodeJson GenesisConfig where
 instance encodeJsonGenesisConfig :: EncodeJson GenesisConfig where
     encodeJson (GenesisConfig gc) = encodeJson $ M.fromFoldable elems
         where elems = [] <> ci <> bB <> e150B <> e150H <> e155B <> e158B <> hB <> cq
-              ci    = maybe mempty (pure <<< Tuple "chainId"        <<< encodeJsonBigNumber)   gc.chainId
-              bB    = maybe mempty (pure <<< Tuple "byzantiumBlock" <<< encodeJsonBlockNumber) gc.byzantiumBlock
-              e150B = maybe mempty (pure <<< Tuple "eip150Block"    <<< encodeJsonBlockNumber) gc.eip150Block
+              ci    = maybe mempty (pure <<< Tuple "chainId"        <<< encodeJsonConfigBigNumber)   gc.chainId
+              bB    = maybe mempty (pure <<< Tuple "byzantiumBlock" <<< encodeJsonConfigBlockNumber) gc.byzantiumBlock
+              e150B = maybe mempty (pure <<< Tuple "eip150Block"    <<< encodeJsonConfigBlockNumber) gc.eip150Block
               e150H = maybe mempty (pure <<< Tuple "eip150Hash"     <<< encodeJsonHexString)   gc.eip150Hash
-              e155B = maybe mempty (pure <<< Tuple "eip155Block"    <<< encodeJsonBlockNumber) gc.eip155Block
-              e158B = maybe mempty (pure <<< Tuple "eip158Block"    <<< encodeJsonBlockNumber) gc.eip158Block
-              hB    = maybe mempty (pure <<< Tuple "homesteadBlock" <<< encodeJsonBlockNumber) gc.homesteadBlock
+              e155B = maybe mempty (pure <<< Tuple "eip155Block"    <<< encodeJsonConfigBlockNumber) gc.eip155Block
+              e158B = maybe mempty (pure <<< Tuple "eip158Block"    <<< encodeJsonConfigBlockNumber) gc.eip158Block
+              hB    = maybe mempty (pure <<< Tuple "homesteadBlock" <<< encodeJsonConfigBlockNumber) gc.homesteadBlock
               cq    = maybe mempty (pure <<< Tuple "clique"         <<< encodeJson)            gc.clique
 
 instance decodeJsonCliqueSettings :: DecodeJson CliqueSettings where
@@ -131,8 +137,8 @@ instance decodeJsonCliqueSettings :: DecodeJson CliqueSettings where
 
 instance encodeJsonCliqueSettings :: EncodeJson CliqueSettings where
     encodeJson (CliqueSettings clique) =
-         "period" := encodeJsonBigNumber clique.period
-      ~> "epoch"  := encodeJsonBigNumber clique.epoch
+         "period" := encodeJsonConfigBigNumber clique.period
+      ~> "epoch"  := encodeJsonConfigBigNumber clique.epoch
       ~> jsonEmptyObject
 
 newtype GenesisAlloc = GenesisAlloc { code    :: Maybe HexString
