@@ -1,17 +1,16 @@
 module Chanterelle.Internal.Utils
-  ( makeProvider
+  ( module Json
+  , module Web3
   , makeDeployConfig
-  , getPrimaryAccount
-  , pollTransactionReceipt
   , withTimeout
   , validateDeployArgs
   , unparsePath
   , assertDirectory
-  , jsonStringifyWithSpaces
-  , web3WithTimeout
   , fileIsDirty
   ) where
 
+import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces) as Json
+import Chanterelle.Internal.Utils.Web3 as Web3
 import Prelude
 
 import Chanterelle.Internal.Logging (LogLevel(..), log)
@@ -19,40 +18,21 @@ import Chanterelle.Internal.Types (ContractConfig, DeployConfig(..), DeployError
 import Control.Monad.Aff (Aff, Milliseconds(..), delay)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
-import Control.Monad.Eff.Class (class MonadEff, liftEff)
-import Control.Monad.Eff.Exception (error, try)
+import Control.Monad.Eff.Class (liftEff)
+import Control.Monad.Eff.Exception (error)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Parallel (parOneOf)
-import Data.Argonaut as A
-import Data.Array ((!!))
 import Data.DateTime.Instant (fromDateTime, unInstant)
 import Data.Either (Either(..))
 import Data.Int (toNumber)
-import Data.Maybe (maybe)
 import Data.Validation.Semigroup (unV)
-import Network.Ethereum.Web3 (ETH, Web3, HexString, Address, runWeb3)
-import Network.Ethereum.Web3.Api (eth_getAccounts, eth_getTransactionReceipt, net_version)
-import Network.Ethereum.Web3.Types (TransactionReceipt, Web3Error(NullError))
-import Network.Ethereum.Web3.Types.Provider (Provider, httpProvider)
+import Network.Ethereum.Web3 (ETH, runWeb3)
+import Network.Ethereum.Web3.Api (net_version)
 import Node.FS.Aff as FS
 import Node.FS.Stats as Stats
 import Node.FS.Sync.Mkdirp (mkdirp)
 import Node.Path (FilePath)
 import Node.Path as Path
-
--- | Make an http provider with address given by NODE_URL, falling back
--- | to localhost.
-makeProvider
-  :: forall eff m.
-     MonadEff (eth :: ETH | eff) m
-  => MonadThrow DeployError m
-  => String
-  -> m Provider
-makeProvider url = do
-  eProvider <- liftEff $ try $ httpProvider url
-  case eProvider of
-    Left _ -> throwError $ ConfigurationError "Cannot connect to Provider, check NODE_URL"
-    Right p -> pure p
 
 makeDeployConfig
   :: forall eff m.
@@ -62,10 +42,10 @@ makeDeployConfig
   -> Int
   -> m DeployConfig
 makeDeployConfig url tout = do
-  provider <- makeProvider url
+  provider <- Web3.makeProvider url
   let timeout = Milliseconds (toNumber tout)
   econfig <- liftAff $ runWeb3 provider do
-    primaryAccount <- getPrimaryAccount
+    primaryAccount <- Web3.getPrimaryAccount
     networkId <- net_version
     pure $ DeployConfig {provider, primaryAccount, networkId, timeout}
   case econfig of
@@ -73,34 +53,6 @@ makeDeployConfig url tout = do
       let errMsg = "Couldn't create DeployConfig -- " <> show err
       in throwError $ ConfigurationError errMsg
     Right config -> pure config
-
--- | get the primary account for the ethereum client
-getPrimaryAccount
-  :: forall eff.
-     Web3 (console :: CONSOLE | eff) Address
-getPrimaryAccount = do
-    accounts <- eth_getAccounts
-    maybe accountsError pure $ accounts !! 0
-  where
-    accountsError = do
-      log Error "No PrimaryAccount found on ethereum client!"
-      throwError NullError
-
--- | indefinitely poll for a transaction receipt, sleeping for 3
--- | seconds in between every call.
-pollTransactionReceipt
-  :: forall eff m.
-     MonadAff (eth :: ETH | eff) m
-  => HexString
-  -> Provider
-  -> m TransactionReceipt
-pollTransactionReceipt txHash provider = do
-  etxReceipt <- liftAff <<< runWeb3 provider $ eth_getTransactionReceipt txHash
-  case etxReceipt of
-    Left _ -> do
-      liftAff $ delay (Milliseconds 3000.0)
-      pollTransactionReceipt txHash provider
-    Right txRec -> pure txRec
 
 -- | try an aff action for the specified amount of time before giving up.
 withTimeout
@@ -110,17 +62,6 @@ withTimeout
   -> Aff eff a
 withTimeout maxTimeout action = do
   let timeout = do
-        delay maxTimeout
-        throwError $ error "TimeOut"
-  parOneOf [action, timeout]
-
-web3WithTimeout
-  :: forall eff a.
-     Milliseconds
-  -> Web3 eff a
-  -> Web3 eff a
-web3WithTimeout maxTimeout action = do
-  let timeout = liftAff do
         delay maxTimeout
         throwError $ error "TimeOut"
   parOneOf [action, timeout]
@@ -153,8 +94,6 @@ assertDirectory dn = do
       if not isDir
         then throwError $ FSError ("Path " <> dn <> " exists but is not a directory!")
         else log Debug ("path " <>  dn <> " exists and is a directory")
-
-foreign import jsonStringifyWithSpaces :: Int -> A.Json -> String
 
 fileIsDirty
   :: forall eff m.
