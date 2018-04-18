@@ -107,6 +107,7 @@ newtype ChanterelleProjectSpec =
   ChanterelleProjectSpec { name                :: String
                          , version             :: String
                          , sourceDir           :: FilePath
+                         , artifactsDir        :: FilePath
                          , modules             :: Array String
                          , dependencies        :: Array Dependency
                          , libraries           :: Libraries
@@ -124,6 +125,7 @@ instance encodeJsonChanterelleProjectSpec :: EncodeJson ChanterelleProjectSpec w
          "name"                  := encodeJson project.name
       ~> "version"               := encodeJson project.version
       ~> "source-dir"            := encodeJson project.sourceDir
+      ~> "artifacts-dir"         := encodeJson project.artifactsDir
       ~> "modules"               := encodeJson project.modules
       ~> "dependencies"          := encodeJson project.dependencies
       ~> "libraries"             := encodeJson project.libraries
@@ -142,6 +144,7 @@ instance decodeJsonChanterelleProjectSpec :: DecodeJson ChanterelleProjectSpec w
     name                <- obj .? "name"
     version             <- obj .? "version"
     sourceDir           <- obj .? "source-dir"
+    artifactsDir        <- fromMaybe "build" <$> obj .?? "artifacts-dir"
     modules             <- obj .? "modules"
     dependencies        <- fromMaybe mempty <$> obj .?? "dependencies"
     libraries           <- fromMaybe mempty <$> obj .?? "libraries"
@@ -151,7 +154,7 @@ instance decodeJsonChanterelleProjectSpec :: DecodeJson ChanterelleProjectSpec w
     psGenExprPrefix     <- fromMaybe "" <$> psGenObj .?? "expression-prefix"
     psGenModulePrefix   <- fromMaybe "" <$> psGenObj .?? "module-prefix"
     let psGen = { exprPrefix: psGenExprPrefix, modulePrefix: psGenModulePrefix, outputPath: psGenOutputPath }
-    pure $ ChanterelleProjectSpec { name, version, sourceDir, modules, dependencies, libraries, solcOutputSelection, psGen }
+    pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, modules, dependencies, libraries, solcOutputSelection, psGen }
 
 data ChanterelleProject =
      ChanterelleProject { root     :: FilePath -- ^ parent directory containing chanterelle.json
