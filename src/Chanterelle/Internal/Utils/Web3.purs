@@ -2,7 +2,7 @@ module Chanterelle.Internal.Utils.Web3 where
 
 import Prelude
 import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types (DeployError(..))
+import Chanterelle.Internal.Types.Deploy (DeployError(..))
 import Control.Monad.Aff (Milliseconds(..), delay)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)

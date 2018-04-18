@@ -6,7 +6,7 @@ module Chanterelle.Internal.Deploy
 import Prelude
 
 import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types (ContractConfig, DeployConfig(..), DeployError(..))
+import Chanterelle.Internal.Types.Deploy (ContractConfig, DeployConfig(..), DeployError(..))
 import Chanterelle.Internal.Utils (jsonStringifyWithSpaces, pollTransactionReceipt, validateDeployArgs, withTimeout)
 import Control.Error.Util ((??))
 import Control.Monad.Aff (attempt)

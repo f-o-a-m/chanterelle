@@ -4,7 +4,8 @@ import Prelude
 import Chanterelle.Project (loadProject)
 import Chanterelle.Internal.Codegen (generatePS) as Chanterelle
 import Chanterelle.Internal.Compile (compile) as Chanterelle
-import Chanterelle.Internal.Types (CompileError(..), logCompileError, runCompileM)
+import Chanterelle.Internal.Logging (logCompileError)
+import Chanterelle.Internal.Types.Compile (CompileError(..), runCompileM)
 import Control.Monad.Aff (launchAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff (Eff)

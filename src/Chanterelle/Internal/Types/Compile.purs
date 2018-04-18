@@ -73,7 +73,7 @@ derive newtype instance monadAffCompileM    :: MonadAff (fs :: FS, console :: CO
 
 newtype SolcInput =
   SolcInput { language :: String
-            , sources :: M.StrMap SolcContract
+            , sources  :: StrMap SolcContract
             , settings :: SolcSettings
             }
 instance encodeSolcInput :: EncodeJson SolcInput where
@@ -88,9 +88,9 @@ instance encodeSolcInput :: EncodeJson SolcInput where
 type ContractName = String
 
 newtype SolcSettings =
-  SolcSettings { outputSelection :: M.StrMap (M.StrMap (Array String))
+  SolcSettings { outputSelection :: StrMap (StrMap (Array String))
                , remappings      :: Array String
-               , libraries       :: M.StrMap Libraries
+               , libraries       :: StrMap Libraries
                }
 
 instance encodeSolcSettings :: EncodeJson SolcSettings where
@@ -178,8 +178,8 @@ encodeOutputContract (OutputContract {abi, bytecode}) (Milliseconds ts) =
     ~> jsonEmptyObject
 
 newtype SolcOutput =
-  SolcOutput { errors :: Array SolcError
-             , contracts :: M.StrMap (M.StrMap OutputContract)
+  SolcOutput { errors    :: Array SolcError
+             , contracts :: StrMap (StrMap OutputContract)
              }
 
 parseSolcOutput
