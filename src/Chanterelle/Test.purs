@@ -7,7 +7,8 @@ module Chanterelle.Test
 
 import Prelude
 
-import Chanterelle.Internal.Types (DeployConfig(..), DeployError(..), DeployM, logDeployError, runDeployM)
+import Chanterelle.Internal.Types.Deploy (DeployConfig(..), DeployError(..), DeployM, runDeployM)
+import Chanterelle.Internal.Logging (logDeployError)
 import Chanterelle.Internal.Utils (makeDeployConfig)
 import Control.Monad.Aff (Aff, liftEff')
 import Control.Monad.Aff.AVar (AVAR, makeEmptyVar, putVar, takeVar)
