@@ -7,7 +7,8 @@ import Data.Argonaut (Json, JObject, decodeJson, encodeJson)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..), maybe)
 import Data.StrMap as M
-import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber(..), HexString, embed, hexadecimal, mkHexString, parseBigNumber, toString, unAddress, unsafeToInt)
+import Network.Ethereum.Core.BigNumber (hexadecimal, parseBigNumber, toString, unsafeToInt)
+import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber(..), HexString, embed, mkHexString, unAddress)
 
 foreign import jsonStringifyWithSpaces :: Int -> Json -> String
 

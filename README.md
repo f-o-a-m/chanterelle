@@ -2,7 +2,8 @@
 
 [![Build Status](https://travis-ci.org/f-o-a-m/chanterelle.svg?branch=master)](https://travis-ci.org/f-o-a-m/chanterelle)
 
-<img src=https://github.com/f-o-a-m/purescript-web3/blob/master/purescript-web3-logo.png width="75">
+<img src=https://github.com/f-o-a-m/purescript-web3/blob/master/purescript-web3-logo.png width="75"> <img src=https://github.com/f-o-a-m/chanterelle/blob/master/chanterelle-logo.svg width="75">
+
 
 _a more functional truffle_
 
