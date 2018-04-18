@@ -1,8 +1,8 @@
 module Chanterelle.Internal.Types.Project where
 
 import Prelude
+import Chanterelle.Internal.Utils.Json (decodeJsonAddress, decodeJsonHexString, encodeJsonAddress, encodeJsonHexString, gfWithDecoder)
 import Control.Alt ((<|>))
-import Control.Error.Util (note)
 import Data.Argonaut as A
 import Data.Argonaut (class EncodeJson, class DecodeJson, encodeJson, decodeJson, (:=), (~>), (.?), (.??))
 import Data.Either (Either(..))
@@ -12,7 +12,7 @@ import Data.StrMap as M
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
 import Node.Path (FilePath)
-import Network.Ethereum.Web3 (Address, HexString, mkAddress, mkHexString, unAddress, unHex)
+import Network.Ethereum.Web3 (Address, HexString)
 
 --------------------------------------------------------------------------------
 -- | Chanterelle Project Types
@@ -40,14 +40,14 @@ instance encodeJsonInjectableLibraryCode :: EncodeJson InjectableLibraryCode whe
     where elems = file <> root
           file  = [Tuple "file" $ encodeJson f]
           root  = fromMaybe [] (pure <<< Tuple "root" <<< encodeJson <$> r)
-  encodeJson (InjectableWithBytecode c)   = encodeJson $ M.singleton "bytecode" (unHex c)
+  encodeJson (InjectableWithBytecode c)   = encodeJson $ M.singleton "bytecode" (encodeJsonHexString c)
 
 instance decodeJsonInjectableLibraryCode :: DecodeJson InjectableLibraryCode where
   decodeJson d = decodeSourceCode <|> decodeBytecode <|> Left "not a valid InjectableLibrarySource"
       where decodeSourceCode = decodeJson d >>= (\o -> InjectableWithSourceCode <$> o .?? "root" <*> o .? "file")
             decodeBytecode   = do 
               o <- decodeJson d
-              bc <- note "Malformed hexString" <<< mkHexString =<< o .? "bytecode"
+              bc <- gfWithDecoder decodeJsonHexString o "bytecode"
               pure $ InjectableWithBytecode bc
 
 data Library = FixedLibrary      { name :: String, address :: Address  }
@@ -67,10 +67,9 @@ derive newtype instance semigroiupLibraries :: Semigroup Libraries
 instance encodeJsonLibraries :: EncodeJson Libraries where
   encodeJson (Libraries libs) =
     let asAssocs = mkTuple <$> libs
-        encodeAddress = encodeJson <<< show <<< unAddress
-        mkTuple (FixedLibrary l)      = Tuple l.name (encodeAddress l.address)
-        mkTuple (InjectableLibrary l) = let dl =  "address" := encodeAddress l.address
-                                               ~> "code"  := encodeJson  l.code
+        mkTuple (FixedLibrary l)      = Tuple l.name (encodeJsonAddress l.address)
+        mkTuple (InjectableLibrary l) = let dl =  "address" := encodeJsonAddress l.address
+                                               ~> "code"  := encodeJson l.code
                                                ~> A.jsonEmptyObject
                                          in Tuple l.name (encodeJson dl)
         asMap    = M.fromFoldable asAssocs
@@ -83,15 +82,13 @@ instance decodeJsonLibraries :: DecodeJson Libraries where
     pure (Libraries libs)
 
     where decodeFixedLibrary (Tuple name l) = do
-            address' <- decodeJson l
-            address <- note ("Invalid address " <> address') (mkHexString address' >>= mkAddress)
+            address <- decodeJsonAddress l
             pure $ FixedLibrary { name, address }
 
           decodeInjectableLibrary (Tuple name l) = do
             ilo <- decodeJson l
-            address' <- ilo .? "address"
-            address  <- note ("Invalid address " <> address') (mkHexString address' >>= mkAddress)
-            code     <- ilo .? "code"
+            address <- gfWithDecoder decodeJsonAddress ilo "address"
+            code    <- ilo .? "code"
             pure $ InjectableLibrary { name, address, code }
 
           failDramatically (Tuple name _) = Left ("Malformed library descriptor for " <> name)
