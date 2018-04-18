@@ -16,8 +16,10 @@ module Chanterelle.Internal.Compile
 import Prelude
 
 import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), CompileError(..), Libraries(..), Library(..))
-import Chanterelle.Internal.Utils (assertDirectory, fileIsDirty, jsonStringifyWithSpaces)
+import Chanterelle.Internal.Types.Compile (CompileError(..))
+import Chanterelle.Internal.Types.Project (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), Libraries(..), Library(..))
+import Chanterelle.Internal.Utils.FS (assertDirectory, fileIsDirty)
+import Chanterelle.Internal.Utils.Json (encodeJsonAddress, jsonStringifyWithSpaces)
 import Control.Error.Util (hush)
 import Control.Monad.Aff (attempt)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
@@ -27,6 +29,7 @@ import Control.Monad.Eff.Exception (catchException)
 import Control.Monad.Eff.Now (NOW, now)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Reader (class MonadAsk, ask)
+import Data.Argonaut (class DecodeJson, class EncodeJson, (:=), (~>), (.?), (.??), decodeJson, encodeJson, jsonEmptyObject)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
 import Data.Array (catMaybes, filter)
@@ -42,7 +45,7 @@ import Data.Traversable (for, for_, traverse)
 import Data.Tuple (Tuple(..))
 import Network.Ethereum.Core.HexString (fromByteString)
 import Network.Ethereum.Core.Keccak256 (keccak256)
-import Network.Ethereum.Web3 (HexString, unAddress, unHex)
+import Network.Ethereum.Web3 (HexString, unHex)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
 import Node.FS.Sync as FSS
@@ -123,7 +126,7 @@ compileModuleWithoutWriting
 compileModuleWithoutWriting m@(ChanterelleModule mod) solcInput = do
   (ChanterelleProject project) <- ask
   log Info ("compiling " <> mod.moduleName)
-  output <- liftEff $ runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback project.root project.spec)
+  output <- liftEff $ runFn2 _compile (A.stringify $ encodeJson solcInput) (loadSolcCallback project.root project.spec)
   case AP.jsonParser output >>= parseSolcOutput of
     Left err -> throwError $ CompileParseError {objectName: "Solc Output", parseError: err}
     Right output' -> pure output'
@@ -246,12 +249,12 @@ newtype SolcInput =
             , sources :: M.StrMap SolcContract
             , settings :: SolcSettings
             }
-instance encodeSolcInput :: A.EncodeJson SolcInput where
+instance encodeSolcInput :: EncodeJson SolcInput where
   encodeJson (SolcInput {language, sources, settings}) =
-         "language" A.:= A.fromString "Solidity"
-    A.~> "sources"  A.:= A.encodeJson sources
-    A.~> "settings" A.:= A.encodeJson settings
-    A.~> A.jsonEmptyObject
+       "language" := A.fromString "Solidity"
+    ~> "sources"  := encodeJson sources
+    ~> "settings" := encodeJson settings
+    ~> jsonEmptyObject
 
 --------------------------------------------------------------------------------
 
@@ -263,18 +266,17 @@ newtype SolcSettings =
                , libraries       :: M.StrMap Libraries
                }
 
-instance encodeSolcSettings :: A.EncodeJson SolcSettings where
+instance encodeSolcSettings :: EncodeJson SolcSettings where
   encodeJson (SolcSettings s) =
-         "outputSelection" A.:= A.encodeJson s.outputSelection
-    A.~> "remappings"      A.:= A.encodeJson s.remappings
-    A.~> "libraries"       A.:= A.encodeJson (solcifyAllLibs s.libraries)
-    A.~> A.jsonEmptyObject
+       "outputSelection" := encodeJson s.outputSelection
+    ~> "remappings"      := encodeJson s.remappings
+    ~> "libraries"       := encodeJson (solcifyAllLibs s.libraries)
+    ~> jsonEmptyObject
 
     where solcifyAllLibs libs = solcifyLibs <$> libs
           solcifyLibs (Libraries l) = M.fromFoldable (solcifyLib <$> l)
-          solcifyLib (FixedLibrary { name, address} )       = Tuple name (encodeAddress address)
-          solcifyLib (InjectableLibrary { name, address } ) = Tuple name (encodeAddress address)
-          encodeAddress = A.encodeJson <<< show <<< unAddress
+          solcifyLib (FixedLibrary { name, address} )       = Tuple name (encodeJsonAddress address)
+          solcifyLib (InjectableLibrary { name, address } ) = Tuple name (encodeJsonAddress address)
 
 --------------------------------------------------------------------------------
 
@@ -284,11 +286,10 @@ newtype SolcContract =
   SolcContract { content :: String
                , hash :: HexString
                }
-instance encodeSolcContract :: A.EncodeJson SolcContract where
-  encodeJson (SolcContract {content, hash}) =
-    "content" A.:= A.fromString content A.~>
-    "keccak256" A.:= A.fromString (unHex hash) A.~>
-    A.jsonEmptyObject
+instance encodeSolcContract :: EncodeJson SolcContract where
+  encodeJson (SolcContract {content, hash}) =  "content"   := A.fromString content
+                                            ~> "keccak256" := A.fromString (unHex hash)
+                                            ~> jsonEmptyObject
 
 --------------------------------------------------------------------------------
 
@@ -301,13 +302,13 @@ newtype SolcError =
             , formattedMessage :: String
             }
 
-instance decodeSolcError :: A.DecodeJson SolcError where
+instance decodeSolcError :: DecodeJson SolcError where
   decodeJson json = do
-    obj <- A.decodeJson json
-    _type <- obj A..? "type"
-    severity <- obj A..? "severity"
-    message <- obj A..? "message"
-    formattedMessage <-obj A..? "formattedMessage"
+    obj <- decodeJson json
+    _type <- obj .? "type"
+    severity <- obj .? "severity"
+    message <- obj .? "message"
+    formattedMessage <-obj .? "formattedMessage"
     pure $
       SolcError { type: _type
                 , severity
@@ -328,26 +329,26 @@ parseOutputContract
   :: A.Json
   -> Either String OutputContract
 parseOutputContract json = do
-  obj <- A.decodeJson json
-  abi <- obj A..? "abi"
-  evm <- obj A..? "evm"
-  evmObj <- A.decodeJson evm
-  bytecodeO <- evmObj A..? "bytecode"
-  bytecode <- bytecodeO A..? "object"
-  deployedBytecodeO <- evmObj A..? "deployedBytecode"
-  deployedBytecode <- deployedBytecodeO A..? "object"
+  obj <- decodeJson json
+  abi <- obj .? "abi"
+  evm <- obj .? "evm"
+  evmObj <- decodeJson evm
+  bytecodeO <- evmObj .? "bytecode"
+  bytecode <- bytecodeO .? "object"
+  deployedBytecodeO <- evmObj .? "deployedBytecode"
+  deployedBytecode <- deployedBytecodeO .? "object"
   pure $ OutputContract { abi, bytecode, deployedBytecode }
 
 encodeOutputContract
   :: OutputContract
   -> Milliseconds
   -> A.Json
-encodeOutputContract (OutputContract {abi, bytecode}) (Milliseconds ts)=
-    "abi" A.:= A.fromArray abi A.~>
-    "bytecode" A.:= bytecode A.~>
-    "networks" A.:= A.jsonEmptyObject A.~>
-    "compiledAt" A.:= ts A.~>
-    A.jsonEmptyObject
+encodeOutputContract (OutputContract {abi, bytecode}) (Milliseconds ts) =
+       "abi"        := A.fromArray abi
+    ~> "bytecode"   := bytecode
+    ~> "networks"   := jsonEmptyObject
+    ~> "compiledAt" := ts
+    ~> jsonEmptyObject
 
 newtype SolcOutput =
   SolcOutput { errors :: Array SolcError
@@ -358,8 +359,8 @@ parseSolcOutput
   :: A.Json
   -> Either String SolcOutput
 parseSolcOutput json = do
-  o <- A.decodeJson json
-  errors <- fromMaybe [] <$> o A..?? "errors"
-  contractsMap <- o A..? "contracts"
+  o <- decodeJson json
+  errors <- fromMaybe [] <$> o .?? "errors"
+  contractsMap <- o .? "contracts"
   contracts <- for contractsMap (traverse parseOutputContract)
   pure $ SolcOutput {errors, contracts}
