@@ -3,16 +3,19 @@ module Chanterelle.Internal.Types.Project where
 import Prelude
 import Chanterelle.Internal.Utils.Json (decodeJsonAddress, decodeJsonHexString, encodeJsonAddress, encodeJsonHexString, gfWithDecoder)
 import Control.Alt ((<|>))
+import Control.Error.Util (note)
 import Data.Argonaut as A
-import Data.Argonaut (class EncodeJson, class DecodeJson, encodeJson, decodeJson, (:=), (~>), (.?), (.??))
+import Data.Argonaut (class EncodeJson, class DecodeJson, encodeJson, decodeJson, (:=), (~>), (.?), (.??), jsonEmptyObject)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe, fromMaybe)
 import Data.Monoid (class Monoid, mempty)
+import Data.String (Pattern(..), joinWith, split)
 import Data.StrMap as M
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
 import Node.Path (FilePath)
-import Network.Ethereum.Web3 (Address, HexString)
+import Network.Ethereum.Core.BigNumber (decimal, parseBigNumber, toString)
+import Network.Ethereum.Web3 (Address, BigNumber, HexString)
 
 --------------------------------------------------------------------------------
 -- | Chanterelle Project Types
@@ -59,10 +62,10 @@ isFixedLibrary _                = false
 
 newtype Libraries = Libraries (Array Library)
 
-derive instance eqLibrary                   :: Eq Library
-derive instance eqLibraries                 :: Eq Libraries
-derive newtype instance monoidLibraries     :: Monoid Libraries
-derive newtype instance semigroiupLibraries :: Semigroup Libraries
+derive instance eqLibrary                  :: Eq Library
+derive instance eqLibraries                :: Eq Libraries
+derive newtype instance monoidLibraries    :: Monoid Libraries
+derive newtype instance semigroupLibraries :: Semigroup Libraries
 
 instance encodeJsonLibraries :: EncodeJson Libraries where
   encodeJson (Libraries libs) =
@@ -95,6 +98,53 @@ instance decodeJsonLibraries :: DecodeJson Libraries where
 
 ---------------------------------------------------------------------
 
+data ChainSpec = AllChains
+               | PermittedChains (Array BigNumber)
+derive instance eqChainSpec :: Eq ChainSpec
+
+instance decodeJsonChainSpec :: DecodeJson ChainSpec where
+  decodeJson j = decodeAllChains <|> decodePermittedChains <|> Left "Invalid chain specifier"
+    where decodeStr = decodeJson j
+          decodeAllChains = decodeStr >>= (\s -> if s == "*" then Right AllChains else Left "Not * for AllChains")
+          decodePermittedChains = decodeStr >>= (\s -> PermittedChains <$> for (split (Pattern ",") s) (note "Network ID is not a decimal number" <<< parseBigNumber decimal))
+
+instance encodeJsonChainSpec :: EncodeJson ChainSpec where
+  encodeJson AllChains = encodeJson "*"
+  encodeJson (PermittedChains c) = encodeJson $ joinWith "," (toString decimal <$> c)
+
+newtype Network = Network { name :: String 
+                          , providerUrl :: String
+                          , allowedChains :: ChainSpec
+                          }
+derive instance eqNetwork :: Eq Network
+
+instance encodeJsonNetwork :: EncodeJson Network where
+  encodeJson (Network n)     =  "url"    := n.providerUrl
+                             ~> "chains" := n.allowedChains
+                             ~> jsonEmptyObject
+
+newtype Networks = Networks (Array Network)
+derive instance eqNetworks                :: Eq Networks
+derive newtype instance monoidNetworks    :: Monoid Networks
+derive newtype instance semigroupNetworks :: Semigroup Networks
+
+instance decodeJsonNetworks :: DecodeJson Networks where
+  decodeJson j = decodeJson j >>= (\o -> Networks <$> for (M.toUnfoldable o) decodeNetwork)
+    where decodeNetwork (Tuple name net) = do
+            o <- decodeJson net
+            providerUrl   <- o .? "url"
+            allowedChains <- o .? "chains"
+            pure $ Network { name, providerUrl, allowedChains }
+
+instance encodeJsonNetworks :: EncodeJson Networks where
+  encodeJson (Networks nets) = encodeJson $ M.fromFoldable (encodeNetwork <$> nets)
+    where encodeNetwork (Network net) =  Tuple net.name $
+                                            "url"    := net.providerUrl
+                                        ~> "chains" := net.allowedChains
+                                        ~> jsonEmptyObject
+
+---------------------------------------------------------------------
+
 data ChanterelleModule =
   ChanterelleModule { moduleName      :: String
                     , solContractName :: String
@@ -111,6 +161,7 @@ newtype ChanterelleProjectSpec =
                          , modules             :: Array String
                          , dependencies        :: Array Dependency
                          , libraries           :: Libraries
+                         , networks            :: Networks
                          , solcOutputSelection :: Array String
                          , psGen               :: { exprPrefix   :: String
                                                   , modulePrefix :: String
@@ -129,6 +180,7 @@ instance encodeJsonChanterelleProjectSpec :: EncodeJson ChanterelleProjectSpec w
       ~> "modules"               := encodeJson project.modules
       ~> "dependencies"          := encodeJson project.dependencies
       ~> "libraries"             := encodeJson project.libraries
+      ~> "networks"              := encodeJson project.networks
       ~> "solc-output-selection" := encodeJson project.solcOutputSelection
       ~> "purescript-generator"  := psGenEncode
       ~> A.jsonEmptyObject
@@ -148,13 +200,14 @@ instance decodeJsonChanterelleProjectSpec :: DecodeJson ChanterelleProjectSpec w
     modules             <- obj .? "modules"
     dependencies        <- fromMaybe mempty <$> obj .?? "dependencies"
     libraries           <- fromMaybe mempty <$> obj .?? "libraries"
+    networks            <- fromMaybe mempty <$> obj .?? "networks"
     solcOutputSelection <- fromMaybe mempty <$> obj .?? "solc-output-selection"
     psGenObj            <- obj .? "purescript-generator"
     psGenOutputPath     <- psGenObj .? "output-path"
     psGenExprPrefix     <- fromMaybe "" <$> psGenObj .?? "expression-prefix"
     psGenModulePrefix   <- fromMaybe "" <$> psGenObj .?? "module-prefix"
     let psGen = { exprPrefix: psGenExprPrefix, modulePrefix: psGenModulePrefix, outputPath: psGenOutputPath }
-    pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, modules, dependencies, libraries, solcOutputSelection, psGen }
+    pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, modules, dependencies, libraries, networks, solcOutputSelection, psGen }
 
 data ChanterelleProject =
      ChanterelleProject { root     :: FilePath -- ^ parent directory containing chanterelle.json
