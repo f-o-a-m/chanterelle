@@ -3,6 +3,10 @@ module Chanterelle.Internal.Codegen
   ) where
 
 import Prelude
+import Chanterelle.Internal.Types.Compile (CompileError(..))
+import Chanterelle.Internal.Types.Project (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..))
+import Chanterelle.Internal.Logging (LogLevel(..), log)
+import Chanterelle.Internal.Utils (assertDirectory)
 import Data.Argonaut (decodeJson)
 import Data.Argonaut.Parser (jsonParser)
 import Data.Argonaut.Prisms (_Object)
@@ -20,9 +24,6 @@ import Node.FS.Aff as FS
 import Node.Path (FilePath)
 import Node.Path as Path
 import Node.Encoding (Encoding(UTF8))
-import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), CompileError(..))
-import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Utils (assertDirectory)
 
 -- ps-web3-gen imports
 import Data.AbiParser (Abi) as PSWeb3Gen

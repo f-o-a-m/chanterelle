@@ -8,7 +8,7 @@ import Prelude
 import Chanterelle.Compile (compileProject)
 import Chanterelle.Deploy (deploy)
 import Chanterelle.Internal.Logging (setLogLevel, readLogLevel)
-import Chanterelle.Internal.Types (DeployM)
+import Chanterelle.Internal.Types.Deploy (DeployM)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
