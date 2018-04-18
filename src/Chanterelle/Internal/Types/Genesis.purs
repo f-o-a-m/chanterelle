@@ -1,19 +1,17 @@
 module Chanterelle.Internal.Types.Genesis where
 
-import Prelude (bind, pure, show, ($), (<$>), (<<<), (<>), (=<<), (>>=))
+import Prelude (bind, pure, show, ($), (<$>), (<<<), (=<<), (>>=))
 import Control.Alt ((<|>))
 import Chanterelle.Internal.Types.Compile (CompileError)
 import Chanterelle.Internal.Utils.Json
-import Control.Error.Util (note)
 import Data.Argonaut (class DecodeJson, class EncodeJson, (:=), (~>), (.?), (.??), decodeJson, encodeJson, jsonEmptyObject)
+import Data.Array (catMaybes)
 import Data.Maybe (Maybe, maybe)
-import Data.Monoid (mempty)
 import Data.StrMap (StrMap)
 import Data.StrMap as M
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
-import Network.Ethereum.Core.BigNumber (parseBigNumber, toString, hexadecimal)
-import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber, HexString,  mkAddress, mkHexString, unAddress, unHex)
+import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber, HexString, mkHexString, unAddress, unHex)
 import Node.Path (FilePath)
 
 data TemplatableHexString = UntemplatedHexString HexString
@@ -59,15 +57,15 @@ instance decodeJsonGenesisConfig :: DecodeJson GenesisConfig where
 
 instance encodeJsonGenesisConfig :: EncodeJson GenesisConfig where
     encodeJson (GenesisConfig gc) = encodeJson $ M.fromFoldable elems
-        where elems = [] <> ci <> bB <> e150B <> e150H <> e155B <> e158B <> hB <> cq
-              ci    = maybe mempty (pure <<< Tuple "chainId"        <<< encodeJsonConfigBigNumber)   gc.chainId
-              bB    = maybe mempty (pure <<< Tuple "byzantiumBlock" <<< encodeJsonConfigBlockNumber) gc.byzantiumBlock
-              e150B = maybe mempty (pure <<< Tuple "eip150Block"    <<< encodeJsonConfigBlockNumber) gc.eip150Block
-              e150H = maybe mempty (pure <<< Tuple "eip150Hash"     <<< encodeJsonHexString)   gc.eip150Hash
-              e155B = maybe mempty (pure <<< Tuple "eip155Block"    <<< encodeJsonConfigBlockNumber) gc.eip155Block
-              e158B = maybe mempty (pure <<< Tuple "eip158Block"    <<< encodeJsonConfigBlockNumber) gc.eip158Block
-              hB    = maybe mempty (pure <<< Tuple "homesteadBlock" <<< encodeJsonConfigBlockNumber) gc.homesteadBlock
-              cq    = maybe mempty (pure <<< Tuple "clique"         <<< encodeJson)            gc.clique
+        where elems = catMaybes [ci, bB, e150B, e150H, e155B, e158B, hB, cq]
+              ci    = (Tuple "chainId"        <<< encodeJsonConfigBigNumber  ) <$> gc.chainId
+              bB    = (Tuple "byzantiumBlock" <<< encodeJsonConfigBlockNumber) <$> gc.byzantiumBlock
+              e150B = (Tuple "eip150Block"    <<< encodeJsonConfigBlockNumber) <$> gc.eip150Block
+              e150H = (Tuple "eip150Hash"     <<< encodeJsonHexString        ) <$> gc.eip150Hash
+              e155B = (Tuple "eip155Block"    <<< encodeJsonConfigBlockNumber) <$> gc.eip155Block
+              e158B = (Tuple "eip158Block"    <<< encodeJsonConfigBlockNumber) <$> gc.eip158Block
+              hB    = (Tuple "homesteadBlock" <<< encodeJsonConfigBlockNumber) <$> gc.homesteadBlock
+              cq    = (Tuple "clique"         <<< encodeJson                 ) <$> gc.clique
 
 instance decodeJsonCliqueSettings :: DecodeJson CliqueSettings where
     decodeJson j = do
@@ -98,17 +96,17 @@ insertGenesisAllocs addr alloc (GenesisAllocs allocs) = GenesisAllocs $ M.insert
 instance decodeJsonGenesisAlloc :: DecodeJson GenesisAlloc where
     decodeJson j = do
         obj <- decodeJson j
-        code <- (mkHexString =<< _) <$> obj .?? "code"
+        code <- gfoWithDecoder decodeJsonHexString obj "code"
         storage <- obj .?? "storage"
-        balance <- obj .? "balance" >>= note "malformed balance" <<< (parseBigNumber hexadecimal)
+        balance <- gfWithDecoder decodeJsonBigNumber obj "balance"
         pure $ GenesisAlloc { code, storage, balance }
 
 instance encodeJsonGenesisAlloc :: EncodeJson GenesisAlloc where
     encodeJson (GenesisAlloc alloc) = encodeJson $ M.fromFoldable elems
-        where elems   = balance <> code <> storage
-              code    = maybe mempty (pure <<< Tuple "code"    <<< encodeJsonHexString) alloc.code
-              storage = maybe mempty (pure <<< Tuple "storage" <<< encodeJson         ) alloc.storage
-              balance = [Tuple "balance" (encodeJson ("0x" <> toString hexadecimal alloc.balance))]
+        where elems   = catMaybes [balance, code, storage]
+              code    = (Tuple "code" <<< encodeJsonHexString) <$> alloc.code
+              storage = (Tuple "storage" <<< encodeJson) <$> alloc.storage
+              balance = pure $ Tuple "balance" (encodeJsonBigNumber alloc.balance)
 
 instance decodeJsonGenesisAllocs :: DecodeJson GenesisAllocs where
     decodeJson j = decodeJson j >>= (\obj -> GenesisAllocs <$> for obj decodeJson)
@@ -135,7 +133,7 @@ instance decodeJsonGenesisBlock :: DecodeJson GenesisBlock where
         config     <- obj .? "config"
         allocs     <- obj .? "alloc"
         nonce      <- obj .? "nonce"      >>= decodeJsonBigNumber
-        coinbase   <- obj .? "coinbase"   >>= decodeJsonHexString >>= note "malformed coinbase"   <<< mkAddress
+        coinbase   <- gfWithDecoder decodeJsonAddress obj "coinbase"
         extraData  <- obj .? "extraData"
         gasLimit   <- obj .? "gasLimit"   >>= decodeJsonBigNumber
         mixHash    <- obj .? "mixHash"    >>= decodeJsonHexString

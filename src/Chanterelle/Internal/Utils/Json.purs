@@ -3,12 +3,11 @@ module Chanterelle.Internal.Utils.Json where
 import Prelude
 import Control.Alt ((<|>))
 import Control.Error.Util (note)
-import Data.Argonaut (Json, JObject, decodeJson, encodeJson)
+import Data.Argonaut (Json, JObject, decodeJson, encodeJson, (.?), (.??))
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..), maybe)
-import Data.StrMap as M
 import Network.Ethereum.Core.BigNumber (hexadecimal, parseBigNumber, toString, unsafeToInt)
-import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber(..), HexString, embed, mkHexString, unAddress)
+import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber(..), HexString, embed, mkAddress, mkHexString, unAddress)
 
 foreign import jsonStringifyWithSpaces :: Int -> Json -> String
 
@@ -41,7 +40,16 @@ encodeJsonHexString = encodeJson <<< show
 encodeJsonAddress :: Address -> Json
 encodeJsonAddress = encodeJson <<< show <<< unAddress
 
+decodeJsonAddress :: Json -> Either String Address
+decodeJsonAddress j = do
+    s <- decodeJson j
+    h <- note "Address is not a valid HexString" $ mkHexString s
+    note "Address is malformed" $ mkAddress h
+
+-- getField (aka .?) with a manual decoder
+gfWithDecoder :: forall a. (Json -> Either String a) -> JObject -> String -> Either String a
+gfWithDecoder decode obj k = (obj .? k) >>= decode
+
 -- getFieldOptional (aka .??) with a manual decoder
 gfoWithDecoder :: forall a. (Json -> Either String a) -> JObject -> String -> Either String (Maybe a)
-gfoWithDecoder decode obj key = maybe (pure Nothing) decode' (M.lookup key obj)
-    where decode' = map Just <<< decode
+gfoWithDecoder decode obj key = (obj .?? key) >>= maybe (pure Nothing) (map Just <<< decode)
