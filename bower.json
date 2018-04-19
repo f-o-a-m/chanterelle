@@ -19,6 +19,7 @@
     "purescript-logging": "^2.0.0",
     "purescript-now": "^3.0.0",
     "purescript-validation": "^3.2.0",
+    "purescript-js-date": "^5.2.0",
     "purescript-random": "^3.0.0"
   },
   "devDependencies": {
