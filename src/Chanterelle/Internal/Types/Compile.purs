@@ -102,8 +102,9 @@ instance encodeSolcSettings :: EncodeJson SolcSettings where
 
     where solcifyAllLibs libs = solcifyLibs <$> libs
           solcifyLibs (Libraries l) = M.fromFoldable (solcifyLib <$> l)
-          solcifyLib (FixedLibrary { name, address} )       = Tuple name (encodeJsonAddress address)
-          solcifyLib (InjectableLibrary { name, address } ) = Tuple name (encodeJsonAddress address)
+          solcifyLib (FixedLibrary { name, address } )            = Tuple name (encodeJsonAddress address)
+          solcifyLib (FixedLibraryWithNetwork { name, address } ) = Tuple name (encodeJsonAddress address)
+          solcifyLib (InjectableLibrary { name, address } )       = Tuple name (encodeJsonAddress address)
 
 --------------------------------------------------------------------------------
 

@@ -3,6 +3,7 @@ module Chanterelle.Internal.Types.Genesis where
 import Prelude (bind, pure, show, ($), (<$>), (<<<), (=<<), (>>=))
 import Control.Alt ((<|>))
 import Chanterelle.Internal.Types.Compile (CompileError)
+import Chanterelle.Internal.Types.Project (Network)
 import Chanterelle.Internal.Utils.Json
 import Data.Argonaut (class DecodeJson, class EncodeJson, (:=), (~>), (.?), (.??), decodeJson, encodeJson, jsonEmptyObject)
 import Data.Array (catMaybes)
@@ -158,6 +159,8 @@ instance encodeJsonGenesisBlock :: EncodeJson GenesisBlock where
 
 data GenesisGenerationError = CouldntLoadGenesisBlock FilePath String
                             | CouldntInjectLibraryAddress String String
+                            | CouldntResolveLibrary String (Array (Tuple Network String))
+                            | CouldntResolveLibraryNoNetworks String
                             | CouldntInjectLibrary String String
                             | CouldntCompileLibrary String CompileError
                             | MalformedProjectErrorG String

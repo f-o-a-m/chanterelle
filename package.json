@@ -10,7 +10,7 @@
   "license": "ISC",
   "dependencies": {},
   "devDependencies": {
-    "solc": "^0.4.21",
+    "solc": "^0.4.22",
     "purescript": "^0.11.7",
     "pulp": "^12.0.1",
     "bower": "^1.8.2",

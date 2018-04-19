@@ -9,11 +9,13 @@ module Chanterelle.Internal.Logging
     ) where
 
 import Prelude
+
 import Ansi.Codes (Color(..))
 import Ansi.Output (withGraphics, foreground)
 import Chanterelle.Internal.Types.Compile as Compile
-import Chanterelle.Internal.Types.Deploy  as Deploy
+import Chanterelle.Internal.Types.Deploy as Deploy
 import Chanterelle.Internal.Types.Genesis as Genesis
+import Chanterelle.Internal.Types.Project (Network(..))
 import Control.Logger as Logger
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff, class MonadEff)
@@ -23,6 +25,7 @@ import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Data.JSDate (now, toISOString)
 import Data.String (toUpper)
 import Data.Traversable (for_)
+import Data.Tuple (Tuple(..))
 
 data LogLevel = Debug | Info | Warn | Error
 
@@ -122,9 +125,13 @@ logGenesisGenerationError :: forall eff m
                           => Genesis.GenesisGenerationError
                           -> m Unit
 logGenesisGenerationError = case _ of
-    Genesis.CouldntLoadGenesisBlock path msg    -> log Error $ "Couldn't load the genesis block at " <> show path <> ": " <> msg
-    Genesis.CouldntInjectLibraryAddress lib msg -> log Error $ "Couldn't inject the address for " <> show lib <> ": " <> msg
-    Genesis.CouldntInjectLibrary lib msg        -> log Error $ "Couldn't inject " <> show lib <> ": " <> msg
-    Genesis.CouldntCompileLibrary lib ce        -> log Error ("Couldn't compile " <> show lib) *> logCompileError ce
-    Genesis.MalformedProjectErrorG msg          -> log Error $ "Couldn't load chanterelle.json: " <> msg
-    Genesis.NothingToDo reason                  -> log Warn  $ "Nothing to do! " <> reason
+    Genesis.CouldntLoadGenesisBlock path msg     -> log Error $ "Couldn't load the genesis block at " <> show path <> ": " <> msg
+    Genesis.CouldntInjectLibraryAddress lib msg  -> log Error $ "Couldn't inject the address for " <> show lib <> ": " <> msg
+    Genesis.CouldntInjectLibrary lib msg         -> log Error $ "Couldn't inject " <> show lib <> ": " <> msg
+    Genesis.CouldntCompileLibrary lib ce         -> log Error ("Couldn't compile " <> show lib) *> logCompileError ce
+    Genesis.MalformedProjectErrorG msg           -> log Error $ "Couldn't load chanterelle.json: " <> msg
+    Genesis.NothingToDo reason                   -> log Warn  $ "Nothing to do! " <> reason
+    Genesis.CouldntResolveLibraryNoNetworks name -> log Error $ "Couldn't resolve the library " <> show name <> " as no networks are available that satisfy its lookup constraints!"
+    Genesis.CouldntResolveLibrary name errs      -> do
+      log Error $ "Couldn't resolve the library " <> show name <> " on any specified networks:"
+      for_ errs $ \(Tuple (Network net) err) -> log Error $ "    via " <> show net.name <> ": " <> err
