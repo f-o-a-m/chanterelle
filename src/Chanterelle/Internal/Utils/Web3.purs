@@ -5,13 +5,13 @@ import Prelude
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types.Deploy (DeployError(..))
 import Chanterelle.Internal.Types.Project (Network(..), networkIDFitsChainSpec)
-import Control.Monad.Aff (Milliseconds(..), attempt, delay)
+import Control.Monad.Aff (Milliseconds(..), delay)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff.Class (class MonadEff, liftEff)
-import Control.Monad.Eff.Exception (catchException, error, try)
+import Control.Monad.Eff.Exception (error, try)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
-import Control.Monad.Except (ExceptT(..), runExceptT)
+import Control.Monad.Except (ExceptT(..), except, runExceptT, withExceptT)
 import Control.Parallel (parOneOf)
 import Data.Array ((!!))
 import Data.Either (Either(..))
@@ -21,7 +21,7 @@ import Data.String (null)
 import Network.Ethereum.Core.BigNumber (toString)
 import Network.Ethereum.Web3 (Address, ChainCursor(Latest), ETH, HexString, Web3, runWeb3, unHex)
 import Network.Ethereum.Web3.Api (eth_getAccounts, eth_getCode, eth_getTransactionReceipt, net_version)
-import Network.Ethereum.Web3.Types (TransactionReceipt, Web3Error(NullError))
+import Network.Ethereum.Web3.Types (TransactionReceipt, Web3Error(..))
 import Network.Ethereum.Web3.Types.Provider (Provider, httpProvider)
 
 -- | Make an http provider with address given by NODE_URL, falling back
@@ -38,10 +38,8 @@ makeProvider url = do
     Left _ -> throwError $ ConfigurationError "Cannot connect to Provider, check NODE_URL"
     Right p -> pure p
 
-providerForNetwork :: forall eff m. MonadEff eff m => Network -> m (Either String Provider)
-providerForNetwork (Network network) = liftEff $ catchException rye mkProvider
-  where mkProvider = Right <$> httpProvider network.providerUrl
-        rye = pure <<< Left <<< show
+providerForNetwork :: forall eff m. MonadEff eff m => Network -> m Provider
+providerForNetwork (Network network) = liftEff $ httpProvider network.providerUrl
 
 resolveProvider
   :: forall eff m.
@@ -49,16 +47,20 @@ resolveProvider
   => Network
   -> m (Either String Provider)
 resolveProvider rn@(Network realNet) = runExceptT do
-  provider <- ExceptT <<< liftAff $ providerForNetwork rn
-  check <- liftAff <<< runWeb3 provider $ do
+  provider <- liftAff $ providerForNetwork rn
+  validatedProvider <- withExceptT showWeb3Error $ ExceptT <<< liftAff <<< runWeb3 provider $ do
     v <- net_version
     pure $ if networkIDFitsChainSpec realNet.allowedChains v
       then Right provider
       else Left $ "Network " <> show realNet.name <> " resolves to a provider which is serving chain ID " <> toString decimal v <> ", which is not within that network's permitted chains."
-  case check of
-    Left w3err -> throwError (show w3err)
-    Right (Left providerErr) -> throwError providerErr
-    Right (Right ret) -> pure ret
+  except validatedProvider
+
+  where showWeb3Error = case _ of
+          Rpc         e -> "Web3 Rpc: " <> show e
+          RemoteError e -> "Web3 Remote: " <> e
+          ParserError e -> "Web3 Parser: " <> e
+          NullError     -> "Web3 NullError"
+       
 
 getCodeForContract
   :: forall eff m.
@@ -67,11 +69,10 @@ getCodeForContract
   -> Provider
   -> m (Either String HexString)
 getCodeForContract addr provider = runExceptT do
-  code <- liftAff <<< attempt <<< runWeb3 provider $ eth_getCode addr Latest
+  code <- liftAff <<< runWeb3 provider $ eth_getCode addr Latest
   case code of
-    Left uncheckedErr -> throwError (show uncheckedErr)
-    Right (Left err) -> throwError (show err)
-    Right (Right hs) -> if null (unHex hs)
+    Left err -> throwError (show err)
+    Right hs -> if null (unHex hs)
                   then throwError $ "no code at address " <> show addr
                   else pure hs
 
