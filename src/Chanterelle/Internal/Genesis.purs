@@ -1,22 +1,23 @@
 module Chanterelle.Internal.Genesis where
 
-import Prelude (class Functor, class Show, Unit, bind, discard, flip, otherwise, pure, show, void, ($), (&&), (<$>), (<<<), (<=), (<>), (==), (>>=))
-import Chanterelle.Project (loadProject)
 import Chanterelle.Internal.Compile (compileModuleWithoutWriting, decodeContract, makeSolcInput, resolveContractMainModule)
 import Chanterelle.Internal.Logging (LogLevel(..), log, logGenesisGenerationError)
 import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract(..), runCompileMExceptT)
 import Chanterelle.Internal.Types.Genesis (GenesisAlloc(..), GenesisBlock(..), GenesisGenerationError(..), insertGenesisAllocs, lookupGenesisAllocs)
-import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), InjectableLibraryCode(..), Libraries(..), Library(..), isFixedLibrary)
-import Chanterelle.Internal.Utils (jsonStringifyWithSpaces)
+import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), InjectableLibraryCode(..), Libraries(..), Library(..), Network(..), Networks(..), isFixedLibrary, resolveNetworkRefs)
+import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces)
+import Chanterelle.Internal.Utils.Lazy (firstSuccess)
+import Chanterelle.Internal.Utils.Web3 (resolveCodeForContract)
+import Chanterelle.Project (loadProject)
 import Control.Error.Util (note)
 import Control.Monad.Aff (launchAff)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (class MonadEff, liftEff)
+import Control.Monad.Eff.Exception (message)
 import Control.Monad.Eff.Now (NOW)
 import Control.Monad.Eff.Random (RANDOM, randomRange)
-import Control.Monad.Eff.Exception (message)
 import Control.Monad.Error.Class (try, throwError)
 import Control.Monad.Except.Trans (ExceptT(..), except, runExceptT, withExceptT)
 import Control.Monad.State.Trans (execStateT, get, put)
@@ -27,7 +28,9 @@ import Data.Foldable (class Foldable, elem)
 import Data.Int (floor, toNumber)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String as S
-import Data.Traversable (for, sequence)
+import Data.Traversable (for, for_, sequence)
+import Data.Tuple (Tuple(..))
+import Network.Ethereum.Web3 (Address, ETH, HexString, embed, mkAddress, mkHexString, unAddress, unHex)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS (FS)
 import Node.FS.Aff as FS
@@ -35,7 +38,7 @@ import Node.Path (FilePath)
 import Node.Path as Path
 import Node.Process (PROCESS)
 import Node.Process as P
-import Network.Ethereum.Web3 (Address, HexString, embed, mkAddress, mkHexString, unAddress, unHex)
+import Prelude (class Functor, class Show, Unit, bind, discard, flip, otherwise, pure, show, unit, void, ($), (&&), (<$>), (<<<), (<=), (<>), (==), (>>=))
 
 substituteLibraryAddress :: HexString -> Address -> Either String HexString
 substituteLibraryAddress hsBytecode target = ret
@@ -99,7 +102,7 @@ generateAddress blacklist = do
         mkHexAddress s = mkHexString s >>= mkAddress
 
 generateGenesis :: forall eff m
-                 . MonadAff (fs :: FS, console :: CONSOLE, now :: NOW, process :: PROCESS | eff) m
+                 . MonadAff (fs :: FS, console :: CONSOLE, now :: NOW, process :: PROCESS, eth :: ETH | eff) m
                 => ChanterelleProject
                 -> FilePath
                 -> m (Either GenesisGenerationError GenesisBlock)
@@ -109,7 +112,25 @@ generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExcep
     else do
       genesis <- loadGenesisIn
       injects <- for libs $ case _ of
-        FixedLibrary { name } -> throwError $ CouldntInjectLibrary name "is a fixed library without any source code" -- we should eventually try fetching this from network!
+        FixedLibrary { name } -> throwError $ CouldntInjectLibrary name "is a fixed library without any source code"
+        FixedLibraryWithNetwork { name, address, networks } -> do
+            let (ChanterelleProjectSpec spec) = project.spec
+                (Networks networksToUse) = resolveNetworkRefs networks spec.networks
+            if null networksToUse
+                then throwError $ CouldntResolveLibraryNoNetworks name
+                else pure unit
+            reses <- firstSuccess networksToUse $ \network -> runExceptT $ do
+                code <- ExceptT $ resolveCodeForContract network address
+                except $ substituteLibraryAddress code address
+            case reses of
+                Left { failures } -> throwError $ CouldntResolveLibrary name failures
+                Right { result, failures, input } -> do
+                  let (Network successNet) = input
+                  log Warn $ "Failures encountered when resolving library " <> show name <> ": "
+                  for_ failures $ \(Tuple (Network failedNet) err) -> log Warn $ "    via " <> show failedNet.name <> ": " <> err
+                  log Info $ "Successfully resolved library " <> show name <> " via network " <> show successNet.name
+
+                  pure { name, address, injectedBytecode: result }
         InjectableLibrary { name, address, code } -> case code of
             InjectableWithBytecode bc -> do
                 injectedBytecode <- withExceptT (CouldntInjectLibraryAddress name) <<< except $ substituteLibraryAddress bc address
@@ -156,7 +177,7 @@ generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExcep
             genTxt <- wrapLoadFailure (try $ FS.readTextFile UTF8 genesisIn)
             wrapLoadFailure (pure $ A.jsonParser genTxt >>= A.decodeJson)
 
-runGenesisGenerator :: forall e. FilePath -> FilePath -> Eff (console :: CONSOLE, fs :: FS, now :: NOW, process :: PROCESS | e) Unit 
+runGenesisGenerator :: forall e. FilePath -> FilePath -> Eff (console :: CONSOLE, fs :: FS, now :: NOW, process :: PROCESS, eth :: ETH | e) Unit 
 runGenesisGenerator genesisIn genesisOut = do
     root <- liftEff P.cwd
     void <<< launchAff $
