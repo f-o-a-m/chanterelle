@@ -5,7 +5,7 @@ import Prelude
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types.Deploy (DeployError(..))
 import Chanterelle.Internal.Types.Project (Network(..), networkIDFitsChainSpec)
-import Control.Monad.Aff (Milliseconds(..), delay)
+import Control.Monad.Aff (Milliseconds(..), attempt, delay)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff.Class (class MonadEff, liftEff)
@@ -67,10 +67,11 @@ getCodeForContract
   -> Provider
   -> m (Either String HexString)
 getCodeForContract addr provider = runExceptT do
-  code <- liftAff <<< runWeb3 provider $ eth_getCode addr Latest
+  code <- liftAff <<< attempt <<< runWeb3 provider $ eth_getCode addr Latest
   case code of
-    Left err -> throwError (show err)
-    Right hs -> if null (unHex hs)
+    Left uncheckedErr -> throwError (show uncheckedErr)
+    Right (Left err) -> throwError (show err)
+    Right (Right hs) -> if null (unHex hs)
                   then throwError $ "no code at address " <> show addr
                   else pure hs
 

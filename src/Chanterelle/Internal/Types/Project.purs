@@ -193,7 +193,7 @@ resolveNetworkRefs refs definedNets = case refs of
                          , Network { name: "ropsten", providerUrl: "https://ropsten.infura.io", allowedChains: SpecificChains [embed 3] }
                          , Network { name: "rinkeby", providerUrl: "https://rinkeby.infura.io", allowedChains: SpecificChains [embed 4] }
                          , Network { name: "kovan"  , providerUrl: "https://kovan.infura.io"  , allowedChains: SpecificChains [embed 42] }
-                        --  , Network { name: "localhost", providerUrl: "http://localhost:8545/", allowedChains: AllChains }
+                         , Network { name: "localhost", providerUrl: "http://localhost:8545/", allowedChains: AllChains }
                          ]
         (Networks definedNets') = definedNets
 
