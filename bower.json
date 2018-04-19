@@ -8,8 +8,8 @@
   ],
   "dependencies": {
     "purescript-prelude": "^3.1.1",
-    "purescript-web3": "^0.18.1",
-    "purescript-web3-generator": "0.18.0",
+    "purescript-web3": "^0.19.0",
+    "purescript-web3-generator": "0.19.0",
     "purescript-console": "^3.0.0",
     "purescript-errors": "^3.0.0",
     "purescript-node-process": "^5.0.0",
@@ -18,7 +18,8 @@
     "purescript-logging": "^2.0.0",
     "purescript-now": "^3.0.0",
     "purescript-validation": "^3.2.0",
-    "purescript-js-date": "^5.2.0"
+    "purescript-js-date": "^5.2.0",
+    "purescript-random": "^3.0.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^3.0.0",

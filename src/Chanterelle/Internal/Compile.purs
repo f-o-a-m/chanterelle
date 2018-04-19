@@ -1,15 +1,19 @@
 module Chanterelle.Internal.Compile
   ( compile
-  , SolcOutput(..)
-  , SolcError(..)
-  , OutputContract(..)
+  , makeSolcInput
+  , compileModuleWithoutWriting
+  , decodeContract
+  , resolveContractMainModule
+  , module CompileReexports
   ) where
 
-import Prelude
-
+import Prelude (Unit, bind, discard, map, not, pure, show, ($), (*>), (<$>), (<<<), (<>), (==), (>>=))
 import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), CompileError(..), Libraries)
-import Chanterelle.Internal.Utils (assertDirectory, fileIsDirty, jsonStringifyWithSpaces)
+import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract, SolcContract(..), SolcError(..), SolcInput(..), SolcOutput(..), SolcSettings(..), encodeOutputContract, parseSolcOutput)
+import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract(..), SolcContract(..), SolcError(..), SolcInput(..), SolcOutput(..), SolcSettings(..), parseOutputContract) as CompileReexports
+import Chanterelle.Internal.Types.Project (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..))
+import Chanterelle.Internal.Utils.FS (assertDirectory, fileIsDirty)
+import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces)
 import Control.Error.Util (hush)
 import Control.Monad.Aff (attempt)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
@@ -19,6 +23,7 @@ import Control.Monad.Eff.Exception (catchException)
 import Control.Monad.Eff.Now (NOW, now)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Reader (class MonadAsk, ask)
+import Data.Argonaut (encodeJson)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
 import Data.Array (catMaybes, filter)
@@ -27,12 +32,13 @@ import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn2, runFn2)
 import Data.Lens ((^?))
 import Data.Lens.Index (ix)
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..))
 import Data.StrMap as M
 import Data.Time.Duration (Milliseconds(..))
-import Data.Traversable (for, for_, traverse)
+import Data.Traversable (for, for_)
 import Data.Tuple (Tuple(..))
-import Network.Ethereum.Web3 (HexString, unHex, sha3)
+import Network.Ethereum.Core.HexString (fromByteString)
+import Network.Ethereum.Core.Keccak256 (keccak256)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
 import Node.FS.Sync as FSS
@@ -98,14 +104,26 @@ compileModule
   => Tuple ChanterelleModule SolcInput
   -> m (Tuple String (Tuple ChanterelleModule SolcOutput))
 compileModule (Tuple m@(ChanterelleModule mod) solcInput) = do
+  output <- compileModuleWithoutWriting m solcInput
+  writeBuildArtifact mod.solContractName mod.jsonPath output mod.solContractName
+  pure $ Tuple mod.moduleName (Tuple m output)
+
+compileModuleWithoutWriting
+  :: forall eff m.
+     MonadAff (fs :: FS.FS, process :: P.PROCESS, now :: NOW | eff) m
+  => MonadThrow CompileError m
+  => MonadAsk ChanterelleProject m
+  => ChanterelleModule
+  -> SolcInput
+  -> m SolcOutput
+compileModuleWithoutWriting m@(ChanterelleModule mod) solcInput = do
   (ChanterelleProject project) <- ask
   log Info ("compiling " <> mod.moduleName)
-  output <- liftEff $ runFn2 _compile (A.stringify $ A.encodeJson solcInput) (loadSolcCallback project.root project.spec)
+  output <- liftEff $ runFn2 _compile (A.stringify $ encodeJson solcInput) (loadSolcCallback project.root project.spec)
   case AP.jsonParser output >>= parseSolcOutput of
     Left err -> throwError $ CompileParseError {objectName: "Solc Output", parseError: err}
-    Right output' -> do
-      writeBuildArtifact mod.solContractName mod.jsonPath output' mod.solContractName
-      pure $ Tuple mod.moduleName (Tuple m output')
+    Right output' -> pure output'
+
 
 -- | load a file when solc requests it
 -- | TODO: secure it so that it doesnt try loading crap like /etc/passwd, etc. :P
@@ -130,7 +148,7 @@ makeSolcContract
   -> SolcContract
 makeSolcContract  sourceCode =
   SolcContract { content: sourceCode
-               , hash: sha3 sourceCode
+               , hash: fromByteString $ keccak256 sourceCode
                }
 
 --------------------------------------------------------------------------------
@@ -150,7 +168,7 @@ makeSolcInput moduleName sourcePath = do
   code <- liftAff $ FS.readTextFile UTF8 sourcePath
   let language = "Solidity"
       sources = M.singleton (moduleName <> ".sol") (makeSolcContract code)
-      outputSelection = M.singleton "*" (M.singleton "*" (["abi", "evm.bytecode.object"] <> spec.solcOutputSelection))
+      outputSelection = M.singleton "*" (M.singleton "*" (["abi", "evm.deployedBytecode.object", "evm.bytecode.object"] <> spec.solcOutputSelection))
       depMappings = (\(Dependency dep) -> dep <> "=" <> (project.root <> "/node_modules/" <> dep)) <$> spec.dependencies
       sourceDirMapping = [":g" <> (Path.concat [project.root, spec.sourceDir])]
       remappings = sourceDirMapping <> depMappings
@@ -191,135 +209,22 @@ writeBuildArtifact
   -> m Unit
 writeBuildArtifact srcName filepath output solContractName = do
   co <- decodeContract srcName output
-  let dn = Path.dirname filepath
-      contractsMainModule = M.lookup solContractName co
-  case contractsMainModule of
-    Nothing -> throwError $ MissingArtifactError {fileName: filepath, objectName: solContractName}
-    Just co' -> do
-        assertDirectory dn
-        epochTime <- unInstant <$> liftEff now
-        log Debug $ "Writing artifact " <> filepath
-        liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co' epochTime
+  co' <- resolveContractMainModule filepath co solContractName
+        
+  assertDirectory (Path.dirname filepath)
+  epochTime <- unInstant <$> liftEff now
+  log Debug $ "Writing artifact " <> filepath
+  liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co' epochTime
 
---------------------------------------------------------------------------------
--- | Solc Types and Codecs
---------------------------------------------------------------------------------
-
--- NOTE: We don't use classes here because parse and encode aren't mutual inverses,
--- we sometimes add (e.g. networks object) or remove (most things) data from solc
--- input/output.
-
-newtype SolcInput =
-  SolcInput { language :: String
-            , sources :: M.StrMap SolcContract
-            , settings :: SolcSettings
-            }
-instance encodeSolcInput :: A.EncodeJson SolcInput where
-  encodeJson (SolcInput {language, sources, settings}) =
-         "language" A.:= A.fromString "Solidity"
-    A.~> "sources"  A.:= A.encodeJson sources
-    A.~> "settings" A.:= A.encodeJson settings
-    A.~> A.jsonEmptyObject
-
---------------------------------------------------------------------------------
-
-type ContractName = String
-
-newtype SolcSettings =
-  SolcSettings { outputSelection :: M.StrMap (M.StrMap (Array String))
-               , remappings      :: Array String
-               , libraries       :: M.StrMap Libraries
-               }
-
-instance encodeSolcSettings :: A.EncodeJson SolcSettings where
-  encodeJson (SolcSettings s) =
-         "outputSelection" A.:= A.encodeJson s.outputSelection
-    A.~> "remappings"      A.:= A.encodeJson s.remappings
-    A.~> "libraries"       A.:= A.encodeJson s.libraries
-    A.~> A.jsonEmptyObject
-
---------------------------------------------------------------------------------
-
--- as per http://solidity.readthedocs.io/en/v0.4.21/using-the-compiler.html,
--- "content" is the source code.
-newtype SolcContract =
-  SolcContract { content :: String
-               , hash :: HexString
-               }
-instance encodeSolcContract :: A.EncodeJson SolcContract where
-  encodeJson (SolcContract {content, hash}) =
-    "content" A.:= A.fromString content A.~>
-    "keccak256" A.:= A.fromString (unHex hash) A.~>
-    A.jsonEmptyObject
-
---------------------------------------------------------------------------------
-
--- Solc Errors
--- TODO: pretty print these later
-newtype SolcError =
-  SolcError { type :: String
-            , severity :: String
-            , message :: String
-            , formattedMessage :: String
-            }
-
-instance decodeSolcError :: A.DecodeJson SolcError where
-  decodeJson json = do
-    obj <- A.decodeJson json
-    _type <- obj A..? "type"
-    severity <- obj A..? "severity"
-    message <- obj A..? "message"
-    formattedMessage <-obj A..? "formattedMessage"
-    pure $
-      SolcError { type: _type
-                , severity
-                , message
-                , formattedMessage
-                }
-
---------------------------------------------------------------------------------
-
--- This is the artifact we want, compatible with truffle (subset)
-newtype OutputContract =
-  OutputContract { abi :: A.JArray
-                 , bytecode :: String
-                 }
-
-parseOutputContract
-  :: A.Json
-  -> Either String OutputContract
-parseOutputContract json = do
-  obj <- A.decodeJson json
-  abi <- obj A..? "abi"
-  evm <- obj A..? "evm"
-  evmObj <- A.decodeJson evm
-  bytecodeO <- evmObj A..? "bytecode"
-  bytecode <- bytecodeO A..? "object"
-  pure $ OutputContract {abi, bytecode}
-
-encodeOutputContract
-  :: OutputContract
-  -> Milliseconds
-  -> A.Json
-encodeOutputContract (OutputContract {abi, bytecode}) (Milliseconds ts)=
-    "abi" A.:= A.fromArray abi A.~>
-    "bytecode" A.:= bytecode A.~>
-    "networks" A.:= A.jsonEmptyObject A.~>
-    "compiledAt" A.:= ts A.~>
-    A.jsonEmptyObject
-
-
-newtype SolcOutput =
-  SolcOutput { errors :: Array SolcError
-             , contracts :: M.StrMap (M.StrMap OutputContract)
-             }
-
-parseSolcOutput
-  :: A.Json
-  -> Either String SolcOutput
-parseSolcOutput json = do
-  o <- A.decodeJson json
-  errors <- fromMaybe [] <$> o A..?? "errors"
-  contractsMap <- o A..? "contracts"
-  contracts <- for contractsMap (traverse parseOutputContract)
-  pure $ SolcOutput {errors, contracts}
+resolveContractMainModule
+  :: forall eff m.
+     MonadAff eff m
+  => MonadThrow CompileError m
+  => FilePath
+  -> M.StrMap OutputContract
+  -> String
+  -> m OutputContract
+resolveContractMainModule fileName decodedOutputs solContractName =
+  case M.lookup solContractName decodedOutputs of
+    Nothing -> throwError $ MissingArtifactError {fileName, objectName: solContractName}
+    Just co' -> pure co'
