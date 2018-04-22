@@ -18,12 +18,15 @@ Every contract deployment requires an explicit configuration. Specifically, the 
        , unvalidatedArgs :: V (Array String) (Record args)
        }
 
+The ``filepath`` field is the filepath to the solc build artifact relative the the ``chanterelle.json`` file.
+
+The ``name`` field is there to name the deployment throughout the logging. (This could dissappear assuming its suffient to name the deployment according to the build artifact filename.)
+
 The type ``Constructor args`` is a type synonym:
 
 .. code-block:: haskell
 
-   type Constructor args =
-       forall eff. TransactionOptions NoPay -> HexString -> Record args -> Web3 eff HexString
+   type Constructor args = forall eff. TransactionOptions NoPay -> HexString -> Record args -> Web3 eff HexString
 
 In other words, ``Constructor args`` is the type a function taking in some ``TransactionOptions NoPay`` (constructors are not payable transactions), the deployment bytecode, and a record of type ``Record args``. It will format the transaction and submit it via an ``eth_sendTransaction`` RPC call, returning the transaction hash as a ``HexString``.
 
