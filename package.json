@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "pulp build"
+    "build": "pulp build",
+    "docs": "cd docs; make html;"
   },
   "author": "",
   "license": "ISC",
