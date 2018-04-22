@@ -1,0 +1,86 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Modules &#8212; Chanterelle 0.7.1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="chanterelle.json" href="chanterelle-json.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="modules">
+<span id="id1"></span><h1>Modules<a class="headerlink" href="#modules" title="Permalink to this headline">¶</a></h1>
+<p>Chanterelle uses a notion of modules to determine which units of Solidity code to compile and create PureScript bindings for. Those coming from a Haskell background may notice the parallel to Cabal’s exposed-modules. Simply adding a contract file within the source-dir does not mean it will be compiled, nor will there be a generate PureScript file. Instead, one must explicitly specify it in the project’s <a class="reference internal" href="chanterelle-json.html#chanterelle-json"><span class="std std-ref">chanterelle.json</span></a>.</p>
+<p>Chanterelle uses module namespacing for Solidity files similar to what’s found in PureScript or Haskell, though here we enforce that the module name must mirror the filepath. A module named <code class="docutils literal notranslate"><span class="pre">Some.Modular.Contract</span></code> is expected to be in <code class="docutils literal notranslate"><span class="pre">contracts/Some/Modular/Contract.sol</span></code>, and its PureScript binding will have the same module name as well.</p>
+<p>Solidity build artifacts are put into the <code class="docutils literal notranslate"><span class="pre">build/</span></code> directory by default (see <code class="docutils literal notranslate"><span class="pre">artifacts-dir</span></code> in <a class="reference internal" href="chanterelle-json.html#chanterelle-json"><span class="std std-ref">chanterelle.json</span></a>). The full artifact filepath corresponds to the its relative location in the <code class="docutils literal notranslate"><span class="pre">source-dir</span></code>. For example, in the <a class="reference external" href="https://github.com/f-o-a-m/parking-dao">parking-dao</a> the <code class="docutils literal notranslate"><span class="pre">ParkingAuthority</span></code> Solidity module is located at <code class="docutils literal notranslate"><span class="pre">contracts/ParkingAuthority.sol</span></code>. Thus the build artifact will be written to <code class="docutils literal notranslate"><span class="pre">build/ParkingAuthority.json</span></code>.</p>
+<p>If a module-prefix is specified in the purescript-generator section, that module prefix will be prepended to the generated PureScript modules’ names. In the parking-dao example, the module <code class="docutils literal notranslate"><span class="pre">FoamCSR</span></code> is expected to be located in <code class="docutils literal notranslate"><span class="pre">contracts/FoamCSR.sol</span></code> and will generate a PureScript module <code class="docutils literal notranslate"><span class="pre">Contracts.FoamCSR</span></code> with filepath <code class="docutils literal notranslate"><span class="pre">src/Contracts/FoamCSR.purs</span></code>. Likewise, <code class="docutils literal notranslate"><span class="pre">Nested.SimpleStorage</span></code> is expected to be located in <code class="docutils literal notranslate"><span class="pre">contracts/Nested/SimpleStorage.sol</span></code> and the generated PureScript module name will be <code class="docutils literal notranslate"><span class="pre">Contracts.Nested.SimpleStorage</span></code> with filepath <code class="docutils literal notranslate"><span class="pre">src/Contracts/Nested/SimpleStorage.purs</span></code>.</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="chanterelle-json.html" title="previous chapter">chanterelle.json</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Martin Allen, Ilya Ostrovskiy.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/modules.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
