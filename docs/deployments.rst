@@ -65,7 +65,7 @@ Depending on your project configuration, when running ``chanterelle compile`` yo
 1. The solc artifact ``build/SimpleStorage.json``
 2. The generated PureScript file ``src/Contracts/SimpleStorage.purs``
 
-In the module ``Contracts.SimpleStorage``, you will find a function
+In the PureScript module ``Contracts.SimpleStorage``, you will find a function
 
 .. code-block:: haskell
 
