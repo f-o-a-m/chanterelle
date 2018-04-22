@@ -25,7 +25,7 @@ import Data.Lens.Index (ix)
 import Data.Maybe (isNothing, fromJust)
 import Data.StrMap as M
 import Network.Ethereum.Web3 (runWeb3)
-import Network.Ethereum.Web3.Types (NoPay, ETH, Web3, Address, BigNumber, HexString, TransactionOptions, TransactionReceipt(..), mkHexString, mkAddress)
+import Network.Ethereum.Web3.Types (NoPay, ETH, Web3, Address, BigNumber, HexString, TransactionOptions, TransactionReceipt(..), TransactionStatus(..), mkHexString, mkAddress)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff (FS, readTextFile, writeTextFile)
 import Node.Path (FilePath)
@@ -89,7 +89,7 @@ getPublishedContractAddress txHash name = do
       let message = "No Transaction Receipt found for deployment " <> show txHash
       in throwError $ OnDeploymentError {name, message}
     Right (TransactionReceipt txReceipt) ->
-      if txReceipt.status == "0x0" || isNothing (unNullOrUndefined txReceipt.contractAddress)
+      if txReceipt.status == Failed || isNothing (unNullOrUndefined txReceipt.contractAddress)
          then
             let message = "Deployment failed to create contract, no address found or status 0x0 in receipt: " <> name
             in throwError $ OnDeploymentError {name, message}
