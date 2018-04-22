@@ -11,6 +11,4 @@
 *.swp
 /deploy.js
 /compile.js
-/docs/_build
-/docs/_static
-/docs/_templates
+/docs/_build/*
