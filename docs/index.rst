@@ -19,6 +19,7 @@ Welcome to Chanterelle's documentation!
    modules
    dependencies
    libraries
+   deployments
 
 
 Indices and tables
