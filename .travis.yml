@@ -22,4 +22,4 @@ matrix:
       github_token: $GITHUB_TOKEN
       local_dir: docs/_build/html
       on:
-        branch: read-the-docs
+        branch: master
