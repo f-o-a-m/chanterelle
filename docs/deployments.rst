@@ -28,7 +28,7 @@ The type ``Constructor args`` is a type synonym:
 
    type Constructor args = forall eff. TransactionOptions NoPay -> HexString -> Record args -> Web3 eff HexString
 
-In other words, ``Constructor args`` is the type a function taking in some ``TransactionOptions NoPay`` (constructors are not payable transactions), the deployment bytecode, and a record of type ``Record args``. It will format the transaction and submit it via an ``eth_sendTransaction`` RPC call, returning the transaction hash as a ``HexString``.
+In other words, ``Constructor args`` is the type a function taking in some ``TransactionOptions NoPay`` (constructors are not payable transactions), the deployment bytepurescriptcode, and a record of type ``Record args``. It will format the transaction and submit it via an ``eth_sendTransaction`` RPC call, returning the transaction hash as a ``HexString``.
 
 The ``unvalidatedArgs`` field has type ``V (Array String) (Record args)`` where ``V`` is a type coming from the `purescript-validation <https://github.com/purescript/purescript-validation>`_ library. This effectively represents `either` a type of ``Record args`` `or` a list of error messages for all arguments which failed to validate.
 
@@ -88,3 +88,48 @@ Blurring your eyes a little bit, it's easy to see that this indeed matches up to
        validCount = uIntNFromBigNumber s256 (embed 1234) ?? "SimpleStorage: initialCount must be valid uint256"
 
 Here you can see where validation is important. Clearly ``1234`` represents a valid ``uint``, but you can easily imagine scenarios where this might save us a lot of trouble-- too many characters in an address, an improperly formatted string, an integer is out of a bounds, etc.
+
+
+Deploy Scripts
+--------------
+
+Deploy scripts are written inside the ``DeployM`` monad, which is a monad that gives you access to a web3 connection, controlled error handling, and whatever effects you want. The primary workhorse is the ``deployContract`` function:
+
+.. code-block:: haskell
+
+   deployContract :: TransactionOptions NoPay -> ContractConfig args -> DeployM {deployAddress :: Address, deployArgs :: Record args}
+
+This function takes your contract deployment configuration as defined above and sends the transaction. If no errors are thrown, it will return the address where the contract as deployed as well as the deploy arguments that were validated before the transaction was sent. It will also automatically write to the solc artifact in the ``artifacts-dir``, updating the ``networks`` object with a key value pair mapping the networkId to the deployed address.
+
+Error hanlding is built in to the ``DeployM`` monad. Unless you want to customize your deployment with any attempt to use some variant of try/catch, any error encountered before or after a contract deployment will safely terminate the script and you should get an informative message in the logs. It will not terminate while waiting for transactions to go through unless the timeout threshold is reached. You can configure the duration as a command line argument.
+
+Deployment Example
+------------------
+
+Consider this example take from the parking-dao example project:
+
+.. code-block:: haskell
+
+
+   import ContractConfig (simpleStorageConfig, foamCSRConfig, parkingAuthorityConfig)
+
+   type DeployResults = (foamCSR :: Address, simpleStorage :: Address, parkingAuthority :: Address)
+
+   deployScript :: forall eff. DeployM eff (Record DeployResults)
+   deployScript = do
+     deployCfg@(DeployConfig {primaryAccount}) <- ask
+     let bigGasLimit = unsafePartial fromJust $ parseBigNumber decimal "4712388"
+         txOpts = defaultTransactionOptions # _from ?~ primaryAccount
+                                            # _gas ?~ bigGasLimit
+     simpleStorage <- deployContract txOpts simpleStorageConfig
+     foamCSR <- deployContract txOpts foamCSRConfig
+     let parkingAuthorityConfig = makeParkingAuthorityConfig {foamCSR: foamCSR.deployAddress}
+     parkingAuthority <- deployContract txOpts parkingAuthorityConfig
+     pure { foamCSR: foamCSR.deployAddress
+          , simpleStorage: simpleStorage.deployAddress
+          , parkingAuthority: parkingAuthority.deployAddress
+          }
+
+After setting up the ``TransactionOptions``, the script first deploys the ``SimpleStorage`` contract and then the ``FoamCSR`` contract using their configuration. The ``ParkingAuthority`` contract requires the address of the ``FoamCSR`` contract as one of it's deployment arguments, so you can see us threading it in before deploying. Finally, we simple return all the addresses of the recently deployed contracts to the caller.
+
+Note that if we simply wanted to terminate the deployment script after the contract deployments there then there's no point in returning anything at all. However, deployment scripts are useful outside of the context of a standalone script. For example you can run a deployment script before a test suite and then pass the deployment results as an environment to the tests. See the section on testing for an example.

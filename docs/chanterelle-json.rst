@@ -12,7 +12,7 @@ A Chanterelle project is primarily described in chanterelle.json, which should b
     { "name": "parking-dao",
       "version": "0.0.1",
       "source-dir": "contracts",
-      "target-dir": "build/contracts",
+      "artifacts-dir": "build/contracts",
       "modules": [ "FoamCSR"
                  , "ParkingAuthority"
                  , "SimpleStorage"
@@ -43,7 +43,7 @@ Note: All filepaths are relative to the ``chanterelle.json`` file, which is cons
 - ``name`` - ``Required``: The name of your project (currently unused, for future use with package management)
 - ``version`` - ``Required``: The currrent version of your project (currently unused, for future use with package management)
 - ``source-dir`` - ``Required``:  Where your Solidity contracts are located.
-- ``target-dir`` - ``Optional``:  The directory where the contract artifacts (ABI, bytecode, deployment info, etc) will be written. Defaults to ``build``.
+- ``artifacts-dir`` - ``Optional``:  The directory where the contract artifacts (ABI, bytecode, deployment info, etc) will be written. Defaults to ``build``.
 - ``modules`` - ``Required``: A list of all solidity contracts you wish to compile (see `Modules`)
 - ``dependencies`` - ``Optional``: External Solidity (source-code) libraries/dependencies to use when compiling (see `Dependencies`).
 - ``libraries`` - ``Optional``: Solidity libraries to link against when compiling.
