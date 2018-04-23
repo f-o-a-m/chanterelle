@@ -4,6 +4,9 @@
 Testing
 =======
 
+Intro
+-----
+
 You can use whatever purescript testing framework you want, but for illustrative purposes we will use
 `purescript-spec <https://github.com/owickstrom/purescript-spec>`_.
 
