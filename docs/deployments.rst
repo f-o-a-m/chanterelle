@@ -51,12 +51,17 @@ Let's consider the simplest example of a contract configuration requiring a cons
    contract SimpleStorage {
 
      uint256 count public;
-      
+
+     event CountSet(uint256 _count);
+    
      function SimpleStorage(uint256 initialCount) {
        count = initialCount;
      }
 
-     ...
+     function setCount(uint256 newCount)) {
+       count = newCount;
+       emit CountSet(newCount));
+     }
 
    }
 

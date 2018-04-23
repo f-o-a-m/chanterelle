@@ -20,6 +20,7 @@ Welcome to Chanterelle's documentation!
    dependencies
    libraries
    deployments
+   testing
 
 
 Indices and tables
