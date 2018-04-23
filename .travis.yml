@@ -1,17 +1,25 @@
-language: node_js
-dist: trusty
-sudo: required
-node_js: stable
-install:
-  - npm install
-  - bower install --production
-script:
-  - pulp build
-  - npm run docs;
-deploy:
-  provider: pages
-  skip_cleanup: true
-  github_token: $GITHUB_TOKEN
-  local_dir: docs/_build/html
-  on:
-    branch: master
+matrix:
+  include:
+    language: node_js
+    dist: trusty
+    sudo: required
+    node_js: stable
+    install:
+      - npm install
+      - bower install --production
+    script:
+      - pulp build
+  include:
+    language: python
+    python: 3.5
+    install:
+      - pip install sphinx sphinx_rtd_theme
+    script:
+      - cd docs; make
+    deploy:
+      provider: pages
+      skip_cleanup: true
+      github_token: $GITHUB_TOKEN
+      local_dir: docs/_build/html
+      on:
+        branch: read-the-docs
