@@ -15,7 +15,7 @@ matrix:
     install:
       - pip install sphinx sphinx_rtd_theme
     script:
-      - cd docs; make
+      - cd docs; make html
     deploy:
       provider: pages
       skip_cleanup: true
