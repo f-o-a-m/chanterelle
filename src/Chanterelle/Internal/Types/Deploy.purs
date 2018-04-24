@@ -12,13 +12,15 @@ import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (class MonadAsk)
 import Data.Either (Either)
 import Data.Lens ((?~))
-import Data.Validation.Semigroup (V)
+import Data.Maybe (Maybe(..))
+import Data.Validation.Semigroup (V, invalid)
 import Network.Ethereum.Web3 (Address, BigNumber, ETH, HexString, TransactionOptions, Web3, _data, _value, fromWei)
 import Network.Ethereum.Web3.Api (eth_sendTransaction)
 import Network.Ethereum.Web3.Types (NoPay)
 import Network.Ethereum.Web3.Types.Provider (Provider)
 import Node.FS (FS)
 import Node.Path (FilePath)
+
 --------------------------------------------------------------------------------
 -- | DeployM Deployment monad
 --------------------------------------------------------------------------------
@@ -98,3 +100,11 @@ type ConfigR args =
 
 -- | Configuration for deployment of a single contract
 type ContractConfig args = Record (ConfigR args)
+
+-- | Validation helpers
+validateWithError :: forall a. Maybe a -> String -> V (Array String) a
+validateWithError mres msg = case mres of
+  Nothing -> invalid [msg]
+  Just res -> pure res
+
+infixl 9 validateWithError as ??

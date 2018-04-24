@@ -8,6 +8,7 @@ import Prelude
 import Chanterelle.Internal.Deploy (deployContract, readDeployAddress) as Exports
 import Chanterelle.Internal.Logging (logDeployError)
 import Chanterelle.Internal.Types.Deploy (DeployM, runDeployM)
+import Chanterelle.Internal.Types.Deploy ((??)) as Exports
 import Chanterelle.Internal.Types (runDeployM) as Exports
 import Chanterelle.Internal.Utils (makeDeployConfig)
 import Control.Monad.Aff (launchAff, throwError)
