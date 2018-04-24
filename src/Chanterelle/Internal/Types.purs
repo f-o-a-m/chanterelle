@@ -1,4 +1,4 @@
-module Chanterelle.Internal.Types 
+module Chanterelle.Internal.Types
   ( module Compile
   , module Deploy
   , module Genesis
