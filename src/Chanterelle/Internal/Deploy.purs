@@ -37,6 +37,7 @@ type DeployInfo =
   { deployAddress :: Address
   , blockHash :: HexString
   , blockNumber :: BigNumber
+  , transactionHash :: HexString
   }
 
 -- | Write update "networks" object in the solc artifact with a (NetworkId, Address) pair corresponding
@@ -51,11 +52,12 @@ writeDeployInfo
   -> DeployInfo
   -- deployed contract address
   -> m (Either String Unit)
-writeDeployInfo filename nid {deployAddress, blockNumber, blockHash} = runExceptT $ do
+writeDeployInfo filename nid {deployAddress, blockNumber, blockHash, transactionHash} = runExceptT $ do
   artifact <- ExceptT $ jsonParser <$> liftAff (readTextFile UTF8 filename)
   let networkIdObj =    "address" := show deployAddress
                      ~> "blockNumber" := show (HexString.toHexString blockNumber)
                      ~> "blockHash" := show blockHash
+                     ~> "transactionHash" := show transactionHash
                      ~> jsonEmptyObject
       artifactWithAddress = artifact # _Object <<< ix "networks" <<< _Object %~ M.insert (show nid) networkIdObj
   liftAff $ writeTextFile UTF8 filename $ jsonStringifyWithSpaces 4 artifactWithAddress
@@ -111,6 +113,7 @@ getPublishedContractDeployInfo txHash name = do
            pure { deployAddress
                 , blockNumber
                 , blockHash: txReceipt.blockHash
+                , transactionHash: txReceipt.transactionHash
                 }
 
 -- | Get the contract bytecode from the solc output corresponding to the contract config.
