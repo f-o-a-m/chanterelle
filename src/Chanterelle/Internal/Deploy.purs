@@ -36,7 +36,7 @@ import Partial.Unsafe (unsafePartial)
 type DeployInfo =
   { deployAddress :: Address
   , blockHash :: HexString
-  , blockNumber :: BigNumber
+  , blockNumber :: BlockNumber
   , transactionHash :: HexString
   }
 
@@ -54,11 +54,12 @@ writeDeployInfo
   -> m (Either String Unit)
 writeDeployInfo filename nid {deployAddress, blockNumber, blockHash, transactionHash} = runExceptT $ do
   artifact <- ExceptT $ jsonParser <$> liftAff (readTextFile UTF8 filename)
-  let networkIdObj =    "address" := show deployAddress
-                     ~> "blockNumber" := show (HexString.toHexString blockNumber)
-                     ~> "blockHash" := show blockHash
-                     ~> "transactionHash" := show transactionHash
-                     ~> jsonEmptyObject
+  let BlockNumber bn = blockNumber
+      networkIdObj =  "address" := show deployAddress
+                   ~> "blockNumber" := show (HexString.toHexString bn)
+                   ~> "blockHash" := show blockHash
+                   ~> "transactionHash" := show transactionHash
+                   ~> jsonEmptyObject
       artifactWithAddress = artifact # _Object <<< ix "networks" <<< _Object %~ M.insert (show nid) networkIdObj
   liftAff $ writeTextFile UTF8 filename $ jsonStringifyWithSpaces 4 artifactWithAddress
 
@@ -108,10 +109,9 @@ getPublishedContractDeployInfo txHash name = do
             in throwError $ OnDeploymentError {name, message}
          else do
            let deployAddress = unsafePartial fromJust <<< unNullOrUndefined $ txReceipt.contractAddress
-               BlockNumber blockNumber = txReceipt.blockNumber
            log Info $ "Contract " <> name <> " deployed to address " <> show deployAddress
            pure { deployAddress
-                , blockNumber
+                , blockNumber: txReceipt.blockNumber
                 , blockHash: txReceipt.blockHash
                 , transactionHash: txReceipt.transactionHash
                 }
