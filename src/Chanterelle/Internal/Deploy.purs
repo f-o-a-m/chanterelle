@@ -24,28 +24,39 @@ import Data.Lens ((^?), (%~))
 import Data.Lens.Index (ix)
 import Data.Maybe (isNothing, fromJust)
 import Data.StrMap as M
+import Network.Ethereum.Core.HexString as HexString
 import Network.Ethereum.Web3 (runWeb3)
-import Network.Ethereum.Web3.Types (NoPay, ETH, Web3, Address, BigNumber, HexString, TransactionOptions, TransactionReceipt(..), TransactionStatus(..), mkHexString, mkAddress)
+import Network.Ethereum.Web3.Types (NoPay, ETH, Web3, Address, BigNumber, BlockNumber(..), HexString, TransactionOptions, TransactionReceipt(..), TransactionStatus(..), mkHexString, mkAddress)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff (FS, readTextFile, writeTextFile)
 import Node.Path (FilePath)
 import Partial.Unsafe (unsafePartial)
 
+
+type DeployInfo =
+  { deployAddress :: Address
+  , blockHash :: HexString
+  , blockNumber :: BigNumber
+  }
+
 -- | Write update "networks" object in the solc artifact with a (NetworkId, Address) pair corresponding
 -- | to a deployment.
-writeDeployAddress
+writeDeployInfo
   :: forall eff m.
      MonadAff (fs :: FS | eff) m
   => FilePath
   -- filename of contract artifact
   -> BigNumber
   -- network id
-  -> Address
+  -> DeployInfo
   -- deployed contract address
   -> m (Either String Unit)
-writeDeployAddress filename nid deployAddress = runExceptT $ do
+writeDeployInfo filename nid {deployAddress, blockNumber, blockHash} = runExceptT $ do
   artifact <- ExceptT $ jsonParser <$> liftAff (readTextFile UTF8 filename)
-  let networkIdObj = "address" := show deployAddress ~> jsonEmptyObject
+  let networkIdObj =    "address" := show deployAddress
+                     ~> "blockNumber" := show (HexString.toHexString blockNumber)
+                     ~> "blockHash" := show blockHash
+                     ~> jsonEmptyObject
       artifactWithAddress = artifact # _Object <<< ix "networks" <<< _Object %~ M.insert (show nid) networkIdObj
   liftAff $ writeTextFile UTF8 filename $ jsonStringifyWithSpaces 4 artifactWithAddress
 
@@ -70,7 +81,7 @@ readDeployAddress filepath nid = do
 
 -- | Poll a TransactionHash for the receipt of a deployment transaction, and throw an error in the event that the
 -- | transaction failed.
-getPublishedContractAddress
+getPublishedContractDeployInfo
   :: forall eff m.
      MonadThrow DeployError m
   => MonadAff (console :: CONSOLE, eth :: ETH | eff) m
@@ -79,8 +90,8 @@ getPublishedContractAddress
    -- ^ publishing transaction hash
   -> String
   -- ^ contract name
-  -> m Address
-getPublishedContractAddress txHash name = do
+  -> m DeployInfo
+getPublishedContractDeployInfo txHash name = do
   (DeployConfig {timeout, provider}) <- ask
   log Info $ "Polling for TransactionReceipt: " <> show txHash
   etxReceipt <- liftAff <<< attempt $ withTimeout timeout (pollTransactionReceipt txHash provider)
@@ -94,9 +105,13 @@ getPublishedContractAddress txHash name = do
             let message = "Deployment failed to create contract, no address found or status 0x0 in receipt: " <> name
             in throwError $ OnDeploymentError {name, message}
          else do
-           let contractAddress = unsafePartial fromJust <<< unNullOrUndefined $ txReceipt.contractAddress
-           log Info $ "Contract " <> name <> " deployed to address " <> show contractAddress
-           pure contractAddress
+           let deployAddress = unsafePartial fromJust <<< unNullOrUndefined $ txReceipt.contractAddress
+               BlockNumber blockNumber = txReceipt.blockNumber
+           log Info $ "Contract " <> name <> " deployed to address " <> show deployAddress
+           pure { deployAddress
+                , blockNumber
+                , blockHash: txReceipt.blockHash
+                }
 
 -- | Get the contract bytecode from the solc output corresponding to the contract config.
 getContractBytecode
@@ -159,10 +174,10 @@ deployContractAndWriteToArtifact filepath name deployAction = do
       let message = "Web3 error " <>  show err
       in throwError $ OnDeploymentError {name, message}
     Right txHash -> do
-      contractAddress <- getPublishedContractAddress txHash name
-      eWriteRes <- writeDeployAddress filepath networkId contractAddress
+      deployInfo <- getPublishedContractDeployInfo txHash name
+      eWriteRes <- writeDeployInfo filepath networkId deployInfo
       case eWriteRes of
         Left err ->
           let message = "Failed to write address for artifact " <> filepath <> " -- " <> err
           in throwError $ PostDeploymentError {name, message}
-        Right _ -> pure contractAddress
+        Right _ -> pure deployInfo.deployAddress
