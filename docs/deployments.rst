@@ -7,7 +7,7 @@ Deployments
 Configuration
 -------------
 
-Every contract deployment requires an explicit configuration. Specifically, the configuration is and object of the following type:
+Every contract deployment requires an explicit configuration. Specifically, the configuration is an object of the following type:
 
 .. code-block:: haskell
 
