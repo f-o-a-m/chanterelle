@@ -16,9 +16,9 @@ Welcome to Chanterelle's documentation!
    :caption: User Documentation
 
    chanterelle-json
-   compiling-and-running
    modules
    dependencies
    libraries
+   compiling
    deployments
    testing
