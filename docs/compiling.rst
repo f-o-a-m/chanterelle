@@ -22,6 +22,7 @@ if this functionality is not required. One may want to store this script in a di
 (such as Pulp) would keep code. One such location is ``compile/Compile.purs`` (as opposed to say, ``src/compile/Compile.purs``).
 
 .. code-block:: haskell
+
     module Compile where
 
     import Prelude
@@ -49,6 +50,7 @@ if this functionality is not required. One may want to store this script in a di
     main = do
       compileMain
       runGenesisGenerator "./base-genesis-block.json" "./injected-genesis-block.json"
+
 
 We can then invoke this script as such:
 
