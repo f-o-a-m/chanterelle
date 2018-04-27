@@ -15,3 +15,5 @@ of your compilation phase.
 
 As will be noted in the :ref:`libraries <libraries>` chapter, the genesis generator is unable to run if any Fixed libraries
 are specified in the project spec.
+
+We typically recommend using the genesis generator in conjunction with `Cliquebait <https://github.com/f-o-a-m/cliquebait>`_.
