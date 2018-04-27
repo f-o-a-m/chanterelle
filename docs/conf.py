@@ -20,6 +20,12 @@ import os
 import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+from subprocess import PIPE, run
+
+def runstdout(command):
+    result = run(command, stdout=PIPE, stderr=PIPE, universal_newlines=True, shell=True)
+    return result.stdout
+
 
 # -- General configuration ------------------------------------------------
 
@@ -57,7 +63,7 @@ styled_version = u'0.0.0'
 if os.getenv("READTHEDOCS", False):
     styled_version = os.getenv("READTHEDOCS_VERSION")
     if styled_version == "latest" or styled_version == "stable":
-        git_tags = os.system("git tag -l --points-at HEAD | tr '\\n' ',' | sed -e 's/,$//' -e 's/,/, /'")
+        git_tags = runstdout("git tag -l --points-at HEAD | tr '\\n' ',' | sed -e 's/,$//' -e 's/,/, /'")
         if git_tags != "":
             styled_version = styled_version + ", " + git_tags
 
