@@ -116,6 +116,8 @@ Consider this example take from the parking-dao example project:
 .. code-block:: haskell
 
 
+   module MyDeployScript where
+
    import ContractConfig (simpleStorageConfig, foamCSRConfig, parkingAuthorityConfig)
 
    type DeployResults = (foamCSR :: Address, simpleStorage :: Address, parkingAuthority :: Address)
@@ -138,3 +140,49 @@ Consider this example take from the parking-dao example project:
 After setting up the ``TransactionOptions``, the script first deploys the ``SimpleStorage`` contract and then the ``FoamCSR`` contract using their configuration. The ``ParkingAuthority`` contract requires the address of the ``FoamCSR`` contract as one of it's deployment arguments, so you can see us threading it in before deploying. Finally, we simple return all the addresses of the recently deployed contracts to the caller.
 
 Note that if we simply wanted to terminate the deployment script after the contract deployments there then there's no point in returning anything at all. However, deployment scripts are useful outside of the context of a standalone script. For example you can run a deployment script before a test suite and then pass the deployment results as an environment to the tests. See the section on testing for an example.
+
+Invocation
+----------
+
+Much like with the :ref:`compilation phase <compiling>`, the deployment phase is invoked with a minimal PureScript script.
+This script, however, invokes the deployScript you defined previously, and may either reside with the rest of your source or more
+methodically in a separate `deploy/` subproject. The latter is demonstrated below
+
+.. code-block:: haskell
+
+   module DeployMain (main) where
+
+   import Prelude
+   
+   import Chanterelle (deployMain)
+   import Control.Monad.Eff (Eff)
+   import Control.Monad.Eff.Console (CONSOLE)
+   import Control.Monad.Eff.Exception (EXCEPTION)
+   import Control.Monad.Eff.Now (NOW)
+   import Network.Ethereum.Web3 (ETH)
+   import Node.FS.Aff (FS)
+   import Node.Process (PROCESS)
+   import MyDeployScript (deployScript) as MyDeployScript
+   
+   main :: forall e. Eff (now :: NOW, console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS, exception :: EXCEPTION | e) Unit
+   main = deployMain MyDeployScript.deployScript
+
+We can then invoke this script as follows:
+
+.. code-block: shell
+
+    pulp build --src-path deploy -I src -m DeployMain --to deploy.js && \
+    node deploy.js --log-level info; \
+    rm -f deploy.js
+
+One may note the similarities to the invocation of the compiler script, however the build has an additional ``-I src`` as your deploy script
+will mostly likely depend on artifacts that are codegen'd into your main source root as well.
+
+
+Deployer arguments
+------------------
+
+Currently the following command line arguments are supported for the deployment phase when ran with ``deployMain``:
+
+- ``--log-level``: One of ``debug``, ``info``, ``warn``, or ``error``. Defaults to ``info``.
+  This option changes the level of logging to the console.

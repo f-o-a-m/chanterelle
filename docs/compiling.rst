@@ -23,7 +23,7 @@ if this functionality is not required. One may want to store this script in a di
 
 .. code-block:: haskell
 
-    module Compile where
+    module CompileMain where
 
     import Prelude
     import Chanterelle (compileMain)
@@ -52,11 +52,24 @@ if this functionality is not required. One may want to store this script in a di
       runGenesisGenerator "./base-genesis-block.json" "./injected-genesis-block.json"
 
 
-We can then invoke this script as such:
+We can then invoke this script as follows
 
-.. code-block: bash
+.. code-block: shell
 
-    pulp build --src-path compile -m Compile --to compile.js && node compile.js --log-level info; rm -f compile.js
+    pulp build --src-path compile -m CompileMain --to compile.js && \
+    node compile.js --log-level info; \
+    rm -f compile.js
 
-This will compile and codegen all the module specified in ``chanterelle.json`` as well as generate a genesis block whose contents
+
+This will compile and purescript-web3 codegen all the modules specified in ``chanterelle.json`` as well as generate a genesis block whose contents
 are those of ``./base-genesis-block.json`` with injected libraries appended into ``allocs`` and written out to ``./injected-genesis-block.json``.
+
+Note that we do not use ``pulp run`` as we then have no means to pass command line arguments to the compiler.
+
+Compiler arguments
+------------------
+
+Currently the following command line arguments are supported for the compiler phase when ran with ``compileMain``:
+
+- ``--log-level``: One of ``debug``, ``info``, ``warn``, or ``error``. Defaults to ``info``.
+  This option changes the level of logging to the console.
