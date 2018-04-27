@@ -23,7 +23,7 @@ A sample project is defined below, based on the `parking-dao application <https:
                  ],
       "dependencies": ["zeppelin-solidity"],
       "libraries": {
-          "StaticLib": "0x1337133713371337133713371337133713371337",
+          "FixedLib": "0x1337133713371337133713371337133713371337",
           "AutocompiledLib": {
               "address": "0xf00dcafe0ea7beef808080801234567890ABCDEF",
               "code": {
