@@ -169,7 +169,7 @@ methodically in a separate `deploy/` subproject. The latter is demonstrated belo
 
 We can then invoke this script as follows:
 
-.. code-block: shell
+.. code-block:: shell
 
     pulp build --src-path deploy -I src -m DeployMain --to deploy.js && \
     node deploy.js --log-level info; \

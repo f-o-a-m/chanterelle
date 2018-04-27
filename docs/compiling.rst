@@ -54,7 +54,7 @@ if this functionality is not required. One may want to store this script in a di
 
 We can then invoke this script as follows
 
-.. code-block: shell
+.. code-block:: shell
 
     pulp build --src-path compile -m CompileMain --to compile.js && \
     node compile.js --log-level info; \
