@@ -18,7 +18,8 @@ Welcome to Chanterelle's documentation!
    chanterelle-json
    modules
    dependencies
-   libraries
    compiling
+   genesis-blocks
+   libraries
    deployments
    testing

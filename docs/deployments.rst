@@ -144,9 +144,9 @@ Note that if we simply wanted to terminate the deployment script after the contr
 Invocation
 ----------
 
-Much like with the :ref:`compilation phase <compiling>`, the deployment phase is invoked with a minimal PureScript script.
-This script, however, invokes the deployScript you defined previously, and may either reside with the rest of your source or more
-methodically in a separate `deploy/` subproject. The latter is demonstrated below
+Much like with the :ref:`compilation phase <compiling>`, the deployment phase is invoked with a minimal PureScript boilerplate.
+This script, however, invokes the ``deployScript`` you defined previously, and may either reside with the rest of your source or more
+methodically in a separate ``deploy/`` subproject. The latter is demonstrated below
 
 .. code-block:: haskell
 
