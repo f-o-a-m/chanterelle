@@ -38,7 +38,7 @@ makeDeployConfig url tout = do
   econfig <- liftAff $ runWeb3 provider do
     primaryAccount <- Web3.getPrimaryAccount
     networkId <- net_version
-    pure $ DeployConfig {provider, primaryAccount, networkId, timeout}
+    pure $ DeployConfig {provider, primaryAccount, networkId, timeout, writeArtifacts: true }
   case econfig of
     Left err ->
       let errMsg = "Couldn't create DeployConfig -- " <> show err
