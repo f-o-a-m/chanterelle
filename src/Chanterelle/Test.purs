@@ -86,7 +86,9 @@ buildTestConfig url timeout deployScript = do
   edeployConfig <- runExceptT $ makeDeployConfig url timeout
   case edeployConfig of
     Left err -> logDeployError err *> (liftEff' $ throw "Couldn't make deploy config for tests!")
-    Right deployConfig@(DeployConfig {provider}) -> do
+    Right (DeployConfig baseDeployConfig) -> do
+      let provider = baseDeployConfig.provider
+          deployConfig = DeployConfig $ baseDeployConfig { writeArtifacts = false }
       eDeployResults <- flip runDeployM deployConfig $ do
         eaccounts <- liftAff $ runWeb3 provider eth_getAccounts
         accounts <- either (\err -> throwError <<< ConfigurationError $ "Couldn't find accounts for tests " <> show err) pure eaccounts

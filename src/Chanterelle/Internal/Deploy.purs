@@ -169,7 +169,7 @@ deployContractAndWriteToArtifact
   -- ^ deploy action returning txHash
   -> m Address
 deployContractAndWriteToArtifact filepath name deployAction = do
-  (DeployConfig {provider, networkId, primaryAccount}) <- ask
+  (DeployConfig { provider, networkId, primaryAccount, writeArtifacts }) <- ask
   log Info $ "Deploying contract " <> name
   etxHash <- liftAff <<< unsafeCoerceAff $ runWeb3 provider deployAction
   case etxHash of
@@ -178,9 +178,12 @@ deployContractAndWriteToArtifact filepath name deployAction = do
       in throwError $ OnDeploymentError {name, message}
     Right txHash -> do
       deployInfo <- getPublishedContractDeployInfo txHash name
-      eWriteRes <- writeDeployInfo filepath networkId deployInfo
-      case eWriteRes of
-        Left err ->
-          let message = "Failed to write address for artifact " <> filepath <> " -- " <> err
-          in throwError $ PostDeploymentError {name, message}
-        Right _ -> pure deployInfo.deployAddress
+      if writeArtifacts
+        then do
+          eWriteRes <- writeDeployInfo filepath networkId deployInfo
+          case eWriteRes of
+            Left err ->
+              let message = "Failed to write address for artifact " <> filepath <> " -- " <> err
+              in throwError $ PostDeploymentError {name, message}
+            Right _ -> pure deployInfo.deployAddress
+        else pure deployInfo.deployAddress
