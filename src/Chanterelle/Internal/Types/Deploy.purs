@@ -70,6 +70,7 @@ newtype DeployConfig =
                , primaryAccount :: Address
                , provider :: Provider
                , timeout :: Milliseconds
+               , writeArtifacts :: Boolean
                }
 
 -- | Contract Config

@@ -13,7 +13,7 @@ This project is meant to be a replacement to `truffle`. You can use it for devel
 
 ## Docs
 
-You can find our [documentation](https://foam-chanterelle.readthedocs-hosted.com/en/latest/index.html) hosted on ReadTheDocs.
+You can find our [documentation](https://chanterelle.readthedocs.io/en/latest/) hosted on ReadTheDocs.
 
 ### Project structure
 
