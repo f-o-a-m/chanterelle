@@ -9,7 +9,7 @@
   "dependencies": {
     "purescript-prelude": "^3.1.1",
     "purescript-web3": "https://github.com/f-o-a-m/purescript-web3#transformers",
-    "purescript-web3-generator": "htpps://github.com/f-o-a-m/purescript-web3-generator#transformers",
+    "purescript-web3-generator": "https://github.com/f-o-a-m/purescript-web3-generator#transformers",
     "purescript-js-date": "^5.1.0",
     "purescript-console": "^3.0.0",
     "purescript-errors": "^3.0.0",
