@@ -14,7 +14,7 @@ import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract(..),
 import Chanterelle.Internal.Types.Project (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..))
 import Chanterelle.Internal.Utils.FS (assertDirectory, fileIsDirty)
 import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces)
-import Chanterelle.Internal.Utils.Time (now)
+import Chanterelle.Internal.Utils.Time (now, toEpoch)
 import Control.Error.Util (hush)
 import Control.Monad.Aff (attempt)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
@@ -210,7 +210,7 @@ writeBuildArtifact srcName filepath output solContractName = do
   co <- decodeContract srcName output
   co' <- resolveContractMainModule filepath co solContractName
   assertDirectory (Path.dirname filepath)
-  epochTime <- liftEff now
+  epochTime <- toEpoch <$> liftEff now
   log Debug $ "Writing artifact " <> filepath
   liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co' epochTime
 
