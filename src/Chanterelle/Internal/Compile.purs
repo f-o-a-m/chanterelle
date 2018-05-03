@@ -14,20 +14,19 @@ import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract(..),
 import Chanterelle.Internal.Types.Project (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..))
 import Chanterelle.Internal.Utils.FS (assertDirectory, fileIsDirty)
 import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces)
+import Chanterelle.Internal.Utils.Time (now)
 import Control.Error.Util (hush)
 import Control.Monad.Aff (attempt)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (class MonadEff, liftEff)
 import Control.Monad.Eff.Exception (catchException)
-import Control.Monad.Eff.Now (NOW, now)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Reader (class MonadAsk, ask)
 import Data.Argonaut (encodeJson)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
 import Data.Array (catMaybes, filter)
-import Data.DateTime.Instant (unInstant)
 import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn2, runFn2)
 import Data.Lens ((^?))
@@ -56,7 +55,7 @@ foreign import _compile :: forall eff cbEff. Fn2 String (String -> Eff cbEff Sol
 -- | compile and write the artifact
 compile
   :: forall eff m.
-     MonadAff (fs :: FS.FS, process :: P.PROCESS, now :: NOW | eff) m
+     MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
   => MonadThrow CompileError m
   => MonadAsk ChanterelleProject m
   => m (M.StrMap (Tuple ChanterelleModule SolcOutput))
@@ -98,7 +97,7 @@ modulesToCompile modules = do
 
 compileModule
   :: forall eff m.
-     MonadAff (fs :: FS.FS, process :: P.PROCESS, now :: NOW | eff) m
+     MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
   => MonadThrow CompileError m
   => MonadAsk ChanterelleProject m
   => Tuple ChanterelleModule SolcInput
@@ -110,7 +109,7 @@ compileModule (Tuple m@(ChanterelleModule mod) solcInput) = do
 
 compileModuleWithoutWriting
   :: forall eff m.
-     MonadAff (fs :: FS.FS, process :: P.PROCESS, now :: NOW | eff) m
+     MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
   => MonadThrow CompileError m
   => MonadAsk ChanterelleProject m
   => ChanterelleModule
@@ -200,7 +199,7 @@ decodeContract srcName (SolcOutput output) = do
 
 writeBuildArtifact
   :: forall eff m.
-     MonadAff (fs :: FS.FS, now :: NOW | eff) m
+     MonadAff (fs :: FS.FS | eff) m
   => MonadThrow CompileError m
   => String
   -> FilePath
@@ -210,9 +209,8 @@ writeBuildArtifact
 writeBuildArtifact srcName filepath output solContractName = do
   co <- decodeContract srcName output
   co' <- resolveContractMainModule filepath co solContractName
-        
   assertDirectory (Path.dirname filepath)
-  epochTime <- unInstant <$> liftEff now
+  epochTime <- liftEff now
   log Debug $ "Writing artifact " <> filepath
   liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co' epochTime
 
