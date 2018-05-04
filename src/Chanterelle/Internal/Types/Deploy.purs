@@ -1,7 +1,8 @@
 module Chanterelle.Internal.Types.Deploy where
 
 import Prelude
-import Control.Monad.Aff (Aff, Milliseconds, liftEff')
+
+import Control.Monad.Aff (Aff, Fiber, Milliseconds, forkAff, liftEff', joinFiber)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff.Class (class MonadEff)
@@ -9,7 +10,7 @@ import Control.Monad.Eff.Exception (Error, throwException)
 import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Reader (ReaderT, runReaderT)
-import Control.Monad.Reader.Class (class MonadAsk)
+import Control.Monad.Reader.Class (class MonadAsk, ask)
 import Data.Either (Either)
 import Data.Lens ((?~))
 import Data.Maybe (Maybe(..))
@@ -45,6 +46,31 @@ derive newtype instance monadAskDeployM :: MonadAsk DeployConfig (DeployM eff)
 derive newtype instance monadThrowDeployM :: MonadThrow DeployError (DeployM eff)
 derive newtype instance monadEffDeployM :: MonadEff (eth :: ETH, fs :: FS, console :: CONSOLE | eff) (DeployM eff)
 derive newtype instance monadAffDeployM :: MonadAff (eth :: ETH, fs :: FS, console :: CONSOLE | eff) (DeployM eff)
+
+-- | Fork a DeployM to run concurrently, returning the fiber that was created
+forkDeployM
+  :: forall eff a.
+     DeployM eff a
+  -> DeployM eff ( Fiber ( eth     :: ETH
+                         , fs      :: FS
+                         , console :: CONSOLE
+                         | eff
+                         )
+                         (Either DeployError a)
+                 )
+forkDeployM m =
+  ask >>= (liftAff <<< forkAff <<< runDeployM m)
+
+joinDeployM
+  :: forall eff a.
+    Fiber ( eth     :: ETH
+          , fs      :: FS
+          , console :: CONSOLE
+          | eff
+          )
+          (Either DeployError a)
+  -> DeployM eff (Either DeployError a)
+joinDeployM = liftAff <<< joinFiber
 
 --------------------------------------------------------------------------------
 -- | Error Types

@@ -96,7 +96,7 @@ getPublishedContractDeployInfo
   -> m DeployInfo
 getPublishedContractDeployInfo txHash name = do
   (DeployConfig {timeout, provider}) <- ask
-  log Info $ "Polling for TransactionReceipt: " <> show txHash
+  log Info $ "Polling for " <> name <> " TransactionReceipt: " <> show txHash
   etxReceipt <- liftAff <<< attempt $ withTimeout timeout (pollTransactionReceipt txHash provider)
   case etxReceipt of
     Left err ->
