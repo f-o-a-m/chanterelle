@@ -16,7 +16,6 @@ import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (class MonadEff, liftEff)
 import Control.Monad.Eff.Exception (message)
-import Control.Monad.Eff.Now (NOW)
 import Control.Monad.Eff.Random (RANDOM, randomRange)
 import Control.Monad.Error.Class (try, throwError)
 import Control.Monad.Except.Trans (ExceptT(..), except, runExceptT, withExceptT)
@@ -102,7 +101,7 @@ generateAddress blacklist = do
         mkHexAddress s = mkHexString s >>= mkAddress
 
 generateGenesis :: forall eff m
-                 . MonadAff (fs :: FS, console :: CONSOLE, now :: NOW, process :: PROCESS, eth :: ETH | eff) m
+                 . MonadAff (fs :: FS, console :: CONSOLE, process :: PROCESS, eth :: ETH | eff) m
                 => ChanterelleProject
                 -> FilePath
                 -> m (Either GenesisGenerationError GenesisBlock)
@@ -177,7 +176,7 @@ generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExcep
             genTxt <- wrapLoadFailure (try $ FS.readTextFile UTF8 genesisIn)
             wrapLoadFailure (pure $ A.jsonParser genTxt >>= A.decodeJson)
 
-runGenesisGenerator :: forall e. FilePath -> FilePath -> Eff (console :: CONSOLE, fs :: FS, now :: NOW, process :: PROCESS, eth :: ETH | e) Unit 
+runGenesisGenerator :: forall e. FilePath -> FilePath -> Eff (console :: CONSOLE, fs :: FS, process :: PROCESS, eth :: ETH | e) Unit 
 runGenesisGenerator genesisIn genesisOut = do
     root <- liftEff P.cwd
     void <<< launchAff $

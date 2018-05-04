@@ -11,7 +11,6 @@ import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Exception (message)
-import Control.Monad.Eff.Now (NOW)
 import Control.Monad.Error.Class (try)
 import Data.Either (Either(..))
 import Node.FS (FS)
@@ -20,7 +19,7 @@ import Node.Process as P
 
 compileProject
   :: forall e.
-     Eff (console :: CONSOLE, fs :: FS, process :: PROCESS, now :: NOW | e) Unit
+     Eff (console :: CONSOLE, fs :: FS, process :: PROCESS | e) Unit
 compileProject = do
     root <- liftEff P.cwd
     void $ launchAff $ do

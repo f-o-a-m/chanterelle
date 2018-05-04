@@ -12,7 +12,6 @@ import Chanterelle.Internal.Types.Deploy (DeployM)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
-import Control.Monad.Eff.Now (NOW)
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
@@ -24,7 +23,7 @@ import Node.Yargs.Setup (usage, defaultVersion, defaultHelp, example)
 
 compileMain
   :: forall eff.
-     Eff (console :: CONSOLE, fs :: FS, process :: PROCESS, exception :: EXCEPTION, now :: NOW | eff) Unit
+     Eff (console :: CONSOLE, fs :: FS, process :: PROCESS, exception :: EXCEPTION| eff) Unit
 compileMain =
     let setup = usage "$0 --log-level <level>"
              <> example "$0 --log-level debug" "Run the compile phase with the given log level."

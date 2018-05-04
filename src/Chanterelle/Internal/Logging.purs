@@ -16,13 +16,13 @@ import Chanterelle.Internal.Types.Compile as Compile
 import Chanterelle.Internal.Types.Deploy as Deploy
 import Chanterelle.Internal.Types.Genesis as Genesis
 import Chanterelle.Internal.Types.Project (Network(..))
+import Chanterelle.Internal.Utils.Time (now, toISOString)
 import Control.Logger as Logger
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff, class MonadEff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Console as Console
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
-import Data.JSDate (now, toISOString)
 import Data.String (toUpper)
 import Data.Traversable (for_)
 import Data.Tuple (Tuple(..))
@@ -72,8 +72,7 @@ fancyColorLogger :: forall eff m a
                  => Loggable a
                  => Logger.Logger m { level :: LogLevel, msg :: a }
 fancyColorLogger = Logger.Logger $ \{ level, msg } -> liftEff <<< unsafeCoerceEff $ do
-    dt <- now
-    iso <- toISOString dt
+    iso <- toISOString <$> now
     Console.log $ colorize level (iso <> " [" <> show level <> "] " <> logify msg)
   where
     colorize level = withGraphics (foreground $ logLevelColor level)

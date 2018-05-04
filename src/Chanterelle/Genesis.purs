@@ -1,4 +1,4 @@
-module Chanterelle.Genesis 
+module Chanterelle.Genesis
     ( runGenesisGenerator
     ) where
 
@@ -13,7 +13,6 @@ import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Exception (message)
-import Control.Monad.Eff.Now (NOW)
 import Control.Monad.Error.Class (try)
 import Data.Argonaut as A
 import Data.Either (Either(..))
@@ -26,7 +25,7 @@ import Node.Process (PROCESS)
 import Node.Process as P
 import Prelude (Unit, bind, show, void, ($), (<<<), (<>), (>>=))
 
-runGenesisGenerator :: forall e. FilePath -> FilePath -> Eff (console :: CONSOLE, fs :: FS, now :: NOW, process :: PROCESS, eth :: ETH | e) Unit 
+runGenesisGenerator :: forall e. FilePath -> FilePath -> Eff (console :: CONSOLE, fs :: FS, process :: PROCESS, eth :: ETH | e) Unit
 runGenesisGenerator genesisIn genesisOut = do
     root <- liftEff P.cwd
     void <<< launchAff $
