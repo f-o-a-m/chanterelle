@@ -46,7 +46,7 @@ writeDeployInfo
      MonadAff (fs :: FS | eff) m
   => FilePath
   -- filename of contract artifact
-  -> BigNumber
+  -> String
   -- network id
   -> DeployInfo
   -- deployed contract address
@@ -59,7 +59,7 @@ writeDeployInfo filename nid {deployAddress, blockNumber, blockHash, transaction
                    ~> "blockHash" := show blockHash
                    ~> "transactionHash" := show transactionHash
                    ~> jsonEmptyObject
-      artifactWithAddress = artifact # _Object <<< ix "networks" <<< _Object %~ M.insert (show nid) networkIdObj
+      artifactWithAddress = artifact # _Object <<< ix "networks" <<< _Object %~ M.insert nid networkIdObj
   liftAff $ writeTextFile UTF8 filename $ jsonStringifyWithSpaces 4 artifactWithAddress
 
 -- | Read the deployment address for a given network id from the solc artifact.

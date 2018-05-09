@@ -4,7 +4,6 @@ import Prelude
 
 import Chanterelle.Internal.Utils.Json (decodeJsonAddress, decodeJsonHexString, encodeJsonAddress, encodeJsonHexString, gfWithDecoder)
 import Control.Alt ((<|>))
-import Control.Error.Util (note)
 import Data.Argonaut (class EncodeJson, class DecodeJson, encodeJson, decodeJson, (:=), (~>), (.?), (.??), jsonEmptyObject)
 import Data.Array (elem, filter, null)
 import Data.Either (Either(..))
@@ -14,8 +13,7 @@ import Data.StrMap as M
 import Data.String (Pattern(..), joinWith, split)
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
-import Network.Ethereum.Core.BigNumber (decimal, embed, parseBigNumber, toString)
-import Network.Ethereum.Web3 (Address, BigNumber, HexString)
+import Network.Ethereum.Web3 (Address, HexString)
 import Node.Path (FilePath)
 
 --------------------------------------------------------------------------------
@@ -111,10 +109,10 @@ instance decodeJsonLibraries :: DecodeJson Libraries where
 ---------------------------------------------------------------------
 
 data ChainSpec = AllChains
-               | SpecificChains (Array BigNumber)
+               | SpecificChains (Array String)
 derive instance eqChainSpec :: Eq ChainSpec
 
-networkIDFitsChainSpec :: ChainSpec -> BigNumber -> Boolean
+networkIDFitsChainSpec :: ChainSpec -> String -> Boolean
 networkIDFitsChainSpec AllChains _ = true
 networkIDFitsChainSpec (SpecificChains chains) id = id `elem` chains
 
@@ -122,13 +120,14 @@ instance decodeJsonChainSpec :: DecodeJson ChainSpec where
   decodeJson j = decodeAllChains <|> decodeSpecificChains <|> Left "Invalid chain specifier"
     where decodeStr = decodeJson j
           decodeAllChains = decodeStr >>= (\s -> if s == "*" then Right AllChains else Left "Not * for AllChains")
-          decodeSpecificChains = decodeStr >>= (\s -> SpecificChains <$> for (split (Pattern ",") s) (note "Network ID is not a decimal number" <<< parseBigNumber decimal))
+          decodeSpecificChains = decodeStr >>= (\s -> SpecificChains <$> for (split (Pattern ",") s) pure)
+
 
 instance encodeJsonChainSpec :: EncodeJson ChainSpec where
   encodeJson AllChains = encodeJson "*"
-  encodeJson (SpecificChains c) = encodeJson $ joinWith "," (toString decimal <$> c)
+  encodeJson (SpecificChains c) = encodeJson $ joinWith "," c
 
-newtype Network = Network { name :: String 
+newtype Network = Network { name :: String
                           , providerUrl :: String
                           , allowedChains :: ChainSpec
                           }
@@ -189,10 +188,10 @@ resolveNetworkRefs refs definedNets = case refs of
   AllDefinedNetworks -> definedNets
   SpecificRefs specRefs -> Networks $ filter (\(Network { name }) -> name `elem` specRefs) mergedNetworks
 
-  where predefinedNets = [ Network { name: "mainnet", providerUrl: "https://mainnet.infura.io", allowedChains: SpecificChains [embed 1] }
-                         , Network { name: "ropsten", providerUrl: "https://ropsten.infura.io", allowedChains: SpecificChains [embed 3] }
-                         , Network { name: "rinkeby", providerUrl: "https://rinkeby.infura.io", allowedChains: SpecificChains [embed 4] }
-                         , Network { name: "kovan"  , providerUrl: "https://kovan.infura.io"  , allowedChains: SpecificChains [embed 42] }
+  where predefinedNets = [ Network { name: "mainnet", providerUrl: "https://mainnet.infura.io", allowedChains: SpecificChains ["1"] }
+                         , Network { name: "ropsten", providerUrl: "https://ropsten.infura.io", allowedChains: SpecificChains ["3"] }
+                         , Network { name: "rinkeby", providerUrl: "https://rinkeby.infura.io", allowedChains: SpecificChains ["4"] }
+                         , Network { name: "kovan"  , providerUrl: "https://kovan.infura.io"  , allowedChains: SpecificChains ["42"] }
                          , Network { name: "localhost", providerUrl: "http://localhost:8545/", allowedChains: AllChains }
                          ]
         (Networks definedNets') = definedNets
