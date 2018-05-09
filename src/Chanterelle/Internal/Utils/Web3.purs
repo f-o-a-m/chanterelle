@@ -15,10 +15,8 @@ import Control.Monad.Except (ExceptT(..), except, runExceptT, withExceptT)
 import Control.Parallel (parOneOf)
 import Data.Array ((!!))
 import Data.Either (Either(..))
-import Data.Int (decimal)
 import Data.Maybe (maybe)
 import Data.String (null)
-import Network.Ethereum.Core.BigNumber (toString)
 import Network.Ethereum.Web3 (Address, ChainCursor(Latest), ETH, HexString, Web3, runWeb3, unHex)
 import Network.Ethereum.Web3.Api (eth_getAccounts, eth_getCode, eth_getTransactionReceipt, net_version)
 import Network.Ethereum.Web3.Types (TransactionReceipt, Web3Error(..))
@@ -52,7 +50,7 @@ resolveProvider rn@(Network realNet) = runExceptT do
     v <- net_version
     pure $ if networkIDFitsChainSpec realNet.allowedChains v
       then Right provider
-      else Left $ "Network " <> show realNet.name <> " resolves to a provider which is serving chain ID " <> toString decimal v <> ", which is not within that network's permitted chains."
+      else Left $ "Network " <> show realNet.name <> " resolves to a provider which is serving chain ID " <> v <> ", which is not within that network's permitted chains."
   except validatedProvider
 
   where showWeb3Error = case _ of
@@ -60,7 +58,6 @@ resolveProvider rn@(Network realNet) = runExceptT do
           RemoteError e -> "Web3 Remote: " <> e
           ParserError e -> "Web3 Parser: " <> e
           NullError     -> "Web3 NullError"
-       
 
 getCodeForContract
   :: forall eff m.

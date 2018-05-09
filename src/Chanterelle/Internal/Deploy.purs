@@ -19,7 +19,6 @@ import Control.Monad.Reader.Class (class MonadAsk, ask)
 import Data.Argonaut (_Object, _String, jsonEmptyObject, (~>), (:=))
 import Data.Argonaut.Parser (jsonParser)
 import Data.Either (Either(..), either)
-import Data.Foreign.NullOrUndefined (unNullOrUndefined)
 import Data.Lens ((^?), (%~))
 import Data.Lens.Index (ix)
 import Data.Maybe (isNothing, fromJust)
@@ -47,7 +46,7 @@ writeDeployInfo
      MonadAff (fs :: FS | eff) m
   => FilePath
   -- filename of contract artifact
-  -> BigNumber
+  -> String
   -- network id
   -> DeployInfo
   -- deployed contract address
@@ -60,7 +59,7 @@ writeDeployInfo filename nid {deployAddress, blockNumber, blockHash, transaction
                    ~> "blockHash" := show blockHash
                    ~> "transactionHash" := show transactionHash
                    ~> jsonEmptyObject
-      artifactWithAddress = artifact # _Object <<< ix "networks" <<< _Object %~ M.insert (show nid) networkIdObj
+      artifactWithAddress = artifact # _Object <<< ix "networks" <<< _Object %~ M.insert nid networkIdObj
   liftAff $ writeTextFile UTF8 filename $ jsonStringifyWithSpaces 4 artifactWithAddress
 
 -- | Read the deployment address for a given network id from the solc artifact.
@@ -103,12 +102,12 @@ getPublishedContractDeployInfo txHash name = do
       let message = "No Transaction Receipt found for deployment " <> show txHash
       in throwError $ OnDeploymentError {name, message}
     Right (TransactionReceipt txReceipt) ->
-      if txReceipt.status == Failed || isNothing (unNullOrUndefined txReceipt.contractAddress)
+      if txReceipt.status == Failed || isNothing (txReceipt.contractAddress)
          then
             let message = "Deployment failed to create contract, no address found or status 0x0 in receipt: " <> name
             in throwError $ OnDeploymentError {name, message}
          else do
-           let deployAddress = unsafePartial fromJust <<< unNullOrUndefined $ txReceipt.contractAddress
+           let deployAddress = unsafePartial fromJust $ txReceipt.contractAddress
            log Info $ "Contract " <> name <> " deployed to address " <> show deployAddress
            pure { deployAddress
                 , blockNumber: txReceipt.blockNumber

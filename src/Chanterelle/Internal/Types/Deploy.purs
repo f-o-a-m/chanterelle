@@ -15,7 +15,7 @@ import Data.Either (Either)
 import Data.Lens ((?~))
 import Data.Maybe (Maybe(..))
 import Data.Validation.Semigroup (V, invalid)
-import Network.Ethereum.Web3 (Address, BigNumber, ETH, HexString, TransactionOptions, Web3, _data, _value, fromWei)
+import Network.Ethereum.Web3 (Address, ETH, HexString, TransactionOptions, Web3, _data, _value, fromWei)
 import Network.Ethereum.Web3.Api (eth_sendTransaction)
 import Network.Ethereum.Web3.Types (NoPay)
 import Network.Ethereum.Web3.Types.Provider (Provider)
@@ -92,7 +92,7 @@ throwDeploy = liftAff <<< liftEff' <<< throwException
 
 -- | primary deployment configuration
 newtype DeployConfig =
-  DeployConfig { networkId :: BigNumber
+  DeployConfig { networkId :: String
                , primaryAccount :: Address
                , provider :: Provider
                , timeout :: Milliseconds
