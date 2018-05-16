@@ -1,6 +1,7 @@
 module Chanterelle.Internal.Deploy
   ( deployContract
   , readDeployAddress
+  , DeployReceipt
   ) where
 
 import Prelude
@@ -137,6 +138,12 @@ getContractBytecode cconfig@{filepath, name} = do
       bytecode <- (artifact ^? _Object <<< ix "bytecode" <<< _String) ?? "artifact missing 'bytecode' field."
       mkHexString bytecode ?? "bytecode not a valid hex string"
 
+type DeployReceipt args =
+  { deployAddress :: Address
+  , deployArgs :: Record args
+  , deployHash :: HexString
+  }
+
 -- | Deploy a contract using its ContractConfig object.
 deployContract
   :: forall eff args m.
@@ -145,14 +152,14 @@ deployContract
   => MonadAff (console :: CONSOLE, eth :: ETH, fs :: FS | eff) m
   => TransactionOptions NoPay
   -> ContractConfig args
-  -> m {deployAddress :: Address, deployArgs :: Record args}
+  -> m (DeployReceipt args)
 deployContract txOptions ccfg@{filepath, name, constructor} = do
   (DeployConfig {provider, primaryAccount}) <- ask
   validatedArgs <- validateDeployArgs ccfg
   bytecode <- getContractBytecode ccfg
   let deploymentAction = constructor txOptions bytecode validatedArgs
-  deployAddress <- deployContractAndWriteToArtifact filepath name deploymentAction
-  pure {deployAddress, deployArgs: validatedArgs}
+  {deployAddress, deployHash} <- deployContractAndWriteToArtifact filepath name deploymentAction
+  pure {deployAddress, deployArgs: validatedArgs, deployHash}
 
 -- | Helper function which deploys a contract and writes the new contract address to the solc artifact.
 deployContractAndWriteToArtifact
@@ -166,7 +173,7 @@ deployContractAndWriteToArtifact
   -- ^ contract name
   -> Web3 eff HexString
   -- ^ deploy action returning txHash
-  -> m Address
+  -> m {deployAddress :: Address, deployHash :: HexString}
 deployContractAndWriteToArtifact filepath name deployAction = do
   (DeployConfig { provider, networkId, primaryAccount, writeArtifacts }) <- ask
   log Info $ "Deploying contract " <> name
@@ -184,5 +191,5 @@ deployContractAndWriteToArtifact filepath name deployAction = do
             Left err ->
               let message = "Failed to write address for artifact " <> filepath <> " -- " <> err
               in throwError $ PostDeploymentError {name, message}
-            Right _ -> pure deployInfo.deployAddress
-        else pure deployInfo.deployAddress
+            Right _ -> pure {deployAddress: deployInfo.deployAddress, deployHash: txHash}
+        else pure {deployAddress: deployInfo.deployAddress, deployHash: txHash}
