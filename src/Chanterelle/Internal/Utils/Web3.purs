@@ -21,7 +21,6 @@ import Network.Ethereum.Web3 (Address, ChainCursor(Latest), ETH, HexString, Web3
 import Network.Ethereum.Web3.Api (eth_getAccounts, eth_getCode, eth_getTransactionReceipt, net_version)
 import Network.Ethereum.Web3.Types (TransactionReceipt, Web3Error(..))
 import Network.Ethereum.Web3.Types.Provider (Provider, httpProvider)
-import Data.Foreign.Generic (defaultOptions, genericEncodeJSON)
 
 
 -- | Make an http provider with address given by NODE_URL, falling back
@@ -95,7 +94,7 @@ getPrimaryAccount = do
   where
     accountsError = do
       log Error "No PrimaryAccount found on ethereum client!"
-      throwError $ error $ genericEncodeJSON defaultOptions NullError
+      throwError $ error "No PrimaryAccount found on ethereum client!"
 
 -- | indefinitely poll for a transaction receipt, sleeping for 3
 -- | seconds in between every call.
