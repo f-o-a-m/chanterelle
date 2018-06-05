@@ -4,8 +4,6 @@ dist: trusty
 sudo: required
 node_js: stable
 install:
-- npm install -g bower pulp purescript@0.11.7
-- pulp --version
 - npm install
 - bower install --production
 script:
