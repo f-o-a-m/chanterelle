@@ -25,7 +25,7 @@ loadProject
   => FilePath
   -> m ChanterelleProject
 loadProject root = do
-  specJson <- liftAff $ FS.readTextFile UTF8 "chanterelle.json"
+  specJson <- liftAff $ FS.readTextFile UTF8 (Path.concat [root, "chanterelle.json"])
   spec@(ChanterelleProjectSpec project) <- either (throwError <<< error)
                                              pure (AP.jsonParser specJson >>= A.decodeJson)
   let jsonOut  = Path.concat [root, project.artifactsDir]

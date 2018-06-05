@@ -12,6 +12,7 @@ import Control.Error.Util (note)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
+import Control.Monad.Reader (class MonadAsk, ask)
 import Data.AbiParser (Abi(Abi), AbiDecodeError(..), AbiWithErrors) as PSWeb3Gen
 import Data.Argonaut (decodeJson)
 import Data.Argonaut.Parser (jsonParser)
@@ -33,9 +34,10 @@ import Node.Path as Path
 generatePS :: forall eff m
             . MonadAff (console :: CONSOLE, fs :: FS.FS | eff) m
            => MonadThrow CompileError m
-           => ChanterelleProject
-           -> m Unit
-generatePS p@(ChanterelleProject project) = do
+           => MonadAsk ChanterelleProject m
+           => m Unit
+generatePS = do
+  p@(ChanterelleProject project) <- ask
   let psArgs = projectPSArgs p
   void <<< for project.modules $ \(ChanterelleModule mod) -> do
       (PSWeb3Gen.Abi abiWithErrors) <- loadAbi p mod.jsonPath
