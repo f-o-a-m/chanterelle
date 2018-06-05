@@ -18,9 +18,8 @@ import Data.Argonaut (decodeJson)
 import Data.Argonaut.Parser (jsonParser)
 import Data.Argonaut.Prisms (_Object)
 import Data.Array (mapMaybe)
-import Data.CodeGen (GeneratorOptions, runImported) as PSWeb3Gen
+import Data.CodeGen (GeneratorOptions, generateCodeFromAbi) as PSWeb3Gen
 import Data.Either (Either(..), either)
-import Data.Generator (genCode) as PSWeb3Gen
 import Data.Identity (Identity(..))
 import Data.Lens ((^?))
 import Data.Lens.Index (ix)
@@ -47,7 +46,7 @@ generatePS = do
           log Error $ "while parsing abi type of object at index: " <> show err.idx <> " from: " <> mod.jsonPath <> " got error: " <> err.error
           pure Nothing
         Right x -> pure $ Just x
-      let psModule = generatePSModule p (PSWeb3Gen.Abi $ mapMaybe (map Identity) abi) mod.moduleName
+      let psModule = PSWeb3Gen.generateCodeFromAbi (projectPSArgs p) (PSWeb3Gen.Abi $ mapMaybe (map Identity) abi) mod.moduleName
       assertDirectory (Path.dirname mod.pursPath)
       log Info $ "writing PureScript bindings for " <> mod.moduleName
       liftAff $ FS.writeTextFile UTF8 mod.pursPath psModule
@@ -63,16 +62,6 @@ projectPSArgs (ChanterelleProject project) =
       , exprPrefix: spec.psGen.exprPrefix
       , modulePrefix: spec.psGen.modulePrefix
       }
-
-generatePSModule
-  :: ChanterelleProject
-  -> PSWeb3Gen.Abi Identity
-  -> String
-  -> String
-generatePSModule p@(ChanterelleProject project) abi moduleName =
-  let (ChanterelleProjectSpec spec) = project.spec
-  in PSWeb3Gen.genCode abi {exprPrefix: spec.psGen.exprPrefix, indentationLevel: 0}
-    # PSWeb3Gen.runImported (projectPSArgs p) moduleName
 
 loadAbi :: forall eff m
          . MonadAff (fs :: FS.FS | eff) m
