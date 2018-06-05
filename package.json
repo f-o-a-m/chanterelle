@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "preinstall": "bower install && pulp build -t chanterelle.js",
+    "preinstall": "bower install --production && pulp build -t chanterelle.js",
     "build": "pulp build",
     "docs": "cd docs; make html;"
   },
