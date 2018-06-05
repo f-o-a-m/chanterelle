@@ -19,6 +19,7 @@ import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.String (toLower)
 import Node.FS.Aff (FS)
+import Node.Path (resolve)
 import Node.Process (PROCESS, cwd)
 import Node.Yargs.Applicative (rest, runY, yarg)
 import Node.Yargs.Setup (defaultVersion, defaultHelp, example, usage)
@@ -36,7 +37,8 @@ main = do
       rootArg      = yarg "project-root" ["r"] (Just "Override the default project root") (Left ourCwd) false
       go level root actions = launchAff_ do
         liftEff $ setLogLevel (readLogLevel level)
-        projE <- try $ loadProject root
+        let resolvedRoot = resolve [ourCwd] root
+        projE <- try $ loadProject resolvedRoot
         case projE of
           Left err -> log Error ("Couldn't parse chanterelle.json: " <> show err)
           Right project -> runAction project (unsafeCoerce actions)
