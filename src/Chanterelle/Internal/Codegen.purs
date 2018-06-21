@@ -55,6 +55,7 @@ generatePS p@(ChanterelleProject project) = do
   liftAff $ case mextraJsonDir of
     Nothing -> pure unit
     Just extraJsonDir -> do
+      log Info $ "Writing additional abis from directory " <> extraJsonDir
       errs <- PSWeb3Gen.generatePS (psArgs { jsonDir = extraJsonDir
                                            , truffle = false
                                            }
