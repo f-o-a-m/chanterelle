@@ -55,7 +55,10 @@ generatePS p@(ChanterelleProject project) = do
   liftAff $ case mextraJsonDir of
     Nothing -> pure unit
     Just extraJsonDir -> do
-      errs <- PSWeb3Gen.generatePS (psArgs {jsonDir = extraJsonDir})
+      errs <- PSWeb3Gen.generatePS (psArgs { jsonDir = extraJsonDir
+                                           , truffle = false
+                                           }
+                                   )
       for_ errs \(PSWeb3Gen.ABIError err) ->
         log Error $ "while parsing abi type of object at index: "
           <> show err.idx <> " from: " <> err.abiPath <> " got error: " <> err.error
