@@ -47,7 +47,7 @@ instance encodeJsonInjectableLibraryCode :: EncodeJson InjectableLibraryCode whe
 instance decodeJsonInjectableLibraryCode :: DecodeJson InjectableLibraryCode where
   decodeJson d = decodeSourceCode <|> decodeBytecode <|> Left "not a valid InjectableLibrarySource"
       where decodeSourceCode = decodeJson d >>= (\o -> InjectableWithSourceCode <$> o .?? "root" <*> o .? "file")
-            decodeBytecode   = do 
+            decodeBytecode   = do
               o <- decodeJson d
               bc <- gfWithDecoder decodeJsonHexString o "bytecode"
               pure $ InjectableWithBytecode bc
@@ -217,6 +217,7 @@ newtype ChanterelleProjectSpec =
                          , artifactsDir        :: FilePath
                          , modules             :: Array String
                          , dependencies        :: Array Dependency
+                         , extraAbis           :: Maybe FilePath
                          , libraries           :: Libraries
                          , networks            :: Networks
                          , solcOutputSelection :: Array String
@@ -236,6 +237,7 @@ instance encodeJsonChanterelleProjectSpec :: EncodeJson ChanterelleProjectSpec w
       ~> "artifacts-dir"         := encodeJson project.artifactsDir
       ~> "modules"               := encodeJson project.modules
       ~> "dependencies"          := encodeJson project.dependencies
+      ~> "extra-abis"            := encodeJson project.dependencies
       ~> "libraries"             := encodeJson project.libraries
       ~> "networks"              := encodeJson project.networks
       ~> "solc-output-selection" := encodeJson project.solcOutputSelection
@@ -256,6 +258,7 @@ instance decodeJsonChanterelleProjectSpec :: DecodeJson ChanterelleProjectSpec w
     artifactsDir        <- fromMaybe "build" <$> obj .?? "artifacts-dir"
     modules             <- obj .? "modules"
     dependencies        <- fromMaybe mempty <$> obj .?? "dependencies"
+    extraAbis           <- obj .?? "extra-abis"
     libraries           <- fromMaybe mempty <$> obj .?? "libraries"
     networks            <- fromMaybe mempty <$> obj .?? "networks"
     solcOutputSelection <- fromMaybe mempty <$> obj .?? "solc-output-selection"
@@ -264,7 +267,7 @@ instance decodeJsonChanterelleProjectSpec :: DecodeJson ChanterelleProjectSpec w
     psGenExprPrefix     <- fromMaybe "" <$> psGenObj .?? "expression-prefix"
     psGenModulePrefix   <- fromMaybe "" <$> psGenObj .?? "module-prefix"
     let psGen = { exprPrefix: psGenExprPrefix, modulePrefix: psGenModulePrefix, outputPath: psGenOutputPath }
-    pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, modules, dependencies, libraries, networks, solcOutputSelection, psGen }
+    pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, modules, dependencies, extraAbis, libraries, networks, solcOutputSelection, psGen }
 
 data ChanterelleProject =
      ChanterelleProject { root     :: FilePath -- ^ parent directory containing chanterelle.json
