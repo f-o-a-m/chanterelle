@@ -29,7 +29,7 @@ compileProject = do
         Right project -> do
           eres <- flip runCompileM project $ do
             _ <- Chanterelle.compile
-            Chanterelle.generatePS project
+            Chanterelle.generatePS
           case eres of
             Right _ -> pure unit
             Left err -> logCompileError err
