@@ -15,7 +15,7 @@ import Data.Either (Either)
 import Data.Lens ((?~))
 import Data.Maybe (Maybe(..))
 import Data.Validation.Semigroup (V, invalid)
-import Network.Ethereum.Web3 (Address, ETH, HexString, TransactionOptions, Web3, _data, _value, fromWei)
+import Network.Ethereum.Web3 (Address, ETH, HexString, TransactionOptions, Web3, _data, _value, fromMinorUnit)
 import Network.Ethereum.Web3.Api (eth_sendTransaction)
 import Network.Ethereum.Web3.Types (NoPay)
 import Network.Ethereum.Web3.Types.Provider (Provider)
@@ -116,7 +116,7 @@ noArgs = pure {}
 constructorNoArgs :: Constructor NoArgs
 constructorNoArgs txOpts bytecode _ =
   eth_sendTransaction $ txOpts # _data ?~ bytecode
-                               # _value ?~ fromWei zero
+                               # _value ?~ fromMinorUnit zero
 
 type ConfigR args =
   ( filepath :: FilePath
