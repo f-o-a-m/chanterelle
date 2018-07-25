@@ -1,4 +1,4 @@
-module Main where
+module ChanterelleMain where
 
 import Prelude
 
