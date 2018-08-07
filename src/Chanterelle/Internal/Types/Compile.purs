@@ -1,7 +1,7 @@
 module Chanterelle.Internal.Types.Compile where
 
 import Prelude
-import Chanterelle.Internal.Types.Project (ChanterelleProject, Library(..), Libraries(..))
+import Chanterelle.Internal.Types.Project (ChanterelleProject, Library(..), Libraries(..), SolcOptimizerSettings)
 import Chanterelle.Internal.Utils.Json (encodeJsonAddress)
 import Data.Argonaut (class DecodeJson, class EncodeJson, (:=), (~>), (.?), (.??), decodeJson, encodeJson, jsonEmptyObject)
 import Data.Argonaut as A
@@ -90,6 +90,7 @@ newtype SolcSettings =
   SolcSettings { outputSelection :: StrMap (StrMap (Array String))
                , remappings      :: Array String
                , libraries       :: StrMap Libraries
+               , optimizer       :: SolcOptimizerSettings
                }
 
 instance encodeSolcSettings :: EncodeJson SolcSettings where
@@ -97,6 +98,7 @@ instance encodeSolcSettings :: EncodeJson SolcSettings where
        "outputSelection" := encodeJson s.outputSelection
     ~> "remappings"      := encodeJson s.remappings
     ~> "libraries"       := encodeJson (solcifyAllLibs s.libraries)
+    ~> "optimizer"       := encodeJson s.optimizer
     ~> jsonEmptyObject
 
     where solcifyAllLibs libs = solcifyLibs <$> libs

@@ -11,7 +11,7 @@ import Prelude (Unit, bind, discard, map, not, pure, show, ($), (*>), (<$>), (<<
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract, SolcContract(..), SolcError(..), SolcInput(..), SolcOutput(..), SolcSettings(..), encodeOutputContract, parseSolcOutput)
 import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract(..), SolcContract(..), SolcError(..), SolcInput(..), SolcOutput(..), SolcSettings(..), parseOutputContract) as CompileReexports
-import Chanterelle.Internal.Types.Project (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..))
+import Chanterelle.Internal.Types.Project (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), defaultSolcOptimizerSettings)
 import Chanterelle.Internal.Utils.FS (assertDirectory, fileIsDirty)
 import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces)
 import Chanterelle.Internal.Utils.Time (now, toEpoch)
@@ -31,7 +31,7 @@ import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn2, runFn2)
 import Data.Lens ((^?))
 import Data.Lens.Index (ix)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.StrMap as M
 import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (for, for_)
@@ -171,7 +171,8 @@ makeSolcInput moduleName sourcePath = do
       depMappings = (\(Dependency dep) -> dep <> "=" <> (project.root <> "/node_modules/" <> dep)) <$> spec.dependencies
       sourceDirMapping = [":g" <> (Path.concat [project.root, spec.sourceDir])]
       remappings = sourceDirMapping <> depMappings
-      settings = SolcSettings { outputSelection, remappings, libraries }
+      optimizer = fromMaybe defaultSolcOptimizerSettings spec.solcOptimizerSettings
+      settings = SolcSettings { outputSelection, remappings, libraries, optimizer }
       libraries = M.singleton (moduleName <> ".sol") spec.libraries
   pure $ SolcInput { language, sources, settings }
 

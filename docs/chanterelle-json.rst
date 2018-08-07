@@ -52,6 +52,10 @@ A sample project is defined below, based on the `parking-dao application <https:
             }
       },
       "solc-output-selection": [],
+      "solc-optimizer": {
+          "enabled": false,
+          "runs: 200
+      },
       "purescript-generator": {
           "output-path": "src",
           "module-prefix": "Contracts",
@@ -87,6 +91,8 @@ Note: All filepaths are relative to the ``chanterelle.json`` file, which is cons
     - Each network has a required ``"url"`` field, which tells Chanterelle how to reach a node on that network
     - Each network has a required ``"chains"`` field, which tells Chanterelle which network IDs to accept from that node. The value may either
       be a comma-separated list of network ID numbers (still has to be a string for just one network), or ``"*"`` to accept any network ID.
+- ``solc-optimizer`` - Optimizer options to pass to solc. Defaults are what's shown in the example.
+    - Supports ``enabled`` and ``runs``, just like ``solc`` 0.4.24 does.
 - ``solc-output-selection`` - Additional outputs to request from solc (currently unsupported, but see `solc documentation`)
 - ``purescript-generator`` - ``Required``: Options for purescript-web3-generator (see below)
 
