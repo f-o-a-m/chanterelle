@@ -20,10 +20,10 @@
     "pulp": "^12.0.1",
     "purescript": "^0.11.7",
     "rlp": "^2.0.0",
-    "secp256k1": "^3.0.1"
+    "secp256k1": "^3.0.1",
+    "solc": "^0.4.24"
   },
   "bin": {
-    "chanterelle": "chanterelle-bin.js",
-    "solc": "^0.4.24"
+    "chanterelle": "chanterelle-bin.js"
   }
 }
