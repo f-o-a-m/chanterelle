@@ -55,7 +55,7 @@ A sample project is defined below, based on the `parking-dao application <https:
       "solc-optimizer": {
           "enabled": false,
           "runs: 200
-      }
+      },
       "purescript-generator": {
           "output-path": "src",
           "module-prefix": "Contracts",
