@@ -202,6 +202,31 @@ resolveNetworkRefs refs definedNets = case refs of
 
 ---------------------------------------------------------------------
 
+newtype SolcOptimizerSettings = SolcOptimizerSettings { enabled :: Boolean, runs :: Int }
+
+derive instance eqSolcOptimizerSettings :: Eq SolcOptimizerSettings
+
+instance encodeJsonSolcOptimizerSettings :: EncodeJson SolcOptimizerSettings where
+  encodeJson (SolcOptimizerSettings sos) =
+         "enabled" := encodeJson sos.enabled
+      ~> "runs"    := encodeJson sos.runs
+      ~> jsonEmptyObject
+
+instance decodeJsonSolcOptimizerSettings :: DecodeJson SolcOptimizerSettings where
+  decodeJson j = do
+      obj <- decodeJson j
+      enabled <- fromMaybe default.enabled <$> obj .?? "enabled"
+      runs    <- fromMaybe default.runs    <$> obj .?? "runs"
+      pure $ SolcOptimizerSettings { enabled, runs }
+
+      where (SolcOptimizerSettings default) = defaultSolcOptimizerSettings
+
+-- these defaults are from the example in solc docs
+defaultSolcOptimizerSettings :: SolcOptimizerSettings
+defaultSolcOptimizerSettings = SolcOptimizerSettings { enabled: false, runs: 200 }
+
+---------------------------------------------------------------------
+
 data ChanterelleModule =
   ChanterelleModule { moduleName      :: String
                     , solContractName :: String
@@ -211,20 +236,21 @@ data ChanterelleModule =
                     }
 
 newtype ChanterelleProjectSpec =
-  ChanterelleProjectSpec { name                :: String
-                         , version             :: String
-                         , sourceDir           :: FilePath
-                         , artifactsDir        :: FilePath
-                         , modules             :: Array String
-                         , dependencies        :: Array Dependency
-                         , extraAbis           :: Maybe FilePath
-                         , libraries           :: Libraries
-                         , networks            :: Networks
-                         , solcOutputSelection :: Array String
-                         , psGen               :: { exprPrefix   :: String
-                                                  , modulePrefix :: String
-                                                  , outputPath   :: String
-                                                  }
+  ChanterelleProjectSpec { name                  :: String
+                         , version               :: String
+                         , sourceDir             :: FilePath
+                         , artifactsDir          :: FilePath
+                         , modules               :: Array String
+                         , dependencies          :: Array Dependency
+                         , extraAbis             :: Maybe FilePath
+                         , libraries             :: Libraries
+                         , networks              :: Networks
+                         , solcOutputSelection   :: Array String
+                         , solcOptimizerSettings :: Maybe SolcOptimizerSettings
+                         , psGen                 :: { exprPrefix   :: String
+                                                    , modulePrefix :: String
+                                                    , outputPath   :: String
+                                                    }
                          }
 
 derive instance eqChanterelleProjectSpec  :: Eq ChanterelleProjectSpec
@@ -241,6 +267,7 @@ instance encodeJsonChanterelleProjectSpec :: EncodeJson ChanterelleProjectSpec w
       ~> "libraries"             := encodeJson project.libraries
       ~> "networks"              := encodeJson project.networks
       ~> "solc-output-selection" := encodeJson project.solcOutputSelection
+      ~> "solc-optimizer"        := encodeJson project.solcOptimizerSettings
       ~> "purescript-generator"  := psGenEncode
       ~> jsonEmptyObject
 
@@ -251,23 +278,24 @@ instance encodeJsonChanterelleProjectSpec :: EncodeJson ChanterelleProjectSpec w
 
 instance decodeJsonChanterelleProjectSpec :: DecodeJson ChanterelleProjectSpec where
   decodeJson j = do
-    obj                 <- decodeJson j
-    name                <- obj .? "name"
-    version             <- obj .? "version"
-    sourceDir           <- obj .? "source-dir"
-    artifactsDir        <- fromMaybe "build" <$> obj .?? "artifacts-dir"
-    modules             <- obj .? "modules"
-    dependencies        <- fromMaybe mempty <$> obj .?? "dependencies"
-    extraAbis           <- obj .?? "extra-abis"
-    libraries           <- fromMaybe mempty <$> obj .?? "libraries"
-    networks            <- fromMaybe mempty <$> obj .?? "networks"
-    solcOutputSelection <- fromMaybe mempty <$> obj .?? "solc-output-selection"
-    psGenObj            <- obj .? "purescript-generator"
-    psGenOutputPath     <- psGenObj .? "output-path"
-    psGenExprPrefix     <- fromMaybe "" <$> psGenObj .?? "expression-prefix"
-    psGenModulePrefix   <- fromMaybe "" <$> psGenObj .?? "module-prefix"
+    obj                   <- decodeJson j
+    name                  <- obj .? "name"
+    version               <- obj .? "version"
+    sourceDir             <- obj .? "source-dir"
+    artifactsDir          <- fromMaybe "build" <$> obj .?? "artifacts-dir"
+    modules               <- obj .? "modules"
+    dependencies          <- fromMaybe mempty <$> obj .?? "dependencies"
+    extraAbis             <- obj .?? "extra-abis"
+    libraries             <- fromMaybe mempty <$> obj .?? "libraries"
+    networks              <- fromMaybe mempty <$> obj .?? "networks"
+    solcOptimizerSettings <- obj .?? "solc-optimizer"
+    solcOutputSelection   <- fromMaybe mempty <$> obj .?? "solc-output-selection"
+    psGenObj              <- obj .? "purescript-generator"
+    psGenOutputPath       <- psGenObj .? "output-path"
+    psGenExprPrefix       <- fromMaybe "" <$> psGenObj .?? "expression-prefix"
+    psGenModulePrefix     <- fromMaybe "" <$> psGenObj .?? "module-prefix"
     let psGen = { exprPrefix: psGenExprPrefix, modulePrefix: psGenModulePrefix, outputPath: psGenOutputPath }
-    pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, modules, dependencies, extraAbis, libraries, networks, solcOutputSelection, psGen }
+    pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, modules, dependencies, extraAbis, libraries, networks, solcOptimizerSettings, solcOutputSelection, psGen }
 
 data ChanterelleProject =
      ChanterelleProject { root     :: FilePath -- ^ parent directory containing chanterelle.json
