@@ -4,6 +4,7 @@ import Prelude
 
 import Chanterelle.Internal.Utils.Json (decodeJsonAddress, decodeJsonHexString, encodeJsonAddress, encodeJsonHexString, gfWithDecoder)
 import Control.Alt ((<|>))
+import Control.Monad.Aff (Milliseconds)
 import Data.Argonaut (class EncodeJson, class DecodeJson, encodeJson, decodeJson, (:=), (~>), (.?), (.??), jsonEmptyObject)
 import Data.Array (elem, filter, null)
 import Data.Either (Either(..))
@@ -298,10 +299,11 @@ instance decodeJsonChanterelleProjectSpec :: DecodeJson ChanterelleProjectSpec w
     pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, modules, dependencies, extraAbis, libraries, networks, solcOptimizerSettings, solcOutputSelection, psGen }
 
 data ChanterelleProject =
-     ChanterelleProject { root     :: FilePath -- ^ parent directory containing chanterelle.json
-                        , srcIn    :: FilePath -- ^ hydrated/absolute path of src dir (root + spec.sourceDir)
-                        , jsonOut  :: FilePath -- ^ hydrated/absolute path of jsons dir
-                        , psOut    :: FilePath -- ^ hydrated/absolute path of psGen (root + spec.psGen.outputPath)
-                        , spec     :: ChanterelleProjectSpec -- ^ the contents of the chanterelle.json
-                        , modules  :: Array ChanterelleModule
+     ChanterelleProject { root        :: FilePath -- ^ parent directory containing chanterelle.json
+                        , srcIn       :: FilePath -- ^ hydrated/absolute path of src dir (root + spec.sourceDir)
+                        , jsonOut     :: FilePath -- ^ hydrated/absolute path of jsons dir
+                        , psOut       :: FilePath -- ^ hydrated/absolute path of psGen (root + spec.psGen.outputPath)
+                        , spec        :: ChanterelleProjectSpec -- ^ the contents of the chanterelle.json
+                        , modules     :: Array ChanterelleModule
+                        , specModTime :: Milliseconds -- ^ timestamp of the last time the chanterelle project spec (chanterelle.)json was modified
                         }

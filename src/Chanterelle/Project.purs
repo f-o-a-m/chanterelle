@@ -1,7 +1,9 @@
 module Chanterelle.Project (loadProject) where
 
 import Prelude
+
 import Chanterelle.Internal.Types.Project (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..))
+import Chanterelle.Internal.Utils.FS (fileModTime)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff.Exception (Error, error)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
@@ -25,7 +27,9 @@ loadProject
   => FilePath
   -> m ChanterelleProject
 loadProject root = do
-  specJson <- liftAff $ FS.readTextFile UTF8 (Path.concat [root, "chanterelle.json"])
+  let fullChanterelleJsonPath = (Path.concat [root, "chanterelle.json"])
+  specModTime <- fileModTime fullChanterelleJsonPath
+  specJson <- liftAff $ FS.readTextFile UTF8 fullChanterelleJsonPath
   spec@(ChanterelleProjectSpec project) <- either (throwError <<< error)
                                              pure (AP.jsonParser specJson >>= A.decodeJson)
   let jsonOut  = Path.concat [root, project.artifactsDir]
@@ -41,4 +45,4 @@ loadProject root = do
             pathModName = replaceAll (Pattern ".") (Replacement Path.sep) moduleName
             psModBase = replaceAll (Pattern ".") (Replacement Path.sep) project.psGen.modulePrefix
          in ChanterelleModule { moduleName, solContractName, solPath, jsonPath, pursPath }
-  pure $ ChanterelleProject { root, srcIn, jsonOut, psOut, spec, modules }
+  pure $ ChanterelleProject { root, srcIn, jsonOut, psOut, spec, modules, specModTime }

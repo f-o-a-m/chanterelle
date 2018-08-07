@@ -62,7 +62,7 @@ compile
 compile = do
   p@(ChanterelleProject project) <- ask
   let (ChanterelleProjectSpec spec) = project.spec
-  dirtyModules <- modulesToCompile project.modules
+  dirtyModules <- modulesToCompile
   solcInputs <- for dirtyModules $ \m@(ChanterelleModule mod) -> do
       input <- makeSolcInput mod.solContractName mod.solPath
       pure $ Tuple m input
@@ -76,17 +76,18 @@ modulesToCompile
   :: forall eff m.
      MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
   => MonadThrow CompileError m
-  => Array ChanterelleModule
-  -> m (Array ChanterelleModule)
-modulesToCompile modules = do
-  mModules <- for modules $ \m@(ChanterelleModule mod) -> do
+  => MonadAsk ChanterelleProject m
+  => m (Array ChanterelleModule)
+modulesToCompile = do
+  (ChanterelleProject project) <- ask
+  mModules <- for project.modules $ \m@(ChanterelleModule mod) -> do
     ejson <- liftAff $ attempt $ FS.readTextFile UTF8 mod.jsonPath
     case ejson of
       Left _ -> pure $ Just m
       Right json -> case hush (AP.jsonParser json) >>= \json' -> json' ^? A._Object <<< ix "compiledAt" <<< A._Number of
         Nothing -> log Debug ("Couldn't find 'compiledAt' timestamp for dirty file checking: " <> mod.jsonPath) *> pure (Just m)
         Just compiledAt -> do
-          eIsDirty <- liftAff <<< attempt $ fileIsDirty mod.solPath (Milliseconds compiledAt)
+          eIsDirty <- liftAff <<< attempt $ fileIsDirty mod.solPath (Milliseconds compiledAt) project.specModTime
           case eIsDirty of
             Left err -> throwError $ MissingArtifactError {fileName: mod.solPath, objectName: mod.solContractName}
             Right isDirty ->

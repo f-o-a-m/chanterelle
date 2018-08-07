@@ -1,8 +1,9 @@
 module Chanterelle.Internal.Utils.FS where
 
 import Prelude
-import Chanterelle.Internal.Types.Compile (CompileError(..))
+
 import Chanterelle.Internal.Logging (LogLevel(..), log)
+import Chanterelle.Internal.Types.Compile (CompileError(..))
 import Control.Monad.Aff (Milliseconds)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Eff.Class (liftEff)
@@ -33,12 +34,21 @@ assertDirectory dn = do
         then throwError $ FSError ("Path " <> dn <> " exists but is not a directory!")
         else log Debug ("path " <>  dn <> " exists and is a directory")
 
+fileModTime
+  :: forall eff m.
+     MonadAff (fs :: FS.FS | eff) m
+  => FilePath
+  -> m Milliseconds
+fileModTime filepath = do
+  unInstant <<< fromDateTime <<< Stats.modifiedTime <$> liftAff (FS.stat filepath)
+
 fileIsDirty
   :: forall eff m.
      MonadAff (fs :: FS.FS | eff) m
   => FilePath
   -> Milliseconds
+  -> Milliseconds
   -> m Boolean
-fileIsDirty filepath compiledAt = do
-  modifiedAt <- Stats.modifiedTime <$> liftAff (FS.stat filepath)
-  pure $ compiledAt < unInstant (fromDateTime modifiedAt)
+fileIsDirty filepath compiledAt chanterelleJsonModTime = do
+  modifiedAt <- fileModTime filepath
+  pure $ compiledAt < modifiedAt || compiledAt < chanterelleJsonModTime
