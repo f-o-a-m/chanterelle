@@ -3,6 +3,7 @@ module Chanterelle.Internal.Utils
   , module Web3
   , module Utils.FS
   , makeDeployConfig
+  , makeDeployConfigWithProvider
   , withTimeout
   , validateDeployArgs
   ) where
@@ -22,7 +23,7 @@ import Control.Parallel (parOneOf)
 import Data.Either (Either(..))
 import Data.Int (toNumber)
 import Data.Validation.Semigroup (unV)
-import Network.Ethereum.Web3 (ETH, runWeb3)
+import Network.Ethereum.Web3 (ETH, Provider, runWeb3)
 import Network.Ethereum.Web3.Api (net_version)
 
 makeDeployConfig
@@ -34,6 +35,16 @@ makeDeployConfig
   -> m DeployConfig
 makeDeployConfig url tout = do
   provider <- Web3.makeProvider url
+  makeDeployConfigWithProvider provider tout
+
+makeDeployConfigWithProvider 
+  :: forall eff m.
+     MonadAff (eth :: ETH, console :: CONSOLE | eff) m
+  => MonadThrow DeployError m
+  => Provider
+  -> Int
+  -> m DeployConfig
+makeDeployConfigWithProvider provider tout = do
   let timeout = Milliseconds (toNumber tout)
   econfig <- liftAff $ runWeb3 provider do
     primaryAccount <- Web3.getPrimaryAccount
