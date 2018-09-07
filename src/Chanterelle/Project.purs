@@ -4,10 +4,10 @@ import Prelude
 
 import Chanterelle.Internal.Types.Project (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..))
 import Chanterelle.Internal.Utils.FS (fileModTime)
-import Control.Monad.Aff (attempt, liftEff')
+import Control.Monad.Aff (attempt)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
-import Control.Monad.Eff.Exception (Error, throw)
-import Control.Monad.Error.Class (class MonadThrow)
+import Control.Monad.Eff.Exception (Error, error)
+import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
 import Data.Array (last)
@@ -29,14 +29,14 @@ loadProject
   -> m ChanterelleProject
 loadProject root = do
   let fullChanterelleJsonPath = (Path.concat [root, "chanterelle.json"])
-  specModTime <- liftAff do
-    especModTime <- attempt $ fileModTime fullChanterelleJsonPath
-    either (const $ liftEff' $ throw "Error reading chanterelle.json, make sure this file exists.") pure especModTime
-  spec@(ChanterelleProjectSpec project) <- liftAff do
+  specModTime <- do
+    especModTime <- liftAff <<< attempt $ fileModTime fullChanterelleJsonPath
+    either (const $ throwError $ error "Error reading chanterelle.json, make sure this file exists.") pure especModTime
+  spec@(ChanterelleProjectSpec project) <- do
     -- previous line would have errored if the file doesn't exist, so just need to check parsing.
     specJson <- liftAff $ FS.readTextFile UTF8 fullChanterelleJsonPath
     case AP.jsonParser specJson >>= A.decodeJson of
-      Left err -> liftEff' $ throw $ "Error parsing chanterelle.json: " <> err
+      Left err -> throwError $ error $ "Error parsing chanterelle.json: " <> err
       Right a -> pure a
   let jsonOut  = Path.concat [root, project.artifactsDir]
       psOut    = Path.concat [root, project.psGen.outputPath]
