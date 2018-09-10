@@ -2,7 +2,9 @@ module Chanterelle.Internal.Types.Deploy where
 
 import Prelude
 
-import Control.Monad.Aff (Aff, Fiber, Milliseconds, forkAff, liftEff', joinFiber)
+import Control.Alt (class Alt)
+import Control.Alternative (class Alternative)
+import Control.Monad.Aff (Aff, Fiber, Milliseconds, ParAff, forkAff, joinFiber, liftEff', parallel)
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff.Class (class MonadEff)
@@ -11,7 +13,10 @@ import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (class MonadAsk, ask)
+import Control.Parallel.Class (class Parallel, parallel, sequential)
+import Control.Plus (class Plus)
 import Data.Either (Either)
+import Data.Functor.Compose (Compose(..))
 import Data.Lens ((?~))
 import Data.Maybe (Maybe(..))
 import Data.Validation.Semigroup (V, invalid)
@@ -71,6 +76,25 @@ joinDeployM
           (Either DeployError a)
   -> DeployM eff (Either DeployError a)
 joinDeployM = liftAff <<< joinFiber
+
+newtype DeployMPar e a =
+  DeployMPar (ReaderT DeployConfig (Compose (ParAff (console :: CONSOLE, fs :: FS, eth :: ETH | e)) (Either DeployError)) a)
+
+derive newtype instance functorDeployMPar :: Functor (DeployMPar e)
+
+derive newtype instance applyDeployMPar :: Apply (DeployMPar e)
+
+derive newtype instance applicativeDeployMPar :: Applicative (DeployMPar e)
+
+instance monadParDeployM :: Parallel (DeployMPar e) (DeployM e) where
+  parallel (DeployM m) = DeployMPar (parallel m)
+  sequential (DeployMPar m) = DeployM (sequential m)
+
+derive newtype instance altParDeployM :: Alt (DeployMPar e)
+
+derive newtype instance plusParDeployM :: Plus (DeployMPar e)
+
+derive newtype instance alternativeParDeployM :: Alternative (DeployMPar e)
 
 --------------------------------------------------------------------------------
 -- | Error Types
