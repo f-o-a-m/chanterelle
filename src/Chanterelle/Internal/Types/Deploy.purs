@@ -33,14 +33,14 @@ import Node.Path (FilePath)
 
 -- | Monad Stack for contract deployment.
 newtype DeployM eff a =
-  DeployM (ExceptT DeployError (ReaderT DeployConfig (Aff (eth :: ETH, fs :: FS, console :: CONSOLE | eff))) a)
+  DeployM (ReaderT DeployConfig (ExceptT DeployError (Aff (eth :: ETH, fs :: FS, console :: CONSOLE | eff))) a)
 
 runDeployM
   :: forall eff a.
      DeployM eff a
   -> DeployConfig
   -> Aff (fs :: FS, console :: CONSOLE, eth :: ETH | eff) (Either DeployError a)
-runDeployM (DeployM deploy) r = flip runReaderT r $ runExceptT deploy
+runDeployM (DeployM deploy) = runExceptT <<< runReaderT deploy
 
 derive newtype instance functorDeployM :: Functor (DeployM eff)
 derive newtype instance applyDeployM :: Apply (DeployM eff)
@@ -78,7 +78,7 @@ joinDeployM
 joinDeployM = liftAff <<< joinFiber
 
 newtype DeployMPar e a =
-  DeployMPar (Compose (ReaderT DeployConfig (ParAff (console :: CONSOLE, fs :: FS, eth :: ETH | e))) (Either DeployError) a)
+  DeployMPar (ReaderT DeployConfig (Compose (ParAff (console :: CONSOLE, fs :: FS, eth :: ETH | e)) (Either DeployError)) a)
 
 derive newtype instance functorDeployMPar :: Functor (DeployMPar e)
 
