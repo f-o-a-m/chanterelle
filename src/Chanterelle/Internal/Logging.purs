@@ -18,11 +18,9 @@ import Chanterelle.Internal.Types.Genesis as Genesis
 import Chanterelle.Internal.Types.Project (Network(..))
 import Chanterelle.Internal.Utils.Time (now, toISOString)
 import Control.Logger as Logger
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Class (liftEff, class MonadEff)
-import Control.Monad.Eff.Console (CONSOLE)
-import Control.Monad.Eff.Console as Console
-import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
+import Effect (Effect)
+import Effect.Class (liftEffect, class MonadEffect)
+import Effect.Console as Console
 import Data.String (toUpper)
 import Data.Traversable (for_)
 import Data.Tuple (Tuple(..))
@@ -46,8 +44,8 @@ instance showLogLevel :: Show LogLevel where
     show Warn  = "WARN"
     show Error = "ERROR"
 
-foreign import getLogLevelWithDefault :: forall eff. LogLevel -> Eff eff LogLevel
-foreign import setLogLevel :: forall eff. LogLevel -> Eff eff Unit
+foreign import getLogLevelWithDefault :: LogLevel -> Effect LogLevel
+foreign import setLogLevel :: LogLevel -> Effect Unit
 
 readLogLevel
   :: String
@@ -65,13 +63,13 @@ class Loggable a where
   logify :: a -> String
 
 instance loggableString :: Loggable String where
-  logify = id
+  logify = identity
 
-fancyColorLogger :: forall eff m a
-                  . MonadEff eff m
+fancyColorLogger :: forall m a
+                  . MonadEffect m
                  => Loggable a
                  => Logger.Logger m { level :: LogLevel, msg :: a }
-fancyColorLogger = Logger.Logger $ \{ level, msg } -> liftEff <<< unsafeCoerceEff $ do
+fancyColorLogger = Logger.Logger $ \{ level, msg } -> liftEffect do
     iso <- toISOString <$> now
     Console.log $ colorize level (iso <> " [" <> show level <> "] " <> logify msg)
   where
@@ -82,18 +80,18 @@ fancyColorLogger = Logger.Logger $ \{ level, msg } -> liftEff <<< unsafeCoerceEf
       Warn  -> Yellow
       Error -> Red
 
-log :: forall eff m
-     . MonadEff eff m
+log :: forall m
+     . MonadEffect m
     => LogLevel
     -> String
     -> m Unit
 log level msg = do
-      currentLevel <- liftEff $ getLogLevelWithDefault Info
+      currentLevel <- liftEffect $ getLogLevelWithDefault Info
       when (level >= currentLevel) $
         Logger.log fancyColorLogger { level, msg }
 
-logCompileError :: forall eff m
-                 . MonadEff (console :: CONSOLE | eff) m
+logCompileError :: forall m
+                 . MonadEffect m
                 => Compile.CompileError
                 -> m Unit
 logCompileError = case _ of
@@ -107,11 +105,11 @@ logCompileError = case _ of
     parseErrorMessage msg = "Parse Error -- " <> "Object: " <> msg.objectName <>  ", Message: " <> msg.parseError
     artifactErrorMessage msg = "Missing Artifact -- " <> "FileName: " <> msg.fileName <> ", Object Name: " <> msg.objectName
 
-logDeployError :: forall eff m
-                . MonadEff (console :: CONSOLE | eff) m
+logDeployError :: forall m
+                . MonadEffect m
                => Deploy.DeployError
                -> m Unit
-logDeployError = liftEff <<< case _ of
+logDeployError = liftEffect <<< case _ of
     Deploy.ConfigurationError errMsg -> log Error errMsg
     Deploy.OnDeploymentError msg     -> log Error (onDeployMessage msg)
     Deploy.PostDeploymentError msg   -> log Error (postDeployMessage msg)
@@ -119,8 +117,8 @@ logDeployError = liftEff <<< case _ of
     onDeployMessage   msg = "Error During Deployment -- Name: " <> msg.name <> ", Message: " <> msg.message
     postDeployMessage msg = "Error After Deployment -- Name: " <> msg.name <> ", Message: " <> msg.message
 
-logGenesisGenerationError :: forall eff m
-                           . MonadEff (console :: CONSOLE | eff) m
+logGenesisGenerationError :: forall m
+                           . MonadEffect m
                           => Genesis.GenesisGenerationError
                           -> m Unit
 logGenesisGenerationError = case _ of

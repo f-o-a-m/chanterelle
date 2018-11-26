@@ -16,11 +16,11 @@ import Chanterelle.Internal.Utils.FS (assertDirectory, fileIsDirty)
 import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces)
 import Chanterelle.Internal.Utils.Time (now, toEpoch)
 import Control.Error.Util (hush)
-import Control.Monad.Aff (attempt)
-import Control.Monad.Aff.Class (class MonadAff, liftAff)
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Class (class MonadEff, liftEff)
-import Control.Monad.Eff.Exception (catchException)
+import Effect.Aff (attempt)
+import Effect.Aff.Class (class MonadAff, liftAff)
+import Effect (Effect)
+import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Exception (catchException)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Reader (class MonadAsk, ask)
 import Data.Argonaut (encodeJson)
@@ -32,7 +32,7 @@ import Data.Function.Uncurried (Fn2, runFn2)
 import Data.Lens ((^?))
 import Data.Lens.Index (ix)
 import Data.Maybe (Maybe(..), fromMaybe)
-import Data.StrMap as M
+import Foreign.Object as M
 import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (for, for_)
 import Data.Tuple (Tuple(..))
@@ -43,22 +43,21 @@ import Node.FS.Aff as FS
 import Node.FS.Sync as FSS
 import Node.Path (FilePath)
 import Node.Path as Path
-import Node.Process as P
 
 --------------------------------------------------------------------------------
 
 foreign import data SolcInputCallbackResult :: Type
 foreign import solcInputCallbackSuccess :: String -> SolcInputCallbackResult
 foreign import solcInputCallbackFailure :: String -> SolcInputCallbackResult
-foreign import _compile :: forall eff cbEff. Fn2 String (String -> Eff cbEff SolcInputCallbackResult) (Eff eff String)
+foreign import _compile :: Fn2 String (String -> Effect SolcInputCallbackResult) (Effect String)
 
 -- | compile and write the artifact
 compile
-  :: forall eff m.
-     MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
+  :: forall m.
+     MonadAff m
   => MonadThrow CompileError m
   => MonadAsk ChanterelleProject m
-  => m (M.StrMap (Tuple ChanterelleModule SolcOutput))
+  => m (M.Object (Tuple ChanterelleModule SolcOutput))
 compile = do
   p@(ChanterelleProject project) <- ask
   let (ChanterelleProjectSpec spec) = project.spec
@@ -73,8 +72,8 @@ compile = do
 -- NOTE: This is pretty ugly because there are many things that could go wrong,
 -- should probably fix.
 modulesToCompile
-  :: forall eff m.
-     MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
+  :: forall m.
+     MonadAff m
   => MonadThrow CompileError m
   => MonadAsk ChanterelleProject m
   => m (Array ChanterelleModule)
@@ -97,8 +96,8 @@ modulesToCompile = do
   pure $ catMaybes mModules
 
 compileModule
-  :: forall eff m.
-     MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
+  :: forall m.
+     MonadAff m
   => MonadThrow CompileError m
   => MonadAsk ChanterelleProject m
   => Tuple ChanterelleModule SolcInput
@@ -109,8 +108,8 @@ compileModule (Tuple m@(ChanterelleModule mod) solcInput) = do
   pure $ Tuple mod.moduleName (Tuple m output)
 
 compileModuleWithoutWriting
-  :: forall eff m.
-     MonadAff (fs :: FS.FS, process :: P.PROCESS | eff) m
+  :: forall m.
+     MonadAff m
   => MonadThrow CompileError m
   => MonadAsk ChanterelleProject m
   => ChanterelleModule
@@ -119,7 +118,7 @@ compileModuleWithoutWriting
 compileModuleWithoutWriting m@(ChanterelleModule mod) solcInput = do
   (ChanterelleProject project) <- ask
   log Info ("compiling " <> mod.moduleName)
-  output <- liftEff $ runFn2 _compile (A.stringify $ encodeJson solcInput) (loadSolcCallback project.root project.spec)
+  output <- liftEffect $ runFn2 _compile (A.stringify $ encodeJson solcInput) (loadSolcCallback project.root project.spec)
   case AP.jsonParser output >>= parseSolcOutput of
     Left err -> throwError $ CompileParseError {objectName: "Solc Output", parseError: err}
     Right output' -> pure output'
@@ -130,11 +129,10 @@ compileModuleWithoutWriting m@(ChanterelleModule mod) solcInput = do
 -- | TODO: be more clever about dependency resolution, that way we don't even have to do
 -- |       any remappings!
 loadSolcCallback
-  :: forall eff.
-     FilePath
+  :: FilePath
   -> ChanterelleProjectSpec
   -> String
-  -> Eff (fs :: FS.FS | eff) SolcInputCallbackResult
+  -> Effect SolcInputCallbackResult
 loadSolcCallback root (ChanterelleProjectSpec project) filePath = do
   let isAbs = Path.isAbsolute filePath
       fullPath = if isAbs
@@ -156,8 +154,8 @@ makeSolcContract  sourceCode =
 --------------------------------------------------------------------------------
 
 makeSolcInput
-  :: forall eff m.
-     MonadAff (fs :: FS.FS | eff) m
+  :: forall m.
+     MonadAff m
   => MonadAsk ChanterelleProject m
   => String
   -> FilePath
@@ -182,12 +180,12 @@ makeSolcInput moduleName sourcePath = do
 --------------------------------------------------------------------------------
 
 decodeContract
-  :: forall m eff.
-     MonadEff eff m
+  :: forall m.
+     MonadEffect m
   => MonadThrow CompileError m
   => String
   -> SolcOutput
-  -> m (M.StrMap OutputContract)
+  -> m (M.Object OutputContract)
 decodeContract srcName (SolcOutput output) = do
     let srcNameWithSol = srcName <> ".sol"
         warnings = filter (\(SolcError se) -> se.severity == "warning") output.errors
@@ -200,8 +198,8 @@ decodeContract srcName (SolcOutput output) = do
 
 
 writeBuildArtifact
-  :: forall eff m.
-     MonadAff (fs :: FS.FS | eff) m
+  :: forall m.
+     MonadAff m
   => MonadThrow CompileError m
   => String
   -> FilePath
@@ -212,16 +210,16 @@ writeBuildArtifact srcName filepath output solContractName = do
   co <- decodeContract srcName output
   co' <- resolveContractMainModule filepath co solContractName
   assertDirectory (Path.dirname filepath)
-  epochTime <- toEpoch <$> liftEff now
+  epochTime <- toEpoch <$> liftEffect now
   log Debug $ "Writing artifact " <> filepath
   liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract co' epochTime
 
 resolveContractMainModule
-  :: forall eff m.
-     MonadAff eff m
+  :: forall m.
+     MonadAff m
   => MonadThrow CompileError m
   => FilePath
-  -> M.StrMap OutputContract
+  -> M.Object OutputContract
   -> String
   -> m OutputContract
 resolveContractMainModule fileName decodedOutputs solContractName =

@@ -9,8 +9,7 @@ import Chanterelle.Internal.Types.Compile (CompileError(..))
 import Chanterelle.Internal.Types.Project (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..))
 import Chanterelle.Internal.Utils (assertDirectory)
 import Control.Error.Util (note)
-import Control.Monad.Aff.Class (class MonadAff, liftAff)
-import Control.Monad.Aff.Console (CONSOLE)
+import Effect.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Reader (class MonadAsk, ask)
 import Data.AbiParser (Abi(Abi), AbiDecodeError(..), AbiWithErrors) as PSWeb3Gen
@@ -30,8 +29,8 @@ import Node.FS.Aff as FS
 import Node.Path (FilePath)
 import Node.Path as Path
 
-generatePS :: forall eff m
-            . MonadAff (console :: CONSOLE, fs :: FS.FS | eff) m
+generatePS :: forall m
+            . MonadAff m
            => MonadThrow CompileError m
            => MonadAsk ChanterelleProject m
            => m Unit
@@ -78,8 +77,8 @@ projectPSArgs (ChanterelleProject project) =
       , modulePrefix: spec.psGen.modulePrefix
       }
 
-loadAbi :: forall eff m
-         . MonadAff (fs :: FS.FS | eff) m
+loadAbi :: forall m
+         . MonadAff m
         => MonadThrow CompileError m
         => ChanterelleProject
         -> FilePath

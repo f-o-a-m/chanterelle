@@ -7,20 +7,21 @@
     "output"
   ],
   "dependencies": {
-    "purescript-prelude": "^3.1.1",
-    "purescript-web3": "^0.25.0",
-    "purescript-web3-generator": "^0.24.0",
-    "purescript-console": "^3.0.0",
-    "purescript-errors": "^3.0.0",
-    "purescript-node-process": "^5.0.0",
-    "purescript-debug": "^3.0.0",
-    "purescript-mkdirp": "^0.3.0",
-    "purescript-logging": "^2.0.0",
-    "purescript-validation": "^3.2.0",
-    "purescript-random": "^3.0.0"
+    "purescript-prelude": "^4.0.0",
+    "purescript-web3": "f-o-a-m/purescript-web3#compiler/0.12",
+    "purescript-web3-generator": "f-o-a-m/purescript-web3-generator#compiler/0.12",
+    "purescript-console": "^4.0.0",
+    "purescript-errors": "^4.0.0",
+    "purescript-node-process": "^6.0.0",
+    "purescript-debug": "^4.0.0",
+    "purescript-mkdirp": "joshuahhh/purescript-mkdirp#48ecb4039d5fe3be82d0e82c3a9f2338d1af82d2",
+    "purescript-logging": "^3.0.0",
+    "purescript-validation": "^4.0.0",
+    "purescript-random": "^4.0.0",
+    "purescript-foreign-object": "^1.1.0"
   },
   "devDependencies": {
-    "purescript-psci-support": "^3.0.0",
-    "purescript-spec": "^2.0.0"
+    "purescript-psci-support": "^4.0.0",
+    "purescript-spec": "^3.0.0"
   }
 }

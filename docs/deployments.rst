@@ -26,7 +26,7 @@ The type ``Constructor args`` is a type synonym:
 
 .. code-block:: haskell
 
-   type Constructor args = forall eff. TransactionOptions NoPay -> HexString -> Record args -> Web3 eff HexString
+   type Constructor args = forall eff. TransactionOptions NoPay -> HexString -> Record args -> Web3 HexString
 
 In other words, ``Constructor args`` is the type a function taking in some ``TransactionOptions NoPay`` (constructors are not payable transactions), the deployment bytepurescriptcode, and a record of type ``Record args``. It will format the transaction and submit it via an ``eth_sendTransaction`` RPC call, returning the transaction hash as a ``HexString``.
 
@@ -74,7 +74,7 @@ In the PureScript module ``Contracts.SimpleStorage``, you will find a function
 
 .. code-block:: haskell
 
-   constructor :: forall e. TransactionOptions NoPay -> HexString -> {initialCount :: UIntN (D2 :& D5 :& DOne D6)} -> Web3 e HexString
+   constructor :: TransactionOptions NoPay -> HexString -> {initialCount :: UIntN (D2 :& D5 :& DOne D6)} -> Web3 HexString
 
 Blurring your eyes a little bit, it's easy to see that this indeed matches up to the constructor defined in the Solidity file. We could then define the deployment configuration for ``SimpleStorage`` as
 
@@ -122,7 +122,7 @@ Consider this example take from the parking-dao example project:
 
    type DeployResults = (foamCSR :: Address, simpleStorage :: Address, parkingAuthority :: Address)
 
-   deployScript :: forall eff. DeployM eff (Record DeployResults)
+   deployScript :: forall eff. DeployM (Record DeployResults)
    deployScript = do
      deployCfg@(DeployConfig {primaryAccount}) <- ask
      let bigGasLimit = unsafePartial fromJust $ parseBigNumber decimal "4712388"
@@ -155,15 +155,10 @@ methodically in a separate ``deploy/`` subproject. The latter is demonstrated be
    import Prelude
    
    import Chanterelle (deployMain)
-   import Control.Monad.Eff (Eff)
-   import Control.Monad.Eff.Console (CONSOLE)
-   import Control.Monad.Eff.Exception (EXCEPTION)
-   import Network.Ethereum.Web3 (ETH)
-   import Node.FS.Aff (FS)
-   import Node.Process (PROCESS)
-   import MyDeployScript (deployScript) as MyDeployScript
+   import Control.Monad.Eff (Effect)
+      import MyDeployScript (deployScript) as MyDeployScript
    
-   main :: forall e. Eff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS, exception :: EXCEPTION | e) Unit
+   main :: Eff Unit
    main = deployMain MyDeployScript.deployScript
 
 We can then invoke this script as follows:

@@ -12,38 +12,35 @@ import Chanterelle.Internal.Types (runDeployM) as Exports
 import Chanterelle.Internal.Types.Deploy ((??)) as Exports
 import Chanterelle.Internal.Types.Deploy (DeployM, runDeployM)
 import Chanterelle.Internal.Utils (makeDeployConfigWithProvider, makeProvider)
-import Control.Monad.Aff (launchAff, throwError)
-import Control.Monad.Aff.Console (CONSOLE)
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Exception (EXCEPTION, error, throw)
-import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
+import Effect.Aff (launchAff, throwError)
+import Effect (Effect)
+import Effect.Exception (error, throw)
 import Control.Monad.Except (runExceptT)
 import Data.Either (Either(..))
-import Network.Ethereum.Web3 (ETH, Provider)
-import Node.FS.Aff (FS)
+import Network.Ethereum.Web3 (Provider)
 
 -- | Run an arbitrary deployment script in the DeployM monad
 deploy
-  :: forall eff a.
+  :: forall a.
      String
   -> Int
-  -> DeployM eff a
-  -> Eff (console :: CONSOLE, eth :: ETH, fs :: FS, exception :: EXCEPTION | eff) Unit
-deploy url tout deployScript =
+  -> DeployM a
+  -> Effect Unit
+deploy url tout deployScript = 
   runExceptT (makeProvider url) >>= case _ of
     Left err -> do
       logDeployError err
       throw "DeployM error"
-    Right provider ->  unsafeCoerceEff $
+    Right provider -> do
       deployWithProvider provider tout deployScript
 
 -- | Run an arbitrary deployment script in the DeployM monad against a specified Provider
 deployWithProvider
-  :: forall eff a.
+  :: forall a.
      Provider
   -> Int
-  -> DeployM eff a
-  -> Eff (console :: CONSOLE, eth :: ETH, fs :: FS | eff) Unit
+  -> DeployM a
+  -> Effect Unit
 deployWithProvider provider tout deployScript = void <<< launchAff $ do
   edeployConfig <- runExceptT $ makeDeployConfigWithProvider provider tout
   case edeployConfig of

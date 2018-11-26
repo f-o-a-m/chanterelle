@@ -10,13 +10,6 @@ import Chanterelle.Internal.Utils.Lazy (firstSuccess)
 import Chanterelle.Internal.Utils.Web3 (resolveCodeForContract)
 import Chanterelle.Project (loadProject)
 import Control.Error.Util (note)
-import Control.Monad.Aff (launchAff)
-import Control.Monad.Aff.Class (class MonadAff, liftAff)
-import Control.Monad.Aff.Console (CONSOLE)
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Class (class MonadEff, liftEff)
-import Control.Monad.Eff.Exception (message)
-import Control.Monad.Eff.Random (RANDOM, randomRange)
 import Control.Monad.Error.Class (try, throwError)
 import Control.Monad.Except.Trans (ExceptT(..), except, runExceptT, withExceptT)
 import Control.Monad.State.Trans (execStateT, get, put)
@@ -27,15 +20,20 @@ import Data.Foldable (class Foldable, elem)
 import Data.Int (floor, toNumber)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String as S
+import Data.String.CodeUnits (fromCharArray, takeRight)
 import Data.Traversable (for, for_, sequence)
 import Data.Tuple (Tuple(..))
-import Network.Ethereum.Web3 (Address, ETH, HexString, embed, mkAddress, mkHexString, unAddress, unHex)
+import Effect (Effect)
+import Effect.Aff (launchAff)
+import Effect.Aff.Class (class MonadAff, liftAff)
+import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Exception (message)
+import Effect.Random (randomRange)
+import Network.Ethereum.Web3 (Address, HexString, embed, mkAddress, mkHexString, unAddress, unHex)
 import Node.Encoding (Encoding(UTF8))
-import Node.FS (FS)
 import Node.FS.Aff as FS
 import Node.Path (FilePath)
 import Node.Path as Path
-import Node.Process (PROCESS)
 import Node.Process as P
 import Prelude (class Functor, class Show, Unit, bind, discard, flip, otherwise, pure, show, unit, void, ($), (&&), (<$>), (<<<), (<=), (<>), (==), (>>=))
 
@@ -56,15 +54,13 @@ substituteLibraryAddress hsBytecode target = ret
           bytecode = unHex hsBytecode
 
           -- split at minBytecodeLength since we have to edit before that
-          bcsplit = case S.splitAt minBytecodeLength bytecode of
-                      Nothing -> { preamble: "", code: "" }
-                      Just s  -> { preamble: s.before, code: s.after }
+          bcsplit = let s = S.splitAt minBytecodeLength bytecode in { preamble: s.before, code: s.after }
 
           -- is the first instruction a PUSH20?
           firstByteIsPush20 = S.take 2 bcsplit.preamble == op_push20'
 
           -- are the last instructions in preamble ADDRESS; EQ?
-          preambleEndsInAddrEq = S.takeRight 4 bcsplit.preamble == (op_addr <> op_eq)
+          preambleEndsInAddrEq = takeRight 4 bcsplit.preamble == (op_addr <> op_eq)
 
           -- if yes to both then it's a library
           firstBytesAreLibPreamble = firstByteIsPush20 && preambleEndsInAddrEq
@@ -76,8 +72,8 @@ substituteLibraryAddress hsBytecode target = ret
               | otherwise                              = note "Couldn't make a valid HexString" $ mkHexString (newPreamble <> bcsplit.code)
 
 -- this might actually be useless in retrospect
-generateAddress :: forall eff m f
-                 . MonadEff (random :: RANDOM | eff) m
+generateAddress :: forall m f
+                 . MonadEffect m
                 => Foldable f
                 => f Address
                 -> m Address
@@ -94,14 +90,14 @@ generateAddress blacklist = do
                    else do
                      log Debug $ "Successfully generated address " <> show addr
                      pure addr
-  where randomHexDigit = toHex <<< floor <$> liftEff (randomRange (toNumber 0) (toNumber 16)) -- 0 inclusive, 16 exclusive, aka 0-F
+  where randomHexDigit = toHex <<< floor <$> liftEffect (randomRange (toNumber 0) (toNumber 16)) -- 0 inclusive, 16 exclusive, aka 0-F
         hexDigits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F']
-        randomAddress = S.fromCharArray <$> (sequence $ replicate 40 randomHexDigit)
+        randomAddress = fromCharArray <$> (sequence $ replicate 40 randomHexDigit)
         toHex n = fromMaybe '0' $ hexDigits !! n
         mkHexAddress s = mkHexString s >>= mkAddress
 
-generateGenesis :: forall eff m
-                 . MonadAff (fs :: FS, console :: CONSOLE, process :: PROCESS, eth :: ETH | eff) m
+generateGenesis :: forall m
+                 . MonadAff m
                 => ChanterelleProject
                 -> FilePath
                 -> m (Either GenesisGenerationError GenesisBlock)
@@ -176,9 +172,9 @@ generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExcep
             genTxt <- wrapLoadFailure (try $ FS.readTextFile UTF8 genesisIn)
             wrapLoadFailure (pure $ A.jsonParser genTxt >>= A.decodeJson)
 
-runGenesisGenerator :: forall e. FilePath -> FilePath -> Eff (console :: CONSOLE, fs :: FS, process :: PROCESS, eth :: ETH | e) Unit 
+runGenesisGenerator :: FilePath -> FilePath -> Effect Unit 
 runGenesisGenerator genesisIn genesisOut = do
-    root <- liftEff P.cwd
+    root <- liftEffect P.cwd
     void <<< launchAff $
       (try $ loadProject root) >>= case _ of
         Left err -> liftAff <<< logGenesisGenerationError $ MalformedProjectErrorG (message err)

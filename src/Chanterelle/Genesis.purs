@@ -7,31 +7,23 @@ import Chanterelle.Internal.Logging (LogLevel(..), log, logGenesisGenerationErro
 import Chanterelle.Internal.Types.Genesis (GenesisGenerationError(MalformedProjectErrorG))
 import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces)
 import Chanterelle.Project (loadProject)
-import Control.Monad.Aff (error, launchAff, throwError)
-import Control.Monad.Aff.Class (liftAff)
-import Control.Monad.Aff.Console (CONSOLE)
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Exception (EXCEPTION, message)
+import Effect.Aff (error, launchAff, throwError)
+import Effect.Aff.Class (liftAff)
+import Effect (Effect)
+import Effect.Class (liftEffect)
+import Effect.Exception (message)
 import Control.Monad.Error.Class (try)
 import Data.Argonaut as A
 import Data.Either (Either(..))
-import Network.Ethereum.Web3 (ETH)
 import Node.Encoding (Encoding(UTF8))
-import Node.FS (FS)
 import Node.FS.Aff as FS
 import Node.Path (FilePath)
-import Node.Process (PROCESS)
 import Node.Process as P
 import Prelude (Unit, bind, show, void, ($), (<<<), (<>), (>>=))
 
-runGenesisGenerator
-  :: forall e.
-     FilePath
-  -> FilePath
-  -> Eff (console :: CONSOLE, fs :: FS, process :: PROCESS, eth :: ETH, exception :: EXCEPTION | e) Unit
+runGenesisGenerator :: FilePath -> FilePath -> Effect Unit
 runGenesisGenerator genesisIn genesisOut = do
-    root <- liftEff P.cwd
+    root <- liftEffect P.cwd
     void <<< launchAff $
       (try $ loadProject root) >>= case _ of
         Left err -> liftAff $ do

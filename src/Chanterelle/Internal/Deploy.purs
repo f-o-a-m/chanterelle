@@ -10,10 +10,8 @@ import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types.Deploy (ContractConfig, DeployConfig(..), DeployError(..))
 import Chanterelle.Internal.Utils (jsonStringifyWithSpaces, pollTransactionReceipt, validateDeployArgs, withTimeout)
 import Control.Error.Util ((??))
-import Control.Monad.Aff (attempt)
-import Control.Monad.Aff.Class (class MonadAff, liftAff)
-import Control.Monad.Aff.Console (CONSOLE)
-import Control.Monad.Aff.Unsafe (unsafeCoerceAff)
+import Effect.Aff (attempt)
+import Effect.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Except (ExceptT(..), runExceptT)
 import Control.Monad.Reader.Class (class MonadAsk, ask)
@@ -23,12 +21,12 @@ import Data.Either (Either(..), either)
 import Data.Lens ((^?), (%~))
 import Data.Lens.Index (ix)
 import Data.Maybe (isNothing, fromJust)
-import Data.StrMap as M
+import Foreign.Object as M
 import Network.Ethereum.Core.HexString as HexString
 import Network.Ethereum.Web3 (runWeb3)
-import Network.Ethereum.Web3.Types (NoPay, ETH, Web3, Address, BigNumber, BlockNumber(..), HexString, TransactionOptions, TransactionReceipt(..), TransactionStatus(..), mkHexString, mkAddress)
+import Network.Ethereum.Web3.Types (NoPay, Web3, Address, BigNumber, BlockNumber(..), HexString, TransactionOptions, TransactionReceipt(..), TransactionStatus(..), mkHexString, mkAddress)
 import Node.Encoding (Encoding(UTF8))
-import Node.FS.Aff (FS, readTextFile, writeTextFile)
+import Node.FS.Aff (readTextFile, writeTextFile)
 import Node.Path (FilePath)
 import Partial.Unsafe (unsafePartial)
 
@@ -43,8 +41,8 @@ type DeployInfo =
 -- | Write update "networks" object in the solc artifact with a (NetworkId, Address) pair corresponding
 -- | to a deployment.
 writeDeployInfo
-  :: forall eff m.
-     MonadAff (fs :: FS | eff) m
+  :: forall m.
+     MonadAff m
   => FilePath
   -- filename of contract artifact
   -> String
@@ -65,9 +63,9 @@ writeDeployInfo filename nid {deployAddress, blockNumber, blockHash, transaction
 
 -- | Read the deployment address for a given network id from the solc artifact.
 readDeployAddress
-  :: forall eff m.
+  :: forall m.
      MonadThrow DeployError m
-  => MonadAff (fs :: FS | eff) m
+  => MonadAff m
   => FilePath
   -- ^ contract filepath
   -> BigNumber
@@ -85,9 +83,9 @@ readDeployAddress filepath nid = do
 -- | Poll a TransactionHash for the receipt of a deployment transaction, and throw an error in the event that the
 -- | transaction failed.
 getPublishedContractDeployInfo
-  :: forall eff m.
+  :: forall m.
      MonadThrow DeployError m
-  => MonadAff (console :: CONSOLE, eth :: ETH | eff) m
+  => MonadAff m
   => MonadAsk DeployConfig m
   => HexString
    -- ^ publishing transaction hash
@@ -118,10 +116,10 @@ getPublishedContractDeployInfo txHash name = do
 
 -- | Get the contract bytecode from the solc output corresponding to the contract config.
 getContractBytecode
-  :: forall eff m args.
+  :: forall m args.
      MonadThrow DeployError m
   => MonadAsk DeployConfig m
-  => MonadAff (fs :: FS | eff) m
+  => MonadAff m
   => ContractConfig args
   -> m HexString
 getContractBytecode cconfig@{filepath, name} = do
@@ -146,10 +144,10 @@ type DeployReceipt args =
 
 -- | Deploy a contract using its ContractConfig object.
 deployContract
-  :: forall eff args m.
+  :: forall args m.
      MonadThrow DeployError m
   => MonadAsk DeployConfig m
-  => MonadAff (console :: CONSOLE, eth :: ETH, fs :: FS | eff) m
+  => MonadAff m
   => TransactionOptions NoPay
   -> ContractConfig args
   -> m (DeployReceipt args)
@@ -163,21 +161,21 @@ deployContract txOptions ccfg@{filepath, name, constructor} = do
 
 -- | Helper function which deploys a contract and writes the new contract address to the solc artifact.
 deployContractAndWriteToArtifact
-  :: forall eff m.
+  :: forall m.
      MonadThrow DeployError m
   => MonadAsk DeployConfig m
-  => MonadAff (console :: CONSOLE , eth :: ETH, fs :: FS | eff) m
+  => MonadAff m
   => FilePath
   -- ^ artifact filepath
   -> String
   -- ^ contract name
-  -> Web3 eff HexString
+  -> Web3 HexString
   -- ^ deploy action returning txHash
   -> m {deployAddress :: Address, deployHash :: HexString}
 deployContractAndWriteToArtifact filepath name deployAction = do
   (DeployConfig { provider, networkId, primaryAccount, writeArtifacts }) <- ask
   log Info $ "Deploying contract " <> name
-  etxHash <- liftAff <<< unsafeCoerceAff $ runWeb3 provider deployAction
+  etxHash <- liftAff $ runWeb3 provider deployAction
   case etxHash of
     Left err ->
       let message = "Web3 error " <>  show err

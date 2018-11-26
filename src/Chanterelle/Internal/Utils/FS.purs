@@ -4,9 +4,9 @@ import Prelude
 
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types.Compile (CompileError(..))
-import Control.Monad.Aff (Milliseconds)
-import Control.Monad.Aff.Class (class MonadAff, liftAff)
-import Control.Monad.Eff.Class (liftEff)
+import Effect.Aff (Milliseconds)
+import Effect.Aff.Class (class MonadAff, liftAff)
+import Effect.Class (liftEffect)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Data.DateTime.Instant (fromDateTime, unInstant)
 import Node.FS.Aff as FS
@@ -19,15 +19,15 @@ unparsePath :: forall p. { dir :: String, name :: String, ext :: String | p} -> 
 unparsePath p = Path.concat [p.dir, p.name <> p.ext]
 
 assertDirectory
-  :: forall eff m.
-     MonadAff (fs :: FS.FS | eff) m
+  :: forall m.
+     MonadAff m
   => MonadThrow CompileError m
   => FilePath
   -> m Unit
 assertDirectory dn = do
   dnExists <- liftAff $ FS.exists dn
   if not dnExists
-    then log Debug ("creating directory " <> dn) *> (liftEff $ mkdirp dn)
+    then log Debug ("creating directory " <> dn) *> (liftEffect $ mkdirp dn)
     else do
       isDir <- liftAff (Stats.isDirectory <$> FS.stat dn)
       if not isDir
@@ -35,16 +35,16 @@ assertDirectory dn = do
         else log Debug ("path " <>  dn <> " exists and is a directory")
 
 fileModTime
-  :: forall eff m.
-     MonadAff (fs :: FS.FS | eff) m
+  :: forall m.
+     MonadAff m
   => FilePath
   -> m Milliseconds
 fileModTime filepath = do
   unInstant <<< fromDateTime <<< Stats.modifiedTime <$> liftAff (FS.stat filepath)
 
 fileIsDirty
-  :: forall eff m.
-     MonadAff (fs :: FS.FS | eff) m
+  :: forall m.
+     MonadAff m
   => FilePath
   -> Milliseconds
   -> Milliseconds

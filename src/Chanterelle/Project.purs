@@ -4,9 +4,9 @@ import Prelude
 
 import Chanterelle.Internal.Types.Project (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..))
 import Chanterelle.Internal.Utils.FS (fileModTime)
-import Control.Monad.Aff (attempt)
-import Control.Monad.Aff.Class (class MonadAff, liftAff)
-import Control.Monad.Eff.Exception (Error, error)
+import Effect.Aff (attempt)
+import Effect.Aff.Class (class MonadAff, liftAff)
+import Effect.Exception (Error, error)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
@@ -15,15 +15,14 @@ import Data.Either (Either(..), either)
 import Data.Maybe (fromJust)
 import Data.String (Pattern(..), Replacement(..), replaceAll, split)
 import Node.Encoding (Encoding(UTF8))
-import Node.FS (FS)
 import Node.FS.Aff as FS
 import Node.Path (FilePath)
 import Node.Path as Path
 import Partial.Unsafe (unsafePartialBecause)
 
 loadProject
-  :: forall eff m
-   . MonadAff (fs :: FS | eff) m
+  :: forall m
+   . MonadAff m
   => MonadThrow Error m
   => FilePath
   -> m ChanterelleProject

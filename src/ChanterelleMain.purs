@@ -10,27 +10,24 @@ import Chanterelle.Internal.Types (runCompileM)
 import Chanterelle.Internal.Types.Project (ChanterelleProject)
 import Chanterelle.Internal.Utils (jsonStringifyWithSpaces)
 import Chanterelle.Project (loadProject)
-import Control.Monad.Aff (Aff, launchAff_)
-import Control.Monad.Aff.Console (CONSOLE)
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Exception (EXCEPTION)
+import Effect.Aff (Aff, launchAff_)
+import Effect (Effect)
+import Effect.Class (liftEffect)
 import Control.Monad.Error.Class (try)
 import Data.Argonaut as A
 import Data.Array (uncons)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.String (toLower)
-import Network.Ethereum.Web3 (ETH)
 import Node.Encoding (Encoding(..))
-import Node.FS.Aff (FS, writeTextFile)
+import Node.FS.Aff (writeTextFile)
 import Node.Path (resolve)
-import Node.Process (PROCESS, cwd)
+import Node.Process (cwd)
 import Node.Yargs.Applicative (rest, runY, yarg)
 import Node.Yargs.Setup (defaultVersion, defaultHelp, example, usage)
 import Unsafe.Coerce (unsafeCoerce)
 
-main :: forall e. Eff (console :: CONSOLE, eth :: ETH, exception :: EXCEPTION, fs :: FS, process :: PROCESS | e) Unit
+main :: Effect Unit
 main = do
   ourCwd <- cwd
   let setup =  usage "chanterelle [-v <level>] ACTION"
@@ -41,8 +38,8 @@ main = do
       verbosityArg = yarg "verbosity" ["v"] (Just "The level of logging") (Left "info") false
       rootArg      = yarg "project-root" ["r"] (Just "Override the default project root") (Left ourCwd) false
       go level root actions = launchAff_ do
-        liftEff $ setLogLevel (readLogLevel level)
-        let resolvedRoot = resolve [ourCwd] root
+        liftEffect $ setLogLevel (readLogLevel level)
+        resolvedRoot <- liftEffect $ resolve [ourCwd] root
         projE <- try $ loadProject resolvedRoot
         case projE of
           Left err -> log Error ("Couldn't parse chanterelle.json: " <> show err)
@@ -52,7 +49,7 @@ main = do
 
 data RunnableAction = ClassicBuild | Compile | Codegen | Genesis | UnknownAction String
 
-runAction :: forall e. ChanterelleProject -> Array String -> Aff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS | e) Unit
+runAction :: ChanterelleProject -> Array String -> Aff Unit
 runAction project actions = do
   log Info "Loaded chanterelle.json successfully!"
   case uncons actions of
