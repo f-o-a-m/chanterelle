@@ -8,8 +8,8 @@
   ],
   "dependencies": {
     "purescript-prelude": "^4.0.0",
-    "purescript-web3": "f-o-a-m/purescript-web3#compiler/0.12",
-    "purescript-web3-generator": "f-o-a-m/purescript-web3-generator#compiler/0.12",
+    "purescript-web3": "^1.0.0",
+    "purescript-web3-generator": "^1.0.0",
     "purescript-console": "^4.0.0",
     "purescript-errors": "^4.0.0",
     "purescript-node-process": "^6.0.0",
