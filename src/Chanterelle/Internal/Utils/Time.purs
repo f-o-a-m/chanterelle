@@ -1,11 +1,11 @@
 module Chanterelle.Internal.Utils.Time where
 
-import Control.Monad.Eff (Eff)
+import Effect (Effect)
 import Data.Time.Duration (Milliseconds)
 
 foreign import data Time :: Type
 
-foreign import now :: forall eff. Eff eff Time
+foreign import now :: Effect Time
 
 foreign import toEpoch :: Time -> Milliseconds
 

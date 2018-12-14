@@ -5,22 +5,19 @@ import Chanterelle.Internal.Types.Project (ChanterelleProject, Library(..), Libr
 import Chanterelle.Internal.Utils.Json (encodeJsonAddress)
 import Data.Argonaut (class DecodeJson, class EncodeJson, (:=), (~>), (.?), (.??), decodeJson, encodeJson, jsonEmptyObject)
 import Data.Argonaut as A
-import Control.Monad.Aff (Aff, Milliseconds(..))
-import Control.Monad.Aff.Class (class MonadAff)
-import Control.Monad.Aff.Console (CONSOLE)
-import Control.Monad.Eff.Class (class MonadEff)
+import Effect.Aff (Aff, Milliseconds(..))
+import Effect.Aff.Class (class MonadAff)
+import Effect.Class (class MonadEffect)
 import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (class MonadAsk)
 import Data.Either (Either)
 import Data.Maybe (fromMaybe)
-import Data.StrMap (StrMap)
-import Data.StrMap as M
+import Foreign.Object (Object)
+import Foreign.Object as M
 import Data.Traversable (for, traverse)
 import Data.Tuple (Tuple(..))
-import Node.FS (FS)
-import Node.Process (PROCESS)
 import Network.Ethereum.Web3 (HexString, unHex)
 
 data CompileError = CompileParseError    { objectName :: String, parseError :: String }
@@ -35,32 +32,32 @@ data CompileError = CompileParseError    { objectName :: String, parseError :: S
 --------------------------------------------------------------------------------
 
 -- | Monad Stack for contract deployment.
-newtype CompileM eff a =
-  CompileM (ReaderT ChanterelleProject (ExceptT CompileError (Aff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff))) a)
+newtype CompileM a =
+  CompileM (ReaderT ChanterelleProject (ExceptT CompileError Aff) a)
 
 runCompileM
-  :: forall eff a.
-     CompileM eff a
+  :: forall a.
+     CompileM a
   -> ChanterelleProject
-  -> Aff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff) (Either CompileError a)
+  -> Aff (Either CompileError a)
 runCompileM (CompileM m) = runExceptT <<< runReaderT m
 
 runCompileMExceptT
-  :: forall eff a.
-     CompileM eff a
+  :: forall a.
+     CompileM a
   -> ChanterelleProject
-  -> ExceptT CompileError (Aff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff)) a
+  -> ExceptT CompileError Aff a
 runCompileMExceptT (CompileM m) = runReaderT m
 
-derive newtype instance functorCompileM     :: Functor (CompileM eff)
-derive newtype instance applyCompileM       :: Apply (CompileM eff)
-derive newtype instance applicativeCompileM :: Applicative (CompileM eff)
-derive newtype instance bindCompileM        :: Bind (CompileM eff)
-derive newtype instance monadCompileM       :: Monad (CompileM eff)
-derive newtype instance monadThrowCompileM  :: MonadThrow CompileError (CompileM eff)
-derive newtype instance monadAskCompileM    :: MonadAsk ChanterelleProject (CompileM eff)
-derive newtype instance monadEffCompileM    :: MonadEff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff) (CompileM eff)
-derive newtype instance monadAffCompileM    :: MonadAff (fs :: FS, console :: CONSOLE, process :: PROCESS | eff) (CompileM eff)
+derive newtype instance functorCompileM     :: Functor CompileM
+derive newtype instance applyCompileM       :: Apply CompileM
+derive newtype instance applicativeCompileM :: Applicative CompileM
+derive newtype instance bindCompileM        :: Bind CompileM
+derive newtype instance monadCompileM       :: Monad CompileM
+derive newtype instance monadThrowCompileM  :: MonadThrow CompileError CompileM
+derive newtype instance monadAskCompileM    :: MonadAsk ChanterelleProject CompileM
+derive newtype instance monadEffCompileM    :: MonadEffect CompileM
+derive newtype instance monadAffCompileM    :: MonadAff CompileM
 
 --------------------------------------------------------------------------------
 -- | Solc Types and Codecs
@@ -72,7 +69,7 @@ derive newtype instance monadAffCompileM    :: MonadAff (fs :: FS, console :: CO
 
 newtype SolcInput =
   SolcInput { language :: String
-            , sources  :: StrMap SolcContract
+            , sources  :: Object SolcContract
             , settings :: SolcSettings
             }
 instance encodeSolcInput :: EncodeJson SolcInput where
@@ -87,9 +84,9 @@ instance encodeSolcInput :: EncodeJson SolcInput where
 type ContractName = String
 
 newtype SolcSettings =
-  SolcSettings { outputSelection :: StrMap (StrMap (Array String))
+  SolcSettings { outputSelection :: Object (Object (Array String))
                , remappings      :: Array String
-               , libraries       :: StrMap Libraries
+               , libraries       :: Object Libraries
                , optimizer       :: SolcOptimizerSettings
                }
 
@@ -149,7 +146,7 @@ instance decodeSolcError :: DecodeJson SolcError where
 
 -- This is the artifact we want, compatible with truffle (subset)
 newtype OutputContract =
-  OutputContract { abi :: A.JArray
+  OutputContract { abi :: Array A.Json
                  , bytecode :: String
                  , deployedBytecode :: String
                  }
@@ -181,7 +178,7 @@ encodeOutputContract (OutputContract {abi, bytecode}) (Milliseconds ts) =
 
 newtype SolcOutput =
   SolcOutput { errors    :: Array SolcError
-             , contracts :: StrMap (StrMap OutputContract)
+             , contracts :: Object (Object OutputContract)
              }
 
 parseSolcOutput

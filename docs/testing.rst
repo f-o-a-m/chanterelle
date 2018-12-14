@@ -24,8 +24,8 @@ There are various testing utility functions in ``Chanterelle.Test``, probably th
   buildTestConfig
     :: String
     -> Int
-    -> DeployM eff (Record r)
-    -> Aff (console :: CONSOLE, eth :: ETH, fs :: FS | eff) (TestConfig r)
+    -> DeployM (Record r)
+    -> Aff (TestConfig r)
 
 This function takes in some test configuration options and a deploy script, and outputs a record containing all of the unlocked accounts on the test node, a connection to the node, and whatever the output of your deployment script is. This output is then meant to be threaded through as an environment to the rest of your test suites.
 
@@ -39,14 +39,9 @@ Here's an example test suite for our ``SimpleStorage`` contract:
 .. code-block:: haskell
 
   simpleStorageSpec
-    :: forall e r.
+    :: forall r.
        TestConfig (simpleStorage :: Address | r)
-    -> Spec ( fs :: FS
-            , eth :: ETH
-            , avar :: AVAR
-            , console :: CONSOLE
-            | e
-            ) Unit
+    -> Spec Unit
   simpleStorageSpec {provider, accounts, simpleStorage} = do
 
     describe "Setting the value of a SimpleStorage Contract" do

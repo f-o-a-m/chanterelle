@@ -9,21 +9,14 @@ import Chanterelle.Compile (compileProject)
 import Chanterelle.Deploy (deploy)
 import Chanterelle.Internal.Logging (setLogLevel, readLogLevel)
 import Chanterelle.Internal.Types.Deploy (DeployM)
-import Control.Monad.Aff.Console (CONSOLE)
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Exception (EXCEPTION)
-import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
+import Effect (Effect)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
-import Network.Ethereum.Web3 (ETH)
-import Node.FS.Aff (FS)
-import Node.Process (PROCESS)
 import Node.Yargs.Applicative (yarg, runY)
 import Node.Yargs.Setup (usage, defaultVersion, defaultHelp, example)
 
 compileMain
-  :: forall eff.
-     Eff (console :: CONSOLE, fs :: FS, process :: PROCESS, exception :: EXCEPTION| eff) Unit
+  :: Effect Unit
 compileMain =
     let setup = usage "$0 --log-level <level>"
              <> example "$0 --log-level debug" "Run the compile phase with the given log level."
@@ -36,9 +29,9 @@ compileMain =
       compileProject
 
 deployMain
-  :: forall eff a.
-     DeployM eff a
-  -> Eff (console :: CONSOLE, fs :: FS, eth :: ETH, exception :: EXCEPTION | eff) Unit
+  :: forall a.
+     DeployM a
+  -> Effect Unit
 deployMain deployScript =
     let setup = usage "$0 --log-level <level> --node-url <url> --timeout <seconds>"
              <> example "$0 --log-level debug" "Run the deployment script with the given log level, node url, and timeout"
@@ -48,6 +41,6 @@ deployMain deployScript =
                        <*> yarg "node-url" [] Nothing (Left "http://localhost:8545") false
                        <*> yarg "timeout" [] Nothing (Left 60) false
   where
-    go level nodeUrl timeout = unsafeCoerceEff $ do
+    go level nodeUrl timeout = do
       setLogLevel $ readLogLevel level
       deploy nodeUrl timeout deployScript

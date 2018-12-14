@@ -8,8 +8,8 @@ import Chanterelle.Internal.Utils.Json
 import Data.Argonaut (class DecodeJson, class EncodeJson, (:=), (~>), (.?), (.??), decodeJson, encodeJson, jsonEmptyObject)
 import Data.Array (catMaybes)
 import Data.Maybe (Maybe, maybe)
-import Data.StrMap (StrMap)
-import Data.StrMap as M
+import Foreign.Object (Object)
+import Foreign.Object as M
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
 import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber, HexString, mkHexString, unAddress, unHex)
@@ -82,10 +82,10 @@ instance encodeJsonCliqueSettings :: EncodeJson CliqueSettings where
       ~> jsonEmptyObject
 
 newtype GenesisAlloc = GenesisAlloc { code    :: Maybe HexString
-                                    , storage :: Maybe (StrMap String) -- this is a StrMap String to simplify parsing
+                                    , storage :: Maybe (Object String) -- this is a Object String to simplify parsing
                                     , balance :: BigNumber
                                     }
-newtype GenesisAllocs = GenesisAllocs (StrMap GenesisAlloc)
+newtype GenesisAllocs = GenesisAllocs (Object GenesisAlloc)
 
 lookupGenesisAllocs :: Address -> GenesisAllocs -> Maybe GenesisAlloc
 lookupGenesisAllocs addr (GenesisAllocs allocs) =  M.lookup (show addr) allocs 

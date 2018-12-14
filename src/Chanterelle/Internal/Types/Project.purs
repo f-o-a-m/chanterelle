@@ -4,13 +4,12 @@ import Prelude
 
 import Chanterelle.Internal.Utils.Json (decodeJsonAddress, decodeJsonHexString, encodeJsonAddress, encodeJsonHexString, gfWithDecoder)
 import Control.Alt ((<|>))
-import Control.Monad.Aff (Milliseconds)
+import Effect.Aff (Milliseconds)
 import Data.Argonaut (class EncodeJson, class DecodeJson, encodeJson, decodeJson, (:=), (~>), (.?), (.??), jsonEmptyObject)
 import Data.Array (elem, filter, null)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe, fromMaybe)
-import Data.Monoid (class Monoid, mempty)
-import Data.StrMap as M
+import Foreign.Object as M
 import Data.String (Pattern(..), joinWith, split)
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))

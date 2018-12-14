@@ -4,27 +4,25 @@ import Prelude
 
 import Control.Alt (class Alt)
 import Control.Alternative (class Alternative)
-import Control.Monad.Aff (Aff, Fiber, Milliseconds, ParAff, forkAff, joinFiber, liftEff', parallel)
-import Control.Monad.Aff.Class (class MonadAff, liftAff)
-import Control.Monad.Aff.Console (CONSOLE)
-import Control.Monad.Eff.Class (class MonadEff)
-import Control.Monad.Eff.Exception (Error, throwException)
 import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (class MonadAsk, ask)
-import Control.Parallel.Class (class Parallel, parallel, sequential)
+import Control.Parallel.Class (class Parallel, sequential)
 import Control.Plus (class Plus)
 import Data.Either (Either)
-import Data.Functor.Compose (Compose(..))
+import Data.Functor.Compose (Compose)
 import Data.Lens ((?~))
 import Data.Maybe (Maybe(..))
 import Data.Validation.Semigroup (V, invalid)
-import Network.Ethereum.Web3 (Address, ETH, HexString, TransactionOptions, Web3, _data, _value, fromMinorUnit)
+import Effect.Aff (Aff, Fiber, Milliseconds, ParAff, forkAff, joinFiber, parallel)
+import Effect.Aff.Class (class MonadAff, liftAff)
+import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Exception (Error, throwException)
+import Network.Ethereum.Web3 (Address, HexString, TransactionOptions, Web3, _data, _value, fromMinorUnit)
 import Network.Ethereum.Web3.Api (eth_sendTransaction)
 import Network.Ethereum.Web3.Types (NoPay)
 import Network.Ethereum.Web3.Types.Provider (Provider)
-import Node.FS (FS)
 import Node.Path (FilePath)
 
 --------------------------------------------------------------------------------
@@ -32,69 +30,58 @@ import Node.Path (FilePath)
 --------------------------------------------------------------------------------
 
 -- | Monad Stack for contract deployment.
-newtype DeployM eff a =
-  DeployM (ReaderT DeployConfig (ExceptT DeployError (Aff (eth :: ETH, fs :: FS, console :: CONSOLE | eff))) a)
+newtype DeployM a =
+  DeployM (ReaderT DeployConfig (ExceptT DeployError Aff) a)
 
 runDeployM
-  :: forall eff a.
-     DeployM eff a
+  :: forall a.
+     DeployM a
   -> DeployConfig
-  -> Aff (fs :: FS, console :: CONSOLE, eth :: ETH | eff) (Either DeployError a)
+  -> Aff (Either DeployError a)
 runDeployM (DeployM deploy) = runExceptT <<< runReaderT deploy
 
-derive newtype instance functorDeployM :: Functor (DeployM eff)
-derive newtype instance applyDeployM :: Apply (DeployM eff)
-derive newtype instance applicativeDeployM :: Applicative (DeployM eff)
-derive newtype instance bindDeployM :: Bind (DeployM eff)
-derive newtype instance monadDeployM :: Monad (DeployM eff)
-derive newtype instance monadAskDeployM :: MonadAsk DeployConfig (DeployM eff)
-derive newtype instance monadThrowDeployM :: MonadThrow DeployError (DeployM eff)
-derive newtype instance monadEffDeployM :: MonadEff (eth :: ETH, fs :: FS, console :: CONSOLE | eff) (DeployM eff)
-derive newtype instance monadAffDeployM :: MonadAff (eth :: ETH, fs :: FS, console :: CONSOLE | eff) (DeployM eff)
+derive newtype instance functorDeployM :: Functor DeployM
+derive newtype instance applyDeployM :: Apply DeployM
+derive newtype instance applicativeDeployM :: Applicative DeployM
+derive newtype instance bindDeployM :: Bind DeployM
+derive newtype instance monadDeployM :: Monad DeployM
+derive newtype instance monadAskDeployM :: MonadAsk DeployConfig DeployM
+derive newtype instance monadThrowDeployM :: MonadThrow DeployError DeployM
+derive newtype instance monadEffDeployM :: MonadEffect DeployM
+derive newtype instance monadAffDeployM :: MonadAff DeployM
 
 -- | Fork a DeployM to run concurrently, returning the fiber that was created
 forkDeployM
-  :: forall eff a.
-     DeployM eff a
-  -> DeployM eff ( Fiber ( eth     :: ETH
-                         , fs      :: FS
-                         , console :: CONSOLE
-                         | eff
-                         )
-                         (Either DeployError a)
-                 )
+  :: forall a.
+     DeployM a
+  -> DeployM (Fiber (Either DeployError a))
 forkDeployM m =
   ask >>= (liftAff <<< forkAff <<< runDeployM m)
 
 joinDeployM
-  :: forall eff a.
-    Fiber ( eth     :: ETH
-          , fs      :: FS
-          , console :: CONSOLE
-          | eff
-          )
-          (Either DeployError a)
-  -> DeployM eff (Either DeployError a)
+  :: forall a.
+    Fiber (Either DeployError a)
+  -> DeployM (Either DeployError a)
 joinDeployM = liftAff <<< joinFiber
 
-newtype DeployMPar e a =
-  DeployMPar (ReaderT DeployConfig (Compose (ParAff (console :: CONSOLE, fs :: FS, eth :: ETH | e)) (Either DeployError)) a)
+newtype DeployMPar a =
+  DeployMPar (ReaderT DeployConfig (Compose ParAff (Either DeployError)) a)
 
-derive newtype instance functorDeployMPar :: Functor (DeployMPar e)
+derive newtype instance functorDeployMPar :: Functor DeployMPar
 
-derive newtype instance applyDeployMPar :: Apply (DeployMPar e)
+derive newtype instance applyDeployMPar :: Apply DeployMPar
 
-derive newtype instance applicativeDeployMPar :: Applicative (DeployMPar e)
+derive newtype instance applicativeDeployMPar :: Applicative DeployMPar
 
-instance monadParDeployM :: Parallel (DeployMPar e) (DeployM e) where
+instance monadParDeployM :: Parallel DeployMPar DeployM where
   parallel (DeployM m) = DeployMPar (parallel m)
   sequential (DeployMPar m) = DeployM (sequential m)
 
-derive newtype instance altParDeployM :: Alt (DeployMPar e)
+derive newtype instance altParDeployM :: Alt DeployMPar
 
-derive newtype instance plusParDeployM :: Plus (DeployMPar e)
+derive newtype instance plusParDeployM :: Plus DeployMPar
 
-derive newtype instance alternativeParDeployM :: Alternative (DeployMPar e)
+derive newtype instance alternativeParDeployM :: Alternative DeployMPar
 
 --------------------------------------------------------------------------------
 -- | Error Types
@@ -105,10 +92,10 @@ data DeployError = ConfigurationError String
                  | PostDeploymentError {name :: String, message :: String}
 
 -- | Throw an `Error` Exception inside DeployM.
-throwDeploy :: forall eff a
+throwDeploy :: forall a
              . Error
-            -> DeployM eff a
-throwDeploy = liftAff <<< liftEff' <<< throwException
+            -> DeployM a
+throwDeploy = liftEffect <<< throwException
 
 --------------------------------------------------------------------------------
 -- | Config Types
@@ -126,8 +113,7 @@ newtype DeployConfig =
 -- | Contract Config
 
 -- | Represents a contract constructor with input type `args`.
-type Constructor args =
-  forall eff. TransactionOptions NoPay -> HexString -> Record args -> Web3 eff HexString
+type Constructor args = TransactionOptions NoPay -> HexString -> Record args -> Web3 HexString
 
 -- | Type alias for the empty args
 type NoArgs = ()
