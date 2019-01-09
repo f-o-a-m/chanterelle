@@ -4,7 +4,7 @@ module Chanterelle.Genesis
 
 import Chanterelle.Internal.Genesis (generateGenesis)
 import Chanterelle.Internal.Logging (LogLevel(..), log, logGenesisGenerationError)
-import Chanterelle.Internal.Types.Genesis (GenesisGenerationError(MalformedProjectErrorG))
+import Chanterelle.Internal.Types.Genesis (GenesisGenerationError(MalformedProjectErrorG, NothingToDo))
 import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces)
 import Chanterelle.Project (loadProject)
 import Effect.Aff (error, launchAff, throwError)
@@ -19,7 +19,7 @@ import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
 import Node.Path (FilePath)
 import Node.Process as P
-import Prelude (Unit, bind, show, void, ($), (<<<), (<>), (>>=))
+import Prelude (Unit, bind, show, void, ($), (<<<), (<>), (>>=), pure, unit)
 
 runGenesisGenerator :: FilePath -> FilePath -> Effect Unit
 runGenesisGenerator genesisIn genesisOut = do
@@ -38,6 +38,9 @@ runGenesisGenerator genesisIn genesisOut = do
                       _ <- log Error $ "Couldn't write genesis block to " <> show genesisOut <> ": " <> show err
                       throwError $ error "WriteGenesis Error"
                     Right _  -> log Info $ "Successfully wrote generated genesis block to " <> show genesisOut
+            Left (NothingToDo str) -> do
+              _ <- log Info $ "Nothing for genesis generator to do : " <> str
+              pure unit
             Left err -> do
               _ <- logGenesisGenerationError err
               throwError $ error "GenerateGenesis Error"
