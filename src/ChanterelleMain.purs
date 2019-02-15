@@ -95,7 +95,7 @@ commonOpts cwd' = map CommonOpts $ {optVerbosity:_, rootPath:_}
 
 pinfo :: DirPath -> ParserInfo ArgsCLI
 pinfo cwd' = info (parser cwd' <**> (lift2 (>>>) version helper))
-  ( progDesc "An example modelled on cabal" )
+  ( progDesc "A more functional truffle" )
 
 main :: Effect Unit
 main = launchAff_ do
