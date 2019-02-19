@@ -9,11 +9,13 @@ import Control.Apply (lift2)
 import Control.Monad.Error.Class (try)
 import Control.Monad.Except (ExceptT(..), runExceptT)
 import Data.Either (Either(..))
+import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Class (liftEffect)
 import Node.Process (cwd)
-import Options.Applicative (Parser, ParserInfo, argument, command, customExecParser, help, helper, hsubparser, info, infoOption, int, long, metavar, option, prefs, progDesc, short, showHelpOnEmpty, str, strOption, value, (<**>))
+import Options.Applicative (Parser, ParserInfo, argument, command, customExecParser, help, helpDoc, helper, hsubparser, info, infoOption, int, long, metavar, option, prefs, progDesc, short, showHelpOnEmpty, str, strOption, value, (<**>))
+import Text.PrettyPrint.Leijen (indent, text, (</>))
 
 version :: forall a. Parser (a -> a)
 version = infoOption "0.0.0"
@@ -73,7 +75,7 @@ deployParser = ado
            <> help "timeout in seconds")
   script <- SelectCLI <$> argument str
             ( metavar "FILE"
-           <> help "path to compiled output of a module with signature :: { deploy :: DeployM Unit }")
+           <> helpDoc (Just $ text "path to compiled output of a module with signature: " </> indent 2 (text "{ deploy :: DeployM Unit }")))
   in DeployOptions {nodeURL, timeout, script}
 
 
