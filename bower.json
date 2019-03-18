@@ -14,6 +14,7 @@
     "purescript-errors": "^4.0.0",
     "purescript-node-process": "^6.0.0",
     "purescript-debug": "^4.0.0",
+    "purescript-optparse": "f-o-a-m/purescript-optparse#v0.1.0",
     "purescript-mkdirp": "joshuahhh/purescript-mkdirp#48ecb4039d5fe3be82d0e82c3a9f2338d1af82d2",
     "purescript-logging": "^3.0.0",
     "purescript-validation": "^4.0.0",
