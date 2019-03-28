@@ -168,7 +168,7 @@ makeSolcInput moduleName sourcePath = do
       sources = M.singleton (moduleName <> ".sol") (makeSolcContract code)
       outputSelection = M.singleton "*" (M.singleton "*" (["abi", "evm.deployedBytecode.object", "evm.bytecode.object"] <> spec.solcOutputSelection))
       depMappings = (\(Dependency dep) -> dep <> "=" <> (project.root <> "/node_modules/" <> dep)) <$> spec.dependencies
-      sourceDirMapping = [":g" <> (Path.concat [project.root, spec.sourceDir])]
+      sourceDirMapping = [":g=" <> (Path.concat [project.root, spec.sourceDir])]
       remappings = sourceDirMapping <> depMappings
       optimizer = fromMaybe defaultSolcOptimizerSettings spec.solcOptimizerSettings
       settings = SolcSettings { outputSelection, remappings, libraries, optimizer }
