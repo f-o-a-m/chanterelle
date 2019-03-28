@@ -115,6 +115,9 @@ logDeployError = liftEff <<< case _ of
     Deploy.ConfigurationError errMsg -> log Error errMsg
     Deploy.OnDeploymentError msg     -> log Error (onDeployMessage msg)
     Deploy.PostDeploymentError msg   -> log Error (postDeployMessage msg)
+    Deploy.DeployingUnlinkedBytecodeError msg -> log Error (msg.name <> " has unlinked references to libraries")
+    Deploy.LinkingLinkedBytecodeError msg -> log Error ("Attempted to link library " <> msg.libraryName <> " to " <> msg.name <> ", which is already fully linked...")
+    Deploy.LinkingError msg -> log Error ("Linking error: " <> msg)
   where
     onDeployMessage   msg = "Error During Deployment -- Name: " <> msg.name <> ", Message: " <> msg.message
     postDeployMessage msg = "Error After Deployment -- Name: " <> msg.name <> ", Message: " <> msg.message

@@ -51,4 +51,5 @@ fileIsDirty
   -> m Boolean
 fileIsDirty filepath compiledAt chanterelleJsonModTime = do
   modifiedAt <- fileModTime filepath
+  log Debug ("fileIsDirty => modifiedAt: " <> show modifiedAt <> ", compiledAt: " <> show compiledAt <> ", chanterelleJsonModTime: " <> show chanterelleJsonModTime)
   pure $ compiledAt < modifiedAt || compiledAt < chanterelleJsonModTime

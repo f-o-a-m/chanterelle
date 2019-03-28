@@ -7,11 +7,10 @@ module Chanterelle.Internal.Compile
   , module CompileReexports
   ) where
 
-import Prelude (Unit, bind, discard, map, not, pure, show, ($), (*>), (<$>), (<<<), (<>), (==), (>>=))
 import Chanterelle.Internal.Logging (LogLevel(..), log)
+import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract(..), SolcContract(..), SolcError(..), SolcInput(..), SolcOutput(..), SolcSettings(..), parseSolcOutputContract) as CompileReexports
 import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract, SolcContract(..), SolcError(..), SolcInput(..), SolcOutput(..), SolcSettings(..), encodeOutputContract, parseSolcOutput)
-import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract(..), SolcContract(..), SolcError(..), SolcInput(..), SolcOutput(..), SolcSettings(..), parseOutputContract) as CompileReexports
-import Chanterelle.Internal.Types.Project (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..), Dependency(..), defaultSolcOptimizerSettings)
+import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), Dependency(..), defaultSolcOptimizerSettings)
 import Chanterelle.Internal.Utils.FS (assertDirectory, fileIsDirty)
 import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces)
 import Chanterelle.Internal.Utils.Time (now, toEpoch)
@@ -44,6 +43,7 @@ import Node.FS.Sync as FSS
 import Node.Path (FilePath)
 import Node.Path as Path
 import Node.Process as P
+import Prelude (Unit, bind, discard, map, not, pure, show, ($), (*>), (<$>), (<<<), (<>), (==), (>>=))
 
 --------------------------------------------------------------------------------
 
@@ -80,7 +80,7 @@ modulesToCompile
   => m (Array ChanterelleModule)
 modulesToCompile = do
   (ChanterelleProject project) <- ask
-  mModules <- for project.modules $ \m@(ChanterelleModule mod) -> do
+  mModules <- for (project.modules <> project.libModules) $ \m@(ChanterelleModule mod) -> do
     ejson <- liftAff $ attempt $ FS.readTextFile UTF8 mod.jsonPath
     case ejson of
       Left _ -> pure $ Just m
@@ -168,13 +168,13 @@ makeSolcInput moduleName sourcePath = do
   code <- liftAff $ FS.readTextFile UTF8 sourcePath
   let language = "Solidity"
       sources = M.singleton (moduleName <> ".sol") (makeSolcContract code)
-      outputSelection = M.singleton "*" (M.singleton "*" (["abi", "evm.deployedBytecode.object", "evm.bytecode.object"] <> spec.solcOutputSelection))
+      outputSelection = M.singleton "*" (M.singleton "*" (["abi", "evm.deployedBytecode", "evm.bytecode"] <> spec.solcOutputSelection))
       depMappings = (\(Dependency dep) -> dep <> "=" <> (project.root <> "/node_modules/" <> dep)) <$> spec.dependencies
       sourceDirMapping = [":g" <> (Path.concat [project.root, spec.sourceDir])]
       remappings = sourceDirMapping <> depMappings
       optimizer = fromMaybe defaultSolcOptimizerSettings spec.solcOptimizerSettings
       settings = SolcSettings { outputSelection, remappings, libraries, optimizer }
-      libraries = M.singleton (moduleName <> ".sol") spec.libraries
+      libraries = M.empty --M.singleton (moduleName <> ".sol") spec.libraries
   pure $ SolcInput { language, sources, settings }
 
 --------------------------------------------------------------------------------

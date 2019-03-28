@@ -103,6 +103,9 @@ derive newtype instance alternativeParDeployM :: Alternative (DeployMPar e)
 data DeployError = ConfigurationError String
                  | OnDeploymentError {name :: String, message :: String}
                  | PostDeploymentError {name :: String, message :: String}
+                 | DeployingUnlinkedBytecodeError { name :: String }
+                 | LinkingLinkedBytecodeError { name :: String, libraryName :: String } 
+                 | LinkingError String
 
 -- | Throw an `Error` Exception inside DeployM.
 throwDeploy :: forall eff a

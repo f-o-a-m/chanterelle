@@ -2,6 +2,7 @@ module Chanterelle.Internal.Genesis where
 
 import Chanterelle.Internal.Compile (compileModuleWithoutWriting, decodeContract, makeSolcInput, resolveContractMainModule)
 import Chanterelle.Internal.Logging (LogLevel(..), log, logGenesisGenerationError)
+import Chanterelle.Internal.Types.Bytecode (Bytecode(..))
 import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract(..), runCompileMExceptT)
 import Chanterelle.Internal.Types.Genesis (GenesisAlloc(..), GenesisBlock(..), GenesisGenerationError(..), insertGenesisAllocs, lookupGenesisAllocs)
 import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), InjectableLibraryCode(..), Libraries(..), Library(..), Network(..), Networks(..), isFixedLibrary, resolveNetworkRefs)
@@ -136,14 +137,15 @@ generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExcep
                 pure { name, address, injectedBytecode }
             InjectableWithSourceCode r f -> do
                 let libProject = cp
-                rawBytecode <- withExceptT (CouldntCompileLibrary name) <<< flip runCompileMExceptT libProject $ do
+                hexBytecode <- withExceptT (CouldntCompileLibrary name) <<< flip runCompileMExceptT libProject $ do
                     let mfi@(ChanterelleModule mfi') = moduleForInput { name, root: r, filePath: f }
                     input <-  makeSolcInput name f
                     output <- compileModuleWithoutWriting mfi input
                     decoded <- decodeContract name output
                     OutputContract { deployedBytecode } <- resolveContractMainModule f decoded mfi'.solContractName
-                    pure deployedBytecode
-                hexBytecode <- withExceptT (CouldntCompileLibrary name <<< UnexpectedSolcOutput) <<< except $ note "Solc somehow gave us invalid hex" (mkHexString rawBytecode)
+                    case deployedBytecode of
+                        BCLinked x -> pure x.bytecode
+                        BCUnlinked _ -> throwError $ UnexpectedSolcOutput "Source code compiled to unlinked bytecode"
                 injectedBytecode <- withExceptT (CouldntInjectLibraryAddress name) <<< except $ substituteLibraryAddress hexBytecode address
                 pure { name, address, injectedBytecode }
       injectedGenesis <- flip execStateT genesis <<< for injects $ \{ name, address, injectedBytecode } -> do

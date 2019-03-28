@@ -6,7 +6,7 @@ module Chanterelle.Deploy
 
 import Prelude
 
-import Chanterelle.Internal.Deploy (deployContract, readDeployAddress) as Exports
+import Chanterelle.Internal.Deploy (deployContract, deployLibrary, linkLibrary, readDeployAddress) as Exports
 import Chanterelle.Internal.Logging (logDeployError)
 import Chanterelle.Internal.Types (runDeployM) as Exports
 import Chanterelle.Internal.Types.Deploy ((??)) as Exports

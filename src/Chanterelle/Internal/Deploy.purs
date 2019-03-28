@@ -1,5 +1,7 @@
 module Chanterelle.Internal.Deploy
   ( deployContract
+  , deployLibrary
+  , linkLibrary
   , readDeployAddress
   , DeployReceipt
   ) where
@@ -7,6 +9,8 @@ module Chanterelle.Internal.Deploy
 import Prelude
 
 import Chanterelle.Internal.Logging (LogLevel(..), log)
+import Chanterelle.Internal.Types.Bytecode (Bytecode(..))
+import Chanterelle.Internal.Types.Bytecode as CBC
 import Chanterelle.Internal.Types.Deploy (ContractConfig, DeployConfig(..), DeployError(..))
 import Chanterelle.Internal.Utils (jsonStringifyWithSpaces, pollTransactionReceipt, validateDeployArgs, withTimeout)
 import Control.Error.Util ((??))
@@ -17,15 +21,16 @@ import Control.Monad.Aff.Unsafe (unsafeCoerceAff)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Except (ExceptT(..), runExceptT)
 import Control.Monad.Reader.Class (class MonadAsk, ask)
-import Data.Argonaut (_Object, _String, jsonEmptyObject, (~>), (:=))
+import Data.Argonaut (_Object, _String, decodeJson, encodeJson, jsonEmptyObject, (:=), (~>))
 import Data.Argonaut.Parser (jsonParser)
 import Data.Either (Either(..), either)
-import Data.Lens ((^?), (%~))
+import Data.Lens ((^?), (%~), (?~))
 import Data.Lens.Index (ix)
-import Data.Maybe (isNothing, fromJust)
+import Data.Maybe (fromJust, isNothing)
 import Data.StrMap as M
 import Network.Ethereum.Core.HexString as HexString
-import Network.Ethereum.Web3 (runWeb3)
+import Network.Ethereum.Web3 (_data, _value, convert, runWeb3)
+import Network.Ethereum.Web3.Api (eth_sendTransaction)
 import Network.Ethereum.Web3.Types (NoPay, ETH, Web3, Address, BigNumber, BlockNumber(..), HexString, TransactionOptions, TransactionReceipt(..), TransactionStatus(..), mkHexString, mkAddress)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff (FS, readTextFile, writeTextFile)
@@ -40,7 +45,7 @@ type DeployInfo =
   , transactionHash :: HexString
   }
 
--- | Write update "networks" object in the solc artifact with a (NetworkId, Address) pair corresponding
+-- | Write updated "networks" object in the solc artifact with a (NetworkId, Address) pair corresponding
 -- | to a deployment.
 writeDeployInfo
   :: forall eff m.
@@ -63,6 +68,17 @@ writeDeployInfo filename nid {deployAddress, blockNumber, blockHash, transaction
       artifactWithAddress = artifact # _Object <<< ix "networks" <<< _Object %~ M.insert nid networkIdObj
   liftAff $ writeTextFile UTF8 filename $ jsonStringifyWithSpaces 4 artifactWithAddress
 
+writeNewBytecode
+  :: forall eff m.
+      MonadAff (fs :: FS | eff) m
+  => FilePath
+  -> Bytecode
+  -> m (Either String Unit)
+writeNewBytecode filename bc = runExceptT do
+  artifact <- ExceptT $ jsonParser <$> liftAff (readTextFile UTF8 filename)
+  let artifactWithBytecode = artifact # _Object %~ M.insert "bytecode" (encodeJson bc)
+  liftAff $ writeTextFile UTF8 filename $ jsonStringifyWithSpaces 4 artifactWithBytecode
+  
 -- | Read the deployment address for a given network id from the solc artifact.
 readDeployAddress
   :: forall eff m.
@@ -118,31 +134,83 @@ getPublishedContractDeployInfo txHash name = do
 
 -- | Get the contract bytecode from the solc output corresponding to the contract config.
 getContractBytecode
-  :: forall eff m args.
+  :: forall eff m.
      MonadThrow DeployError m
   => MonadAsk DeployConfig m
   => MonadAff (fs :: FS | eff) m
-  => ContractConfig args
-  -> m HexString
-getContractBytecode cconfig@{filepath, name} = do
+  => FilePath
+  -> String
+  -> m Bytecode
+getContractBytecode filepath name = do
     cfg@(DeployConfig {provider}) <- ask
-    ebc <- getBytecode filepath
+    ebc <- getBytecode
     case ebc of
       Left err ->
         let errMsg = "Couln't find contract bytecode in artifact " <> filepath <> " -- " <> show err
         in throwError $ ConfigurationError errMsg
       Right bc -> pure bc
   where
-    getBytecode filename = runExceptT $ do
-      artifact <- ExceptT $ jsonParser <$> liftAff (readTextFile UTF8 filename)
-      bytecode <- (artifact ^? _Object <<< ix "bytecode" <<< _String) ?? "artifact missing 'bytecode' field."
-      mkHexString bytecode ?? "bytecode not a valid hex string"
+    getBytecode = runExceptT $ do
+      artifact <- ExceptT $ jsonParser <$> liftAff (readTextFile UTF8 filepath)
+      bytecode <- (artifact ^? _Object <<< ix "bytecode") ?? "artifact missing 'bytecode' field."
+      ExceptT $ pure $ decodeJson bytecode
 
 type DeployReceipt args =
   { deployAddress :: Address
   , deployArgs :: Record args
   , deployHash :: HexString
   }
+
+type LibraryMeta = (libraryName :: String, libraryAddress :: Address)
+
+-- | Deploy a Library. Naturally, there's no contractConfig here...
+deployLibrary
+  :: forall eff args m.
+     MonadThrow DeployError m
+  => MonadAsk DeployConfig m
+  => MonadAff (console :: CONSOLE, eth :: ETH, fs :: FS | eff) m
+  => TransactionOptions NoPay
+  -> FilePath
+  -> String
+  -> m (DeployReceipt LibraryMeta)
+deployLibrary txo filepath name = do
+  (DeployConfig {provider}) <- ask
+  bc <- getContractBytecode filepath name
+  case bc of
+    BCUnlinked _ -> throwError $ DeployingUnlinkedBytecodeError { name }
+    BCLinked { bytecode } -> do
+      let txo' = txo # _data ?~ bytecode
+                     # _value %~ map convert
+          deploymentAction = eth_sendTransaction txo'
+      {deployAddress, deployHash} <- deployContractAndWriteToArtifact filepath name deploymentAction
+      pure {deployAddress, deployHash, deployArgs: { libraryName: name, libraryAddress: deployAddress } }
+
+linkLibrary
+  :: forall eff args m.
+     MonadThrow DeployError m
+  => MonadAsk DeployConfig m
+  => MonadAff (console :: CONSOLE, eth :: ETH, fs :: FS | eff) m
+  => ContractConfig args
+  -> Record LibraryMeta
+  -> m Bytecode
+linkLibrary ccg@{filepath, name} { libraryName, libraryAddress } = do
+  (DeployConfig { provider, writeArtifacts }) <- ask
+  bc <- getContractBytecode filepath name
+  log Info $ "Linking " <> libraryName <> " at " <> show libraryAddress <> " to " <> name <> " in " <> filepath
+  let res = CBC.linkLibrary libraryName libraryAddress bc
+      errPrefix = "While linking " <> libraryName <> " to " <> name <> ": "
+  case res of
+    Left err -> throwError $ LinkingError $ errPrefix <> err
+    Right bc' -> do
+      if writeArtifacts
+        then do
+          eWriteRes <- writeNewBytecode filepath bc'
+          case eWriteRes of
+            Left err ->
+              let msg = errPrefix <> "Failed to write linked bytecode for artifact " <> filepath <> " -- " <> err
+              in throwError $ LinkingError msg
+            Right _ -> pure bc'
+        else pure bc'
 
 -- | Deploy a contract using its ContractConfig object.
 deployContract
@@ -154,12 +222,15 @@ deployContract
   -> ContractConfig args
   -> m (DeployReceipt args)
 deployContract txOptions ccfg@{filepath, name, constructor} = do
-  (DeployConfig {provider, primaryAccount}) <- ask
+  (DeployConfig { provider }) <- ask
   validatedArgs <- validateDeployArgs ccfg
-  bytecode <- getContractBytecode ccfg
-  let deploymentAction = constructor txOptions bytecode validatedArgs
-  {deployAddress, deployHash} <- deployContractAndWriteToArtifact filepath name deploymentAction
-  pure {deployAddress, deployArgs: validatedArgs, deployHash}
+  bc <- getContractBytecode filepath name
+  case bc of
+    BCUnlinked _ -> throwError $ DeployingUnlinkedBytecodeError { name }
+    BCLinked { bytecode } -> do
+      let deploymentAction = constructor txOptions bytecode validatedArgs
+      {deployAddress, deployHash} <- deployContractAndWriteToArtifact filepath name deploymentAction
+      pure {deployAddress, deployArgs: validatedArgs, deployHash}
 
 -- | Helper function which deploys a contract and writes the new contract address to the solc artifact.
 deployContractAndWriteToArtifact

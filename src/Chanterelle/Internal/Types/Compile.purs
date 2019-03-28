@@ -1,10 +1,10 @@
 module Chanterelle.Internal.Types.Compile where
 
 import Prelude
+
+import Chanterelle.Internal.Types.Bytecode (Bytecode, SolcBytecode(..))
 import Chanterelle.Internal.Types.Project (ChanterelleProject, Library(..), Libraries(..), SolcOptimizerSettings)
 import Chanterelle.Internal.Utils.Json (encodeJsonAddress)
-import Data.Argonaut (class DecodeJson, class EncodeJson, (:=), (~>), (.?), (.??), decodeJson, encodeJson, jsonEmptyObject)
-import Data.Argonaut as A
 import Control.Monad.Aff (Aff, Milliseconds(..))
 import Control.Monad.Aff.Class (class MonadAff)
 import Control.Monad.Aff.Console (CONSOLE)
@@ -13,15 +13,17 @@ import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (class MonadAsk)
+import Data.Argonaut (class DecodeJson, class EncodeJson, (:=), (~>), (.?), (.??), decodeJson, encodeJson, jsonEmptyObject)
+import Data.Argonaut as A
 import Data.Either (Either)
 import Data.Maybe (fromMaybe)
 import Data.StrMap (StrMap)
 import Data.StrMap as M
 import Data.Traversable (for, traverse)
 import Data.Tuple (Tuple(..))
+import Network.Ethereum.Web3 (HexString, unHex)
 import Node.FS (FS)
 import Node.Process (PROCESS)
-import Network.Ethereum.Web3 (HexString, unHex)
 
 data CompileError = CompileParseError    { objectName :: String, parseError :: String }
                   | MissingArtifactError { fileName :: String,   objectName :: String }
@@ -150,22 +152,22 @@ instance decodeSolcError :: DecodeJson SolcError where
 -- This is the artifact we want, compatible with truffle (subset)
 newtype OutputContract =
   OutputContract { abi :: A.JArray
-                 , bytecode :: String
-                 , deployedBytecode :: String
+                 , bytecode :: Bytecode
+                 , deployedBytecode :: Bytecode
                  }
 
-parseOutputContract
+parseSolcOutputContract
   :: A.Json
   -> Either String OutputContract
-parseOutputContract json = do
+parseSolcOutputContract json = do
   obj <- decodeJson json
   abi <- obj .? "abi"
   evm <- obj .? "evm"
   evmObj <- decodeJson evm
   bytecodeO <- evmObj .? "bytecode"
-  bytecode <- bytecodeO .? "object"
+  SolcBytecode bytecode <- decodeJson bytecodeO
   deployedBytecodeO <- evmObj .? "deployedBytecode"
-  deployedBytecode <- deployedBytecodeO .? "object"
+  SolcBytecode deployedBytecode <- decodeJson deployedBytecodeO
   pure $ OutputContract { abi, bytecode, deployedBytecode }
 
 encodeOutputContract
@@ -191,5 +193,5 @@ parseSolcOutput json = do
   o <- decodeJson json
   errors <- fromMaybe [] <$> o .?? "errors"
   contractsMap <- o .? "contracts"
-  contracts <- for contractsMap (traverse parseOutputContract)
+  contracts <- for contractsMap (traverse parseSolcOutputContract)
   pure $ SolcOutput {errors, contracts}

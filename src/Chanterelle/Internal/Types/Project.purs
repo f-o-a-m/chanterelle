@@ -305,5 +305,6 @@ data ChanterelleProject =
                         , psOut       :: FilePath -- ^ hydrated/absolute path of psGen (root + spec.psGen.outputPath)
                         , spec        :: ChanterelleProjectSpec -- ^ the contents of the chanterelle.json
                         , modules     :: Array ChanterelleModule
+                        , libModules  :: Array ChanterelleModule 
                         , specModTime :: Milliseconds -- ^ timestamp of the last time the chanterelle project spec (chanterelle.)json was modified
                         }
