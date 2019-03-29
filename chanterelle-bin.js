@@ -1,2 +1,2 @@
 #!/usr/bin/env node
-require('../chanterelle');
+require('./output/ChanterelleMain/index.js').main();

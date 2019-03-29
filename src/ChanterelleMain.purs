@@ -17,8 +17,9 @@ import Node.Process (cwd)
 import Options.Applicative (Parser, ParserInfo, argument, command, customExecParser, help, helpDoc, helper, hsubparser, info, infoOption, int, long, metavar, option, prefs, progDesc, short, showHelpOnEmpty, str, strOption, value, (<**>))
 import Text.PrettyPrint.Leijen (indent, text, (</>))
 
+foreign import version_ :: String
 version :: forall a. Parser (a -> a)
-version = infoOption "0.0.0"
+version = infoOption version_
   (  long "version"
   <> help "Print version information" )
 
