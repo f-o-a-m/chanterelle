@@ -171,17 +171,3 @@ generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExcep
         loadGenesisIn = do
             genTxt <- wrapLoadFailure (try $ FS.readTextFile UTF8 genesisIn)
             wrapLoadFailure (pure $ A.jsonParser genTxt >>= A.decodeJson)
-
-runGenesisGenerator :: FilePath -> FilePath -> Effect Unit 
-runGenesisGenerator genesisIn genesisOut = do
-    root <- liftEffect P.cwd
-    void <<< launchAff $
-      (try $ loadProject root) >>= case _ of
-        Left err -> liftAff <<< logGenesisGenerationError $ MalformedProjectErrorG (message err)
-        Right project -> (liftAff $ generateGenesis project genesisIn) >>= case _ of
-            Right gb -> do
-                let strungGb = jsonStringifyWithSpaces 4 (A.encodeJson gb)
-                try (FS.writeTextFile UTF8 genesisOut strungGb) >>= case _ of
-                    Left err -> log Error $ "Couldn't write genesis block to " <> show genesisOut <> ": " <> show err
-                    Right _  -> log Info $ "Successfully wrote generated genesis block to " <> show genesisOut
-            Left err -> liftAff $ logGenesisGenerationError err

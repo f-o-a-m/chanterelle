@@ -120,8 +120,10 @@ Consider this example take from the parking-dao example project:
 
    import ContractConfig (simpleStorageConfig, foamCSRConfig, parkingAuthorityConfig)
 
-   type DeployResults = (foamCSR :: Address, simpleStorage :: Address, parkingAuthority :: Address)
+   deploy :: forall eff. DeployM Unit
+   deploy = void deployScript
 
+   type DeployResults = (foamCSR :: Address, simpleStorage :: Address, parkingAuthority :: Address)
    deployScript :: forall eff. DeployM (Record DeployResults)
    deployScript = do
      deployCfg@(DeployConfig {primaryAccount}) <- ask
@@ -144,39 +146,8 @@ Note that if we simply wanted to terminate the deployment script after the contr
 Invocation
 ----------
 
-Much like with the :ref:`compilation phase <compiling>`, the deployment phase is invoked with a minimal PureScript boilerplate.
-This script, however, invokes the ``deployScript`` you defined previously, and may either reside with the rest of your source or more
-methodically in a separate ``deploy/`` subproject. The latter is demonstrated below
-
-.. code-block:: haskell
-
-   module DeployMain (main) where
-
-   import Prelude
-   
-   import Chanterelle (deployMain)
-   import Control.Monad.Eff (Effect)
-      import MyDeployScript (deployScript) as MyDeployScript
-   
-   main :: Eff Unit
-   main = deployMain MyDeployScript.deployScript
-
-We can then invoke this script as follows:
+depending on your setup you should make sure `MyDeployScript` module is built. in most cases you can access corresponding js file in `./output/MyDeployScript/index.js` which should be passed to `chanterelle deploy` command like this:
 
 .. code-block:: shell
 
-    pulp build --src-path deploy -I src -m DeployMain --to deploy.js && \
-    node deploy.js --log-level info; \
-    rm -f deploy.js
-
-One may note the similarities to the invocation of the compiler script, however the build has an additional ``-I src`` as your deploy script
-will mostly likely depend on artifacts that are codegen'd into your main source root as well.
-
-
-Deployer arguments
-------------------
-
-Currently the following command line arguments are supported for the deployment phase when ran with ``deployMain``:
-
-- ``--log-level``: One of ``debug``, ``info``, ``warn``, or ``error``. Defaults to ``info``.
-  This option changes the level of logging to the console.
+    chanterelle deploy ./output/MyDeployScript/index.js

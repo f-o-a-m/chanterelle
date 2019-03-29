@@ -103,7 +103,7 @@ main :: Effect Unit
 main = launchAff_ do
   ourCwd <- liftEffect $ cwd
   args <- liftEffect $ customExecParser (prefs showHelpOnEmpty) (pinfo ourCwd)
-  res <- runExceptT $ flip traverseArgs args \(DeployOptions {nodeURL, timeout, script: SelectCLI scriptPath}) -> do
+  res <- runExceptT $ flip traverseDeployOptions args \(DeployOptions {nodeURL, timeout, script: SelectCLI scriptPath}) -> do
     script <- ExceptT $ try (liftEffect $ loadDeployMFromScriptPath scriptPath)
     pure $ DeployOptions {nodeURL, timeout, script: SelectPS script}
   case res of

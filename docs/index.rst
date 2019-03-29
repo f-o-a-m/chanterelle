@@ -15,6 +15,7 @@ Welcome to Chanterelle's documentation!
    :maxdepth: 2
    :caption: User Documentation
 
+   installation
    chanterelle-json
    modules
    dependencies
