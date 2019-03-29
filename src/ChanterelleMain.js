@@ -6,11 +6,4 @@ exports.loadDeployMFromScriptPath = function (filePath) {
   };
 };
 
-var version_, pck = require("../../package.json")
-try {
-  version_ = pck._resolved.split("#")[1]
-} catch (_) {
-  version_ = "UNSPECIFIED"
-}
-
-exports.version_ = version_
+exports.version_ = require("../../package.json").version
