@@ -2,7 +2,7 @@ module ChanterelleMain where
 
 import Prelude
 
-import Chanterelle (Args'(..), ArgsCLI, Command(..), CommonOpts(..), DeployOptions(..), DirPath, GenesisOptions(..), SelectCLI(..), SelectPS(..), chanterelle, traverseArgs)
+import Chanterelle (Args'(..), ArgsCLI, Command(..), CommonOpts(..), DeployOptions(..), DirPath, GenesisOptions(..), SelectCLI(..), SelectPS(..), chanterelle, traverseDeployOptions)
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types (DeployM)
 import Control.Apply (lift2)

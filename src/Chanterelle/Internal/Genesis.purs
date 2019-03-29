@@ -1,14 +1,12 @@
 module Chanterelle.Internal.Genesis where
 
 import Chanterelle.Internal.Compile (compileModuleWithoutWriting, decodeContract, makeSolcInput, resolveContractMainModule)
-import Chanterelle.Internal.Logging (LogLevel(..), log, logGenesisGenerationError)
+import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract(..), runCompileMExceptT)
 import Chanterelle.Internal.Types.Genesis (GenesisAlloc(..), GenesisBlock(..), GenesisGenerationError(..), insertGenesisAllocs, lookupGenesisAllocs)
 import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), InjectableLibraryCode(..), Libraries(..), Library(..), Network(..), Networks(..), isFixedLibrary, resolveNetworkRefs)
-import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces)
 import Chanterelle.Internal.Utils.Lazy (firstSuccess)
 import Chanterelle.Internal.Utils.Web3 (resolveCodeForContract)
-import Chanterelle.Project (loadProject)
 import Control.Error.Util (note)
 import Control.Monad.Error.Class (try, throwError)
 import Control.Monad.Except.Trans (ExceptT(..), except, runExceptT, withExceptT)
@@ -23,19 +21,15 @@ import Data.String as S
 import Data.String.CodeUnits (fromCharArray, takeRight)
 import Data.Traversable (for, for_, sequence)
 import Data.Tuple (Tuple(..))
-import Effect (Effect)
-import Effect.Aff (launchAff)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (class MonadEffect, liftEffect)
-import Effect.Exception (message)
 import Effect.Random (randomRange)
 import Network.Ethereum.Web3 (Address, HexString, embed, mkAddress, mkHexString, unAddress, unHex)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
 import Node.Path (FilePath)
 import Node.Path as Path
-import Node.Process as P
-import Prelude (class Functor, class Show, Unit, bind, discard, flip, otherwise, pure, show, unit, void, ($), (&&), (<$>), (<<<), (<=), (<>), (==), (>>=))
+import Prelude (class Functor, class Show, bind, discard, flip, otherwise, pure, show, unit, ($), (&&), (<$>), (<<<), (<=), (<>), (==), (>>=))
 
 substituteLibraryAddress :: HexString -> Address -> Either String HexString
 substituteLibraryAddress hsBytecode target = ret
@@ -111,6 +105,7 @@ generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExcep
         FixedLibraryWithNetwork { name, address, networks } -> do
             let (ChanterelleProjectSpec spec) = project.spec
                 (Networks networksToUse) = resolveNetworkRefs networks spec.networks
+
             if null networksToUse
                 then throwError $ CouldntResolveLibraryNoNetworks name
                 else pure unit

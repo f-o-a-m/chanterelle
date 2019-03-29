@@ -26,7 +26,7 @@ The type ``Constructor args`` is a type synonym:
 
 .. code-block:: haskell
 
-   type Constructor args = forall eff. TransactionOptions NoPay -> HexString -> Record args -> Web3 HexString
+   type Constructor args = TransactionOptions NoPay -> HexString -> Record args -> Web3 HexString
 
 In other words, ``Constructor args`` is the type a function taking in some ``TransactionOptions NoPay`` (constructors are not payable transactions), the deployment bytepurescriptcode, and a record of type ``Record args``. It will format the transaction and submit it via an ``eth_sendTransaction`` RPC call, returning the transaction hash as a ``HexString``.
 
@@ -120,11 +120,11 @@ Consider this example take from the parking-dao example project:
 
    import ContractConfig (simpleStorageConfig, foamCSRConfig, parkingAuthorityConfig)
 
-   deploy :: forall eff. DeployM Unit
+   deploy :: DeployM Unit
    deploy = void deployScript
 
    type DeployResults = (foamCSR :: Address, simpleStorage :: Address, parkingAuthority :: Address)
-   deployScript :: forall eff. DeployM (Record DeployResults)
+   deployScript :: DeployM (Record DeployResults)
    deployScript = do
      deployCfg@(DeployConfig {primaryAccount}) <- ask
      let bigGasLimit = unsafePartial fromJust $ parseBigNumber decimal "4712388"
