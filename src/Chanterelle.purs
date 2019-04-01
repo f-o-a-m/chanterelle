@@ -53,8 +53,8 @@ data Command s
 derive instance genericCommand :: Generic (Command s) _
 instance showCommand :: Show (DeployOptions s) => Show (Command s) where show = genericShow
 
-traverseArgs :: forall a b f. Applicative f => (DeployOptions a -> f (DeployOptions b)) -> Args' a -> f (Args' b)
-traverseArgs f (Args' o cmd) = Args' o <$> case cmd of
+traverseDeployOptions :: forall a b f. Applicative f => (DeployOptions a -> f (DeployOptions b)) -> Args' a -> f (Args' b)
+traverseDeployOptions f (Args' o cmd) = Args' o <$> case cmd of
   Build -> pure Build
   Compile -> pure Compile
   Codegen -> pure Codegen
