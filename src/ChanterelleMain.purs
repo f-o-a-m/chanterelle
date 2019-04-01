@@ -58,10 +58,6 @@ genesisParser = ado
            <> help "path to some json file containing GENESIS_OUTPUT")
   in GenesisOptions {input, output}
 
--- log-level" [] Nothing (Left "info") false
--- node-url" [] Nothing (Left "http://localhost:8545") false
--- timeout" [] Nothing (Left 60) false
-
 deployParser :: Parser (DeployOptions SelectCLI)
 deployParser = ado
   nodeURL <- strOption

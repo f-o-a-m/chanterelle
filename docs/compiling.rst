@@ -5,7 +5,9 @@
 Compiling
 =========
 
-chanterelle genesis --input ./base-genesis-block.json --output ./injected-genesis-block.json --log-level info
+.. code-block:: shell
+    chanterelle compile
+    chanterelle genesis --input ./base-genesis-block.json --output ./injected-genesis-block.json
 
 This will compile and purescript-web3 codegen all the modules specified in ``chanterelle.json`` as well as generate a genesis block whose contents
 are those of ``./base-genesis-block.json`` with injected libraries appended into ``allocs`` and written out to ``./injected-genesis-block.json``.
