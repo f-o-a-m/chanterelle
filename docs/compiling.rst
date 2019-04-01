@@ -6,6 +6,7 @@ Compiling
 =========
 
 .. code-block:: shell
+
     chanterelle compile
     chanterelle genesis --input ./base-genesis-block.json --output ./injected-genesis-block.json
 
