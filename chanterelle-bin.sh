@@ -1,0 +1,17 @@
+#!/bin/bash
+
+
+if [ ! -d './output' ] 
+then 
+    echo "No './output' directory, make sure to compile purescript project."
+    exit
+fi
+
+
+if [ ! -f './output/ChanterelleMain/index.js' ] 
+then 
+    echo "Make sure you have purescript-chantrelle in your purescript dependencies and it is compiled."
+    exit
+fi
+
+node -e "require('./output/ChanterelleMain/index.js').main();"
