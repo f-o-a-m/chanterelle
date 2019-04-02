@@ -14,4 +14,4 @@ then
     exit
 fi
 
-node -e "require('./output/ChanterelleMain/index.js').main();"
+node -e "console.log(process.argv);require('./output/ChanterelleMain/index.js').main();" -- "chanterelle" $*
