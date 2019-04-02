@@ -4,11 +4,10 @@
   "description": "A more functional truffle",
   "license": "ISC",
   "scripts": {
-    "postinstall": "bower install --production && pulp build",
     "build": "pulp build",
     "docs": "cd docs; make html;"
   },
-  "dependencies": {
+  "devDependencies": {
     "purescript": "^0.12.0",
     "pulp": "^12.2.0",
     "purescript-psa": "^0.6.0",
@@ -22,6 +21,6 @@
     "solc": "^0.4.24"
   },
   "bin": {
-    "chanterelle": "chanterelle-bin.js"
+    "chanterelle": "chanterelle-bin.sh"
   }
 }
