@@ -142,7 +142,7 @@ loadSolcCallback (ChanterelleModule mod) root (ChanterelleProjectSpec project) f
       fullPath = if isAbs
                    then filePath
                    else Path.normalize (Path.concat [root, modRootWithoutRoot, filePath])
-  log Info ("Root: " <> root <> " :: modRoot: " <> modRoot <> " :: Solc load: " <> filePath <> " -> " <> fullPath)
+  log Debug ("Root: " <> root <> " :: modRoot: " <> modRoot <> " :: Solc load: " <> filePath <> " -> " <> fullPath)
   catchException (pure <<< solcInputCallbackFailure <<< show) (solcInputCallbackSuccess <$> (FSS.readTextFile UTF8 fullPath))
 
 makeSolcContract
