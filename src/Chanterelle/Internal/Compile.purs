@@ -32,10 +32,11 @@ import Data.Function.Uncurried (Fn2, runFn2)
 import Data.Lens ((^?))
 import Data.Lens.Index (ix)
 import Data.Maybe (Maybe(..), fromMaybe)
-import Foreign.Object as M
+import Data.String (Pattern(..), stripPrefix)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (for, for_)
 import Data.Tuple (Tuple(..))
+import Foreign.Object as M
 import Network.Ethereum.Core.HexString (fromByteString)
 import Network.Ethereum.Core.Keccak256 (keccak256)
 import Node.Encoding (Encoding(UTF8))
@@ -118,7 +119,7 @@ compileModuleWithoutWriting
 compileModuleWithoutWriting m@(ChanterelleModule mod) solcInput = do
   (ChanterelleProject project) <- ask
   log Info ("compiling " <> mod.moduleName)
-  output <- liftEffect $ runFn2 _compile (A.stringify $ encodeJson solcInput) (loadSolcCallback project.root project.spec)
+  output <- liftEffect $ runFn2 _compile (A.stringify $ encodeJson solcInput) (loadSolcCallback m project.root project.spec)
   case AP.jsonParser output >>= parseSolcOutput of
     Left err -> throwError $ CompileParseError {objectName: "Solc Output", parseError: err}
     Right output' -> pure output'
@@ -129,16 +130,19 @@ compileModuleWithoutWriting m@(ChanterelleModule mod) solcInput = do
 -- | TODO: be more clever about dependency resolution, that way we don't even have to do
 -- |       any remappings!
 loadSolcCallback
-  :: FilePath
+  :: ChanterelleModule
+  -> FilePath
   -> ChanterelleProjectSpec
   -> String
   -> Effect SolcInputCallbackResult
-loadSolcCallback root (ChanterelleProjectSpec project) filePath = do
-  let isAbs = Path.isAbsolute filePath
+loadSolcCallback (ChanterelleModule mod) root (ChanterelleProjectSpec project) filePath = do
+  let modRoot = Path.dirname mod.solPath
+      isAbs = Path.isAbsolute filePath
+      modRootWithoutRoot = fromMaybe modRoot $ stripPrefix (Pattern root) modRoot
       fullPath = if isAbs
                    then filePath
-                   else Path.normalize (Path.concat [root, project.sourceDir, filePath])
-  log Debug ("Solc load: " <> filePath <> " -> " <> fullPath)
+                   else Path.normalize (Path.concat [root, modRootWithoutRoot, filePath])
+  log Info ("Root: " <> root <> " :: modRoot: " <> modRoot <> " :: Solc load: " <> filePath <> " -> " <> fullPath)
   catchException (pure <<< solcInputCallbackFailure <<< show) (solcInputCallbackSuccess <$> (FSS.readTextFile UTF8 fullPath))
 
 makeSolcContract
