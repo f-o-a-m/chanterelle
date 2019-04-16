@@ -1,30 +1,26 @@
 {
-  "name": "purescript-chanterelle",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "chanterelle",
+  "version": "2.0.2",
+  "description": "A more functional truffle",
+  "license": "ISC",
   "scripts": {
-    "postinstall": "bower install --production && pulp build --main ChanterelleMain -t chanterelle.js",
     "build": "pulp build",
     "docs": "cd docs; make html;"
   },
-  "author": "",
-  "license": "ISC",
-  "dependencies": {},
   "devDependencies": {
-    "bn.js": "^4.11.0",
-    "bower": "^1.8.2",
-    "ethjs-provider-http": "^0.1.6",
-    "keccak": "^1.0.2",
-    "mkdirp": "^0.5.1",
     "purescript": "^0.12.0",
     "pulp": "^12.2.0",
     "purescript-psa": "^0.6.0",
-    "rlp": "^2.0.0",
+    "bn.js": "^4.11.0",
+    "ethjs-provider-http": "^0.1.6",
+    "mkdirp": "^0.5.1",
+    "keccak": "^1.0.2",
     "secp256k1": "^3.0.1",
+    "bower": "^1.8.2",
+    "rlp": "^2.0.0",
     "solc": "^0.4.24"
   },
   "bin": {
-    "chanterelle": "chanterelle-bin.js"
+    "chanterelle": "chanterelle-bin.sh"
   }
 }

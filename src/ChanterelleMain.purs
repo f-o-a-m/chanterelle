@@ -2,7 +2,7 @@ module ChanterelleMain where
 
 import Prelude
 
-import Chanterelle (Args'(..), ArgsCLI, Command(..), CommonOpts(..), DeployOptions(..), DirPath, GenesisOptions(..), SelectCLI(..), SelectPS(..), chanterelle, traverseArgs)
+import Chanterelle (Args'(..), ArgsCLI, Command(..), CommonOpts(..), DeployOptions(..), DirPath, GenesisOptions(..), SelectCLI(..), SelectPS(..), chanterelle, traverseDeployOptions)
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types (DeployM)
 import Control.Apply (lift2)
@@ -17,8 +17,9 @@ import Node.Process (cwd)
 import Options.Applicative (Parser, ParserInfo, argument, command, customExecParser, help, helpDoc, helper, hsubparser, info, infoOption, int, long, metavar, option, prefs, progDesc, short, showHelpOnEmpty, str, strOption, value, (<**>))
 import Text.PrettyPrint.Leijen (indent, text, (</>))
 
+foreign import version_ :: String
 version :: forall a. Parser (a -> a)
-version = infoOption "0.0.0"
+version = infoOption version_
   (  long "version"
   <> help "Print version information" )
 
@@ -56,10 +57,6 @@ genesisParser = ado
            <> value "dist" 
            <> help "path to some json file containing GENESIS_OUTPUT")
   in GenesisOptions {input, output}
-
--- log-level" [] Nothing (Left "info") false
--- node-url" [] Nothing (Left "http://localhost:8545") false
--- timeout" [] Nothing (Left 60) false
 
 deployParser :: Parser (DeployOptions SelectCLI)
 deployParser = ado
@@ -103,7 +100,7 @@ main :: Effect Unit
 main = launchAff_ do
   ourCwd <- liftEffect $ cwd
   args <- liftEffect $ customExecParser (prefs showHelpOnEmpty) (pinfo ourCwd)
-  res <- runExceptT $ flip traverseArgs args \(DeployOptions {nodeURL, timeout, script: SelectCLI scriptPath}) -> do
+  res <- runExceptT $ flip traverseDeployOptions args \(DeployOptions {nodeURL, timeout, script: SelectCLI scriptPath}) -> do
     script <- ExceptT $ try (liftEffect $ loadDeployMFromScriptPath scriptPath)
     pure $ DeployOptions {nodeURL, timeout, script: SelectPS script}
   case res of

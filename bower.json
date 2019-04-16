@@ -1,5 +1,7 @@
 {
   "name": "purescript-chanterelle",
+  "description": "A more functional truffle",
+  "license": "ISC",
   "ignore": [
     "**/.*",
     "node_modules",

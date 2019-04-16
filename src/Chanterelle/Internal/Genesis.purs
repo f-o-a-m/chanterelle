@@ -6,10 +6,8 @@ import Chanterelle.Internal.Types.Bytecode (Bytecode(..))
 import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract(..), runCompileMExceptT)
 import Chanterelle.Internal.Types.Genesis (GenesisAlloc(..), GenesisBlock(..), GenesisGenerationError(..), insertGenesisAllocs, lookupGenesisAllocs)
 import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), InjectableLibraryCode(..), Libraries(..), Library(..), Network(..), Networks(..), isFixedLibrary, resolveNetworkRefs)
-import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces)
 import Chanterelle.Internal.Utils.Lazy (firstSuccess)
 import Chanterelle.Internal.Utils.Web3 (resolveCodeForContract)
-import Chanterelle.Project (loadProject)
 import Control.Error.Util (note)
 import Control.Monad.Error.Class (try, throwError)
 import Control.Monad.Except.Trans (ExceptT(..), except, runExceptT, withExceptT)
@@ -24,19 +22,15 @@ import Data.String as S
 import Data.String.CodeUnits (fromCharArray, takeRight)
 import Data.Traversable (for, for_, sequence)
 import Data.Tuple (Tuple(..))
-import Effect (Effect)
-import Effect.Aff (launchAff)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (class MonadEffect, liftEffect)
-import Effect.Exception (message)
 import Effect.Random (randomRange)
 import Network.Ethereum.Web3 (Address, HexString, embed, mkAddress, mkHexString, unAddress, unHex)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
 import Node.Path (FilePath)
 import Node.Path as Path
-import Node.Process as P
-import Prelude (class Functor, class Show, Unit, bind, discard, flip, otherwise, pure, show, unit, void, ($), (&&), (<$>), (<<<), (<=), (<>), (==), (>>=))
+import Prelude (class Functor, class Show, bind, discard, flip, otherwise, pure, show, unit, ($), (&&), (<$>), (<<<), (<=), (<>), (==), (>>=))
 
 substituteLibraryAddress :: HexString -> Address -> Either String HexString
 substituteLibraryAddress hsBytecode target = ret
@@ -112,6 +106,7 @@ generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExcep
         FixedLibraryWithNetwork { name, address, networks } -> do
             let (ChanterelleProjectSpec spec) = project.spec
                 (Networks networksToUse) = resolveNetworkRefs networks spec.networks
+
             if null networksToUse
                 then throwError $ CouldntResolveLibraryNoNetworks name
                 else pure unit
@@ -173,17 +168,3 @@ generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExcep
         loadGenesisIn = do
             genTxt <- wrapLoadFailure (try $ FS.readTextFile UTF8 genesisIn)
             wrapLoadFailure (pure $ A.jsonParser genTxt >>= A.decodeJson)
-
-runGenesisGenerator :: FilePath -> FilePath -> Effect Unit 
-runGenesisGenerator genesisIn genesisOut = do
-    root <- liftEffect P.cwd
-    void <<< launchAff $
-      (try $ loadProject root) >>= case _ of
-        Left err -> liftAff <<< logGenesisGenerationError $ MalformedProjectErrorG (message err)
-        Right project -> (liftAff $ generateGenesis project genesisIn) >>= case _ of
-            Right gb -> do
-                let strungGb = jsonStringifyWithSpaces 4 (A.encodeJson gb)
-                try (FS.writeTextFile UTF8 genesisOut strungGb) >>= case _ of
-                    Left err -> log Error $ "Couldn't write genesis block to " <> show genesisOut <> ": " <> show err
-                    Right _  -> log Info $ "Successfully wrote generated genesis block to " <> show genesisOut
-            Left err -> liftAff $ logGenesisGenerationError err

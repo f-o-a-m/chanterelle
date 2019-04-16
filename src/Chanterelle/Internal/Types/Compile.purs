@@ -151,8 +151,8 @@ instance decodeSolcError :: DecodeJson SolcError where
 -- This is the artifact we want, compatible with truffle (subset)
 newtype OutputContract =
   OutputContract { abi :: Array A.Json
-                 , bytecode :: String
-                 , deployedBytecode :: String
+                 , bytecode :: Bytecode
+                 , deployedBytecode :: Bytecode
                  }
 
 parseSolcOutputContract

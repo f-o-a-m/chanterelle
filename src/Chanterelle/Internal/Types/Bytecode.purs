@@ -12,8 +12,8 @@ import Data.Array (concatMap, length, uncons)
 import Data.Either (Either(..))
 import Data.Foldable (foldM)
 import Data.Maybe (Maybe(..), maybe)
-import Data.StrMap (StrMap)
-import Data.StrMap as SM
+import Foreign.Object (Object)
+import Foreign.Object as SM
 import Data.String (splitAt)
 import Data.Tuple (Tuple(..))
 import Network.Ethereum.Core.HexString (HexString, mkHexString, unHex)
@@ -22,7 +22,7 @@ import Network.Ethereum.Core.Signatures (Address, unAddress)
 newtype LinkReference = LinkReference { start :: Int, length :: Int }
 
 data Bytecode = BCLinked { bytecode :: HexString }
-              | BCUnlinked { rawBytecode :: String, linkReferences :: StrMap (Array LinkReference) }
+              | BCUnlinked { rawBytecode :: String, linkReferences :: Object (Array LinkReference) }
 
 newtype SolcBytecode = SolcBytecode Bytecode
 
@@ -31,7 +31,7 @@ instance decodeJsonSolcBytecode :: DecodeJson SolcBytecode where
   decodeJson o = do
     obj <- decodeJson o
     rawBytecode <- obj .? "object"
-    solcLinkRefs <- maybe (SM.empty) id <$> obj .?? "linkReferences"
+    solcLinkRefs <- maybe (SM.empty) (\a -> a) <$> obj .?? "linkReferences"
     let linkReferences = flattenLinkReferences solcLinkRefs
     SolcBytecode <$> normalizeUnlinked (BCUnlinked { rawBytecode, linkReferences })
 
@@ -52,7 +52,7 @@ instance decodeJsonBytecode :: DecodeJson Bytecode where
   decodeJson o = do
     obj <- decodeJson o
     rawBytecode <- obj .? "object"
-    linkReferences <- maybe (SM.empty) id <$> obj .?? "linkReferences"
+    linkReferences <- maybe (SM.empty) (\a -> a) <$> obj .?? "linkReferences"
     normalizeUnlinked (BCUnlinked { rawBytecode, linkReferences })
 
 instance encodeJsonBytecode :: EncodeJson Bytecode where
@@ -89,16 +89,19 @@ spliceLinkRefs addr refs code = foldM (flip spliceLinkRef) code refs
   where addressHex = unHex (unAddress addr)
         spliceLinkRef (LinkReference { start, length }) = spliceString start length
         spliceString start length targetCode =
-          case splitAt (start * 2) targetCode of -- *2 because solc's units are in bytes, not chars LOL
-            Nothing -> Left "couldn't splice code at offset start"
-            Just { before: clowns, after: rest} -> case splitAt (length * 2) rest of -- ditto for *2
-              Nothing -> Left "couldn't splice code at offset start+length"
-              Just { after: jokers } -> Right (clowns <> addressHex <> jokers)
+          let { before: clowns, after: rest } = splitAt (start * 2) targetCode -- *2 because solc's units are in bytes, not chars LOL
+              { after: jokers }               = splitAt (length * 2) rest      -- ditto for *2
+           in Right (clowns <> addressHex <> jokers)
+          -- case splitAt (start * 2) targetCode of -- *2 because solc's units are in bytes, not chars LOL
+          --   Nothing -> Left "couldn't splice code at offset start"
+          --   Just { before: clowns, after: rest} -> case splitAt (length * 2) rest of -- ditto for *2
+          --     Nothing -> Left "couldn't splice code at offset start+length"
+          --     Just { after: jokers } -> Right (clowns <> addressHex <> jokers)
 
 -- solc returns linkReferences as { "sourceFileName": "libraryContractName": [ { linkRef }., ..] } }
 -- the case that there are different library contracts with the same name residing in different source files
 -- is currently unsupported, and ideally never should be...
-flattenLinkReferences :: StrMap (StrMap (Array LinkReference)) -> StrMap (Array LinkReference)
+flattenLinkReferences :: Object (Object (Array LinkReference)) -> Object (Array LinkReference)
 flattenLinkReferences solcLinkRefs = upsertElems (SM.empty) (concatMap unfoldLinkRefs $ SM.toUnfoldable solcLinkRefs)
   where
     unfoldLinkRefs (Tuple _ v) = SM.toUnfoldable v
