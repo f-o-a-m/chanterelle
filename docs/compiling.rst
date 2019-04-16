@@ -28,23 +28,9 @@ if this functionality is not required. One may want to store this script in a di
     import Prelude
     import Chanterelle (compileMain)
     import Chanterelle.Genesis (runGenesisGenerator)
-    import Control.Monad.Aff.Console (CONSOLE)
-    import Control.Monad.Eff (Eff)
-    import Control.Monad.Eff.Exception (EXCEPTION)
-    import Node.FS.Aff (FS)
-    import Node.Process (PROCESS)
-    import Network.Ethereum.Web3 (ETH)
+    import Control.Monad.Eff (Effect)
     
-    main :: forall eff.
-          Eff
-            ( console :: CONSOLE
-            , fs :: FS
-            , process :: PROCESS
-            , exception :: EXCEPTION
-            , eth :: ETH
-            | eff
-            )
-            Unit
+    main :: Eff Unit
     main = do
       compileMain
       runGenesisGenerator "./base-genesis-block.json" "./injected-genesis-block.json"

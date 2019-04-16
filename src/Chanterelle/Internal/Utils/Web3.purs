@@ -5,11 +5,10 @@ import Prelude
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types.Deploy (DeployError(..))
 import Chanterelle.Internal.Types.Project (Network(..), networkIDFitsChainSpec)
-import Control.Monad.Aff (Milliseconds(..), delay)
-import Control.Monad.Aff.Class (class MonadAff, liftAff)
-import Control.Monad.Aff.Console (CONSOLE)
-import Control.Monad.Eff.Class (class MonadEff, liftEff)
-import Control.Monad.Eff.Exception (error, try)
+import Effect.Aff (Milliseconds(..), delay)
+import Effect.Aff.Class (class MonadAff, liftAff)
+import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Exception (error, try)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Except (ExceptT(..), except, runExceptT, withExceptT)
 import Control.Parallel (parOneOf)
@@ -17,7 +16,7 @@ import Data.Array ((!!))
 import Data.Either (Either(..))
 import Data.Maybe (maybe)
 import Data.String (null)
-import Network.Ethereum.Web3 (Address, ChainCursor(Latest), ETH, HexString, Web3, runWeb3, unHex)
+import Network.Ethereum.Web3 (Address, ChainCursor(Latest), HexString, Web3, runWeb3, unHex)
 import Network.Ethereum.Web3.Api (eth_getAccounts, eth_getCode, eth_getTransactionReceipt, net_version)
 import Network.Ethereum.Web3.Types (TransactionReceipt, Web3Error(..))
 import Network.Ethereum.Web3.Types.Provider (Provider, httpProvider)
@@ -26,23 +25,23 @@ import Network.Ethereum.Web3.Types.Provider (Provider, httpProvider)
 -- | Make an http provider with address given by NODE_URL, falling back
 -- | to localhost.
 makeProvider
-  :: forall eff m.
-     MonadEff (eth :: ETH | eff) m
+  :: forall m.
+     MonadEffect m
   => MonadThrow DeployError m
   => String
   -> m Provider
 makeProvider url = do
-  eProvider <- liftEff $ try $ httpProvider url
+  eProvider <- liftEffect $ try $ httpProvider url
   case eProvider of
     Left _ -> throwError $ ConfigurationError "Cannot connect to Provider, check NODE_URL"
     Right p -> pure p
 
-providerForNetwork :: forall eff m. MonadEff eff m => Network -> m Provider
-providerForNetwork (Network network) = liftEff $ httpProvider network.providerUrl
+providerForNetwork :: forall m. MonadEffect m => Network -> m Provider
+providerForNetwork (Network network) = liftEffect $ httpProvider network.providerUrl
 
 resolveProvider
-  :: forall eff m.
-     MonadAff (eth :: ETH | eff) m
+  :: forall m.
+     MonadAff m
   => Network
   -> m (Either String Provider)
 resolveProvider rn@(Network realNet) = runExceptT do
@@ -61,8 +60,8 @@ resolveProvider rn@(Network realNet) = runExceptT do
           NullError     -> "Web3 NullError"
 
 getCodeForContract
-  :: forall eff m.
-     MonadAff (eth :: ETH | eff) m
+  :: forall m.
+     MonadAff m
   => Address
   -> Provider
   -> m (Either String HexString)
@@ -75,8 +74,8 @@ getCodeForContract addr provider = runExceptT do
                   else pure hs
 
 resolveCodeForContract
-  :: forall eff m
-   . MonadAff (eth :: ETH | eff) m
+  :: forall m
+   . MonadAff m
   => Network
   -> Address
   -> m (Either String HexString)
@@ -86,8 +85,7 @@ resolveCodeForContract network contract = runExceptT do
 
 -- | get the primary account for the ethereum client
 getPrimaryAccount
-  :: forall eff.
-     Web3 (console :: CONSOLE | eff) Address
+  :: Web3 Address
 getPrimaryAccount = do
     accounts <- eth_getAccounts
     maybe accountsError pure $ accounts !! 0
@@ -99,8 +97,8 @@ getPrimaryAccount = do
 -- | indefinitely poll for a transaction receipt, sleeping for 3
 -- | seconds in between every call.
 pollTransactionReceipt
-  :: forall eff m.
-     MonadAff (eth :: ETH | eff) m
+  :: forall m.
+     MonadAff m
   => HexString
   -> Provider
   -> m TransactionReceipt
@@ -113,10 +111,10 @@ pollTransactionReceipt txHash provider = do
     Right txRec -> pure txRec
 
 web3WithTimeout
-  :: forall eff a.
+  :: forall a.
      Milliseconds
-  -> Web3 eff a
-  -> Web3 eff a
+  -> Web3 a
+  -> Web3 a
 web3WithTimeout maxTimeout action = do
   let timeout = liftAff do
         delay maxTimeout

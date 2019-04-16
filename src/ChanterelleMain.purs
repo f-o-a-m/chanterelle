@@ -2,97 +2,115 @@ module ChanterelleMain where
 
 import Prelude
 
-import Chanterelle.Internal.Codegen (generatePS) as Chanterelle
-import Chanterelle.Internal.Compile (compile) as Chanterelle
-import Chanterelle.Internal.Genesis (generateGenesis)
-import Chanterelle.Internal.Logging (LogLevel(..), log, logCompileError, logGenesisGenerationError, readLogLevel, setLogLevel)
-import Chanterelle.Internal.Types (runCompileM)
-import Chanterelle.Internal.Types.Project (ChanterelleProject)
-import Chanterelle.Internal.Utils (jsonStringifyWithSpaces)
-import Chanterelle.Project (loadProject)
-import Control.Monad.Aff (Aff, launchAff_)
-import Control.Monad.Aff.Console (CONSOLE)
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Exception (EXCEPTION)
+import Chanterelle (Args'(..), ArgsCLI, Command(..), CommonOpts(..), DeployOptions(..), DirPath, GenesisOptions(..), SelectCLI(..), SelectPS(..), chanterelle, traverseArgs)
+import Chanterelle.Internal.Logging (LogLevel(..), log)
+import Chanterelle.Internal.Types (DeployM)
+import Control.Apply (lift2)
 import Control.Monad.Error.Class (try)
-import Data.Argonaut as A
-import Data.Array (uncons)
+import Control.Monad.Except (ExceptT(..), runExceptT)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
-import Data.String (toLower)
-import Network.Ethereum.Web3 (ETH)
-import Node.Encoding (Encoding(..))
-import Node.FS.Aff (FS, writeTextFile)
-import Node.Path (resolve)
-import Node.Process (PROCESS, cwd)
-import Node.Yargs.Applicative (rest, runY, yarg)
-import Node.Yargs.Setup (defaultVersion, defaultHelp, example, usage)
-import Unsafe.Coerce (unsafeCoerce)
+import Effect (Effect)
+import Effect.Aff (launchAff_)
+import Effect.Class (liftEffect)
+import Node.Process (cwd)
+import Options.Applicative (Parser, ParserInfo, argument, command, customExecParser, help, helpDoc, helper, hsubparser, info, infoOption, int, long, metavar, option, prefs, progDesc, short, showHelpOnEmpty, str, strOption, value, (<**>))
+import Text.PrettyPrint.Leijen (indent, text, (</>))
 
-main :: forall e. Eff (console :: CONSOLE, eth :: ETH, exception :: EXCEPTION, fs :: FS, process :: PROCESS | e) Unit
-main = do
-  ourCwd <- cwd
-  let setup =  usage "chanterelle [-v <level>] ACTION"
-            <> example "chanterelle -v debug compile" "Run the compile phase with debug logging enabled."
-            <> example "chanterelle -r .. deploy" "Run the deploy phase against the chanterelle project in the parent directory."
-            <> defaultVersion
-            <> defaultHelp
-      verbosityArg = yarg "verbosity" ["v"] (Just "The level of logging") (Left "info") false
-      rootArg      = yarg "project-root" ["r"] (Just "Override the default project root") (Left ourCwd) false
-      go level root actions = launchAff_ do
-        liftEff $ setLogLevel (readLogLevel level)
-        let resolvedRoot = resolve [ourCwd] root
-        projE <- try $ loadProject resolvedRoot
-        case projE of
-          Left err -> log Error ("Couldn't parse chanterelle.json: " <> show err)
-          Right project -> runAction project (unsafeCoerce actions)
+version :: forall a. Parser (a -> a)
+version = infoOption "0.0.0"
+  (  long "version"
+  <> help "Print version information" )
 
-  runY setup $ go <$> verbosityArg <*> rootArg <*> rest
+parser :: DirPath -> Parser ArgsCLI
+parser cwd' = ado
+  opts <- commonOpts cwd'
+  cmds <- hsubparser
+            ( command "build"
+              (info (pure Build)
+                    (progDesc "Build project"))
+           <> command "compile"
+              (info (pure Compile)
+                    (progDesc "Compile project"))
+           <> command "codegen"
+              (info (pure Codegen)
+                    (progDesc "generate purescript"))
+           <> command "genesis"
+              (info (Genesis <$> genesisParser)
+                    (progDesc "generate purescript"))
+           <> command "deploy"
+              (info (Deploy <$> deployParser)
+                    (progDesc "run deploy script")) )
+  in Args' opts cmds
 
-data RunnableAction = ClassicBuild | Compile | Codegen | Genesis | UnknownAction String
+genesisParser :: Parser GenesisOptions
+genesisParser = ado
+  input <- strOption
+            ( long "input"
+           <> metavar "INPUT"
+           <> value "dist"
+           <> help "path to some json file containing GENESIS_INPUT" )
+  output <- strOption
+            ( long "output"
+           <> metavar "OUTPUT"
+           <> value "dist" 
+           <> help "path to some json file containing GENESIS_OUTPUT")
+  in GenesisOptions {input, output}
 
-runAction :: forall e. ChanterelleProject -> Array String -> Aff (console :: CONSOLE, eth :: ETH, fs :: FS, process :: PROCESS | e) Unit
-runAction project actions = do
-  log Info "Loaded chanterelle.json successfully!"
-  case uncons actions of
-    Nothing -> log Warn "Nothing to do!"
-    Just {head, tail} -> case normalizeAction (toLower head) of
-        ClassicBuild -> doClassicBuild
-        Compile -> doCompile
-        Codegen -> doCodegen
-        Genesis -> case uncons tail of -- todo: this is beyond fucking foul
-            Nothing -> log Error "Usage: chanterelle genesis INPUT_GENESIS.json OUTPUT_GENESIS.json"
-            Just arg1 -> case uncons arg1.tail of
-              Nothing -> log Error "Usage: chanterelle genesis INPUT_GENESIS.json OUTPUT_GENESIS.json"
-              Just arg2 -> doGenesis arg1.head arg2.head
-        UnknownAction s -> log Error $ "Don't know how to do " <> s
+-- log-level" [] Nothing (Left "info") false
+-- node-url" [] Nothing (Left "http://localhost:8545") false
+-- timeout" [] Nothing (Left 60) false
 
-  where doClassicBuild = doCompile *> doCodegen
-        doCompile = runCompileM Chanterelle.compile project >>= case _ of
-            Left err -> logCompileError err
-            Right _ -> pure unit
-        doCodegen = runCompileM Chanterelle.generatePS project >>= case _ of
-            Left err -> logCompileError err
-            Right _ -> pure unit
-        doGenesis inputFile outputFile = generateGenesis project inputFile >>= case _ of
-            Left err -> logGenesisGenerationError err
-            Right gb -> do
-              let strungGb = jsonStringifyWithSpaces 4 (A.encodeJson gb)
-              try (writeTextFile UTF8 outputFile strungGb) >>= case _ of
-                Left err -> log Error $ "Couldn't write genesis block to " <> show outputFile <> ": " <> show err
-                Right _  -> log Info $ "Successfully wrote generated genesis block to " <> show outputFile
+deployParser :: Parser (DeployOptions SelectCLI)
+deployParser = ado
+  nodeURL <- strOption
+            ( long "node-url"
+           <> metavar "URL"
+           <> value "http://localhost:8545"
+           <> help "node URL" )
+  timeout <- option int
+            ( long "timeout"
+           <> metavar "SECOND"
+           <> value 60
+           <> help "timeout in seconds")
+  script <- SelectCLI <$> argument str
+            ( metavar "FILE"
+           <> helpDoc (Just $ text "path to compiled output of a module with signature: " </> indent 2 (text "{ deploy :: DeployM Unit }")))
+  in DeployOptions {nodeURL, timeout, script}
 
-normalizeAction :: String -> RunnableAction
-normalizeAction "b" = ClassicBuild
-normalizeAction "build" = ClassicBuild
-normalizeAction "c" = Compile
-normalizeAction "compile" = Compile
-normalizeAction "ps" = Codegen
-normalizeAction "purs" = Codegen
-normalizeAction "purescript" = Codegen
-normalizeAction "g" = Genesis
-normalizeAction "genesis" = Genesis
--- normalizeAction "i" = Install
--- normalizeAction "install" = Install
-normalizeAction a = UnknownAction a
+
+commonOpts :: DirPath -> Parser CommonOpts
+commonOpts cwd' = map CommonOpts $ {optVerbosity:_, rootPath:_}
+  <$> strOption
+      ( short 'v'
+     <> long "verbosity"
+     <> metavar "LEVEL"
+     <> help "The level of logging"
+     <> value "info" )
+  <*> strOption
+      ( short 'r'
+     <> long "project-root"
+     <> metavar "ROOT"
+     <> help "Override the default project root"
+     <> value cwd' )
+
+
+pinfo :: DirPath -> ParserInfo ArgsCLI
+pinfo cwd' = info (parser cwd' <**> (lift2 (>>>) version helper))
+  ( progDesc "A more functional truffle" )
+
+main :: Effect Unit
+main = launchAff_ do
+  ourCwd <- liftEffect $ cwd
+  args <- liftEffect $ customExecParser (prefs showHelpOnEmpty) (pinfo ourCwd)
+  res <- runExceptT $ flip traverseArgs args \(DeployOptions {nodeURL, timeout, script: SelectCLI scriptPath}) -> do
+    script <- ExceptT $ try (liftEffect $ loadDeployMFromScriptPath scriptPath)
+    pure $ DeployOptions {nodeURL, timeout, script: SelectPS script}
+  case res of
+    Left err -> do
+      log Error $ "Couldn't load deploy script" <> show err
+    Right args' -> chanterelle args'
+
+foreign import loadDeployMFromScriptPath :: String -> Effect (DeployM Unit)
+
+

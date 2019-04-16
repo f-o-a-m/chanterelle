@@ -12,38 +12,37 @@ import Chanterelle.Internal.Types (runDeployM) as Exports
 import Chanterelle.Internal.Types.Deploy ((??)) as Exports
 import Chanterelle.Internal.Types.Deploy (DeployM, runDeployM)
 import Chanterelle.Internal.Utils (makeDeployConfigWithProvider, makeProvider)
-import Control.Monad.Aff (launchAff, throwError)
-import Control.Monad.Aff.Console (CONSOLE)
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Exception (error)
 import Control.Monad.Except (runExceptT)
 import Data.Either (Either(..))
-import Network.Ethereum.Web3 (ETH, Provider)
-import Node.FS.Aff (FS)
+import Effect.Aff (Aff, throwError)
+import Effect.Class (liftEffect)
+import Effect.Exception (error, throw)
+import Network.Ethereum.Web3 (Provider)
 
 -- | Run an arbitrary deployment script in the DeployM monad
 deploy
-  :: forall eff a.
-     String
+  :: String
   -> Int
-  -> DeployM eff a
-  -> Eff (console :: CONSOLE, eth :: ETH, fs :: FS | eff) Unit
+  -> DeployM ~> Aff
 deploy url tout deployScript = 
   runExceptT (makeProvider url) >>= case _ of
-    Left err -> logDeployError err
-    Right provider -> deployWithProvider provider tout deployScript
+    Left err -> do
+      logDeployError err
+      liftEffect $ throw "DeployM error"
+    Right provider -> do
+      deployWithProvider provider tout deployScript
 
 -- | Run an arbitrary deployment script in the DeployM monad against a specified Provider
 deployWithProvider
-  :: forall eff a.
-     Provider
+  :: Provider
   -> Int
-  -> DeployM eff a
-  -> Eff (console :: CONSOLE, eth :: ETH, fs :: FS | eff) Unit
-deployWithProvider provider tout deployScript = void <<< launchAff $ do
+  -> DeployM ~> Aff
+deployWithProvider provider tout deployScript = do
   edeployConfig <- runExceptT $ makeDeployConfigWithProvider provider tout
   case edeployConfig of
-    Left err -> logDeployError err *> throwError (error "Error in building DeployConfig!")
+    Left err -> do
+      logDeployError err
+      throwError (error "Error in building DeployConfig!")
     Right deployConfig -> do
       eDeployResult <- runDeployM deployScript deployConfig
       case eDeployResult of

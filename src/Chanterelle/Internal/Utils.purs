@@ -9,26 +9,25 @@ module Chanterelle.Internal.Utils
   ) where
 
 import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces) as Json
-import Chanterelle.Internal.Utils.Web3 as Web3
-import Chanterelle.Internal.Utils.FS as Utils.FS
+import Chanterelle.Internal.Utils.Web3 (getCodeForContract, getPrimaryAccount, makeProvider, pollTransactionReceipt, providerForNetwork, resolveCodeForContract, resolveProvider, web3WithTimeout) as Web3
+import Chanterelle.Internal.Utils.FS (assertDirectory, fileIsDirty, fileModTime, unparsePath) as Utils.FS
 
 import Prelude
 import Chanterelle.Internal.Types (ContractConfig, DeployConfig(..), DeployError(..))
-import Control.Monad.Aff (Aff, Milliseconds(..), delay)
-import Control.Monad.Aff.Class (class MonadAff, liftAff)
-import Control.Monad.Aff.Console (CONSOLE)
-import Control.Monad.Eff.Exception (error)
+import Effect.Aff (Aff, Milliseconds(..), delay)
+import Effect.Aff.Class (class MonadAff, liftAff)
+import Effect.Exception (error)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Parallel (parOneOf)
 import Data.Either (Either(..))
 import Data.Int (toNumber)
 import Data.Validation.Semigroup (unV)
-import Network.Ethereum.Web3 (ETH, Provider, runWeb3)
+import Network.Ethereum.Web3 (Provider, runWeb3)
 import Network.Ethereum.Web3.Api (net_version)
 
 makeDeployConfig
-  :: forall eff m.
-     MonadAff (eth :: ETH, console :: CONSOLE | eff) m
+  :: forall m.
+     MonadAff m
   => MonadThrow DeployError m
   => String
   -> Int
@@ -38,8 +37,8 @@ makeDeployConfig url tout = do
   makeDeployConfigWithProvider provider tout
 
 makeDeployConfigWithProvider 
-  :: forall eff m.
-     MonadAff (eth :: ETH, console :: CONSOLE | eff) m
+  :: forall m.
+     MonadAff m
   => MonadThrow DeployError m
   => Provider
   -> Int
@@ -58,10 +57,10 @@ makeDeployConfigWithProvider provider tout = do
 
 -- | try an aff action for the specified amount of time before giving up.
 withTimeout
-  :: forall eff a.
+  :: forall a.
      Milliseconds
-  -> Aff eff a
-  -> Aff eff a
+  -> Aff a
+  -> Aff a
 withTimeout maxTimeout action = do
   let timeout = do
         delay maxTimeout
