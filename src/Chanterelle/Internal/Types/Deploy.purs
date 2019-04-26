@@ -131,10 +131,16 @@ constructorNoArgs txOpts bytecode _ =
   eth_sendTransaction $ txOpts # _data ?~ bytecode
                                # _value ?~ fromMinorUnit zero
 
-type ConfigR args =
+type LibraryR args =
   ( filepath :: FilePath
   , name :: String
-  , constructor :: Constructor args
+  | args
+  )
+
+type LibraryConfig args = Record (LibraryR args)
+
+type ConfigR args = LibraryR
+  ( constructor :: Constructor args
   , unvalidatedArgs :: V (Array String) (Record args)
   )
 

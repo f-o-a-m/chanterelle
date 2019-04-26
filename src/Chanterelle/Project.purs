@@ -55,7 +55,7 @@ loadProject root = do
       mkLibModule l = case l of
         InjectableLibrary lib -> case lib.code of
           InjectableWithSourceCode libRoot libPath ->
-            let solPath      = Path.concat [maybe "" id libRoot, libPath]
+            let solPath      = Path.concat [maybe "" identity libRoot, libPath]
                 jsonPath     = Path.concat [jsonOut, lib.name <> ".json"]
                 pursPath     = ""
             in Just $ ChanterelleModule { moduleName: lib.name, solContractName: lib.name, solPath, jsonPath, pursPath }

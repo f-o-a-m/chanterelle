@@ -11,11 +11,9 @@ import Prelude
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types.Bytecode (Bytecode(..))
 import Chanterelle.Internal.Types.Bytecode as CBC
-import Chanterelle.Internal.Types.Deploy (ContractConfig, DeployConfig(..), DeployError(..))
+import Chanterelle.Internal.Types.Deploy (ContractConfig, DeployConfig(..), DeployError(..), LibraryConfig)
 import Chanterelle.Internal.Utils (jsonStringifyWithSpaces, pollTransactionReceipt, validateDeployArgs, withTimeout)
 import Control.Error.Util ((??))
-import Effect.Aff (attempt)
-import Effect.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Except (ExceptT(..), runExceptT)
 import Control.Monad.Reader.Class (class MonadAsk, ask)
@@ -25,10 +23,13 @@ import Data.Either (Either(..), either)
 import Data.Lens ((^?), (%~), (?~))
 import Data.Lens.Index (ix)
 import Data.Maybe (isNothing, fromJust)
+import Effect.Aff (attempt)
+import Effect.Aff.Class (class MonadAff, liftAff)
 import Foreign.Object as M
 import Network.Ethereum.Core.HexString as HexString
 import Network.Ethereum.Web3 (runWeb3)
-import Network.Ethereum.Web3.Types (NoPay, Web3, Address, BigNumber, BlockNumber(..), HexString, TransactionOptions, TransactionReceipt(..), TransactionStatus(..), mkHexString, mkAddress)
+import Network.Ethereum.Web3.Api (eth_sendTransaction)
+import Network.Ethereum.Web3.Types (NoPay, Web3, Address, BigNumber, BlockNumber(..), HexString, TransactionOptions, TransactionReceipt(..), TransactionStatus(..), _data, _value, convert, mkHexString, mkAddress)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff (readTextFile, writeTextFile)
 import Node.Path (FilePath)
@@ -66,8 +67,8 @@ writeDeployInfo filename nid {deployAddress, blockNumber, blockHash, transaction
   liftAff $ writeTextFile UTF8 filename $ jsonStringifyWithSpaces 4 artifactWithAddress
 
 writeNewBytecode
-  :: forall eff m.
-      MonadAff (fs :: FS | eff) m
+  :: forall m.
+      MonadAff m
   => FilePath
   -> Bytecode
   -> m (Either String Unit)
@@ -135,8 +136,8 @@ getContractBytecode
      MonadThrow DeployError m
   => MonadAsk DeployConfig m
   => MonadAff m
-  => ContractConfig args
-  -> m HexString
+  => LibraryConfig args
+  -> m Bytecode
 getContractBytecode cconfig@{filepath, name} = do
     cfg@(DeployConfig {provider}) <- ask
     ebc <- getBytecode
@@ -161,17 +162,16 @@ type LibraryMeta = (libraryName :: String, libraryAddress :: Address)
 
 -- | Deploy a Library. Naturally, there's no contractConfig here...
 deployLibrary
-  :: forall eff args m.
+  :: forall m.
      MonadThrow DeployError m
   => MonadAsk DeployConfig m
-  => MonadAff (console :: CONSOLE, eth :: ETH, fs :: FS | eff) m
+  => MonadAff m
   => TransactionOptions NoPay
-  -> FilePath
-  -> String
+  -> LibraryConfig ()
   -> m (DeployReceipt LibraryMeta)
-deployLibrary txo filepath name = do
+deployLibrary txo ccfg@{filepath, name} = do
   (DeployConfig {provider}) <- ask
-  bc <- getContractBytecode filepath name
+  bc <- getContractBytecode ccfg
   case bc of
     BCUnlinked _ -> throwError $ DeployingUnlinkedBytecodeError { name }
     BCLinked { bytecode } -> do
@@ -182,16 +182,16 @@ deployLibrary txo filepath name = do
       pure {deployAddress, deployHash, deployArgs: { libraryName: name, libraryAddress: deployAddress } }
 
 linkLibrary
-  :: forall eff args m.
+  :: forall args m.
      MonadThrow DeployError m
   => MonadAsk DeployConfig m
-  => MonadAff (console :: CONSOLE, eth :: ETH, fs :: FS | eff) m
+  => MonadAff m
   => ContractConfig args
   -> Record LibraryMeta
   -> m Bytecode
-linkLibrary ccg@{filepath, name} { libraryName, libraryAddress } = do
+linkLibrary ccfg@{ filepath, name } { libraryName, libraryAddress } = do
   (DeployConfig { provider, writeArtifacts }) <- ask
-  bc <- getContractBytecode filepath name
+  bc <- getContractBytecode ccfg
   log Info $ "Linking " <> libraryName <> " at " <> show libraryAddress <> " to " <> name <> " in " <> filepath
   let res = CBC.linkLibrary libraryName libraryAddress bc
       errPrefix = "While linking " <> libraryName <> " to " <> name <> ": "
@@ -220,7 +220,7 @@ deployContract
 deployContract txOptions ccfg@{filepath, name, constructor} = do
   (DeployConfig { provider }) <- ask
   validatedArgs <- validateDeployArgs ccfg
-  bc <- getContractBytecode filepath name
+  bc <- getContractBytecode ccfg
   case bc of
     BCUnlinked _ -> throwError $ DeployingUnlinkedBytecodeError { name }
     BCLinked { bytecode } -> do

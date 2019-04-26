@@ -31,7 +31,7 @@ instance decodeJsonSolcBytecode :: DecodeJson SolcBytecode where
   decodeJson o = do
     obj <- decodeJson o
     rawBytecode <- obj .? "object"
-    solcLinkRefs <- maybe (SM.empty) (\a -> a) <$> obj .?? "linkReferences"
+    solcLinkRefs <- maybe (SM.empty) identity <$> obj .?? "linkReferences"
     let linkReferences = flattenLinkReferences solcLinkRefs
     SolcBytecode <$> normalizeUnlinked (BCUnlinked { rawBytecode, linkReferences })
 
@@ -52,7 +52,7 @@ instance decodeJsonBytecode :: DecodeJson Bytecode where
   decodeJson o = do
     obj <- decodeJson o
     rawBytecode <- obj .? "object"
-    linkReferences <- maybe (SM.empty) (\a -> a) <$> obj .?? "linkReferences"
+    linkReferences <- maybe (SM.empty) identity <$> obj .?? "linkReferences"
     normalizeUnlinked (BCUnlinked { rawBytecode, linkReferences })
 
 instance encodeJsonBytecode :: EncodeJson Bytecode where

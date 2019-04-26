@@ -1,7 +1,7 @@
 module Chanterelle.Internal.Genesis where
 
 import Chanterelle.Internal.Compile (compileModuleWithoutWriting, decodeContract, makeSolcInput, resolveContractMainModule)
-import Chanterelle.Internal.Logging (LogLevel(..), log, logGenesisGenerationError)
+import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types.Bytecode (Bytecode(..))
 import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract(..), runCompileMExceptT)
 import Chanterelle.Internal.Types.Genesis (GenesisAlloc(..), GenesisBlock(..), GenesisGenerationError(..), insertGenesisAllocs, lookupGenesisAllocs)

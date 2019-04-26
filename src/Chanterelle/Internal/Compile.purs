@@ -7,6 +7,7 @@ module Chanterelle.Internal.Compile
   , module CompileReexports
   ) where
 
+import Prelude
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract(..), SolcContract(..), SolcError(..), SolcInput(..), SolcOutput(..), SolcSettings(..), parseSolcOutputContract) as CompileReexports
 import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract, SolcContract(..), SolcError(..), SolcInput(..), SolcOutput(..), SolcSettings(..), encodeOutputContract, parseSolcOutput)

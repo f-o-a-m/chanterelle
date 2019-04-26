@@ -14,7 +14,6 @@ import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (class MonadAsk)
-import Data.Argonaut (class DecodeJson, class EncodeJson, (:=), (~>), (.?), (.??), decodeJson, encodeJson, jsonEmptyObject)
 import Data.Argonaut as A
 import Data.Either (Either)
 import Data.Maybe (fromMaybe)
