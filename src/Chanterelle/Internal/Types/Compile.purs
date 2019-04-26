@@ -3,7 +3,7 @@ module Chanterelle.Internal.Types.Compile where
 import Prelude
 import Chanterelle.Internal.Types.Project (ChanterelleProject, Library(..), Libraries(..), SolcOptimizerSettings)
 import Chanterelle.Internal.Utils.Json (encodeJsonAddress)
-import Data.Argonaut (class DecodeJson, class EncodeJson, (:=), (~>), (.?), (.??), decodeJson, encodeJson, jsonEmptyObject)
+import Data.Argonaut (class DecodeJson, class EncodeJson, (:=), (~>), (.:), (.:?), decodeJson, encodeJson, jsonEmptyObject)
 import Data.Argonaut as A
 import Effect.Aff (Aff, Milliseconds(..))
 import Effect.Aff.Class (class MonadAff)
@@ -131,10 +131,10 @@ newtype SolcError =
 instance decodeSolcError :: DecodeJson SolcError where
   decodeJson json = do
     obj <- decodeJson json
-    _type <- obj .? "type"
-    severity <- obj .? "severity"
-    message <- obj .? "message"
-    formattedMessage <-obj .? "formattedMessage"
+    _type <- obj .: "type"
+    severity <- obj .: "severity"
+    message <- obj .: "message"
+    formattedMessage <-obj .: "formattedMessage"
     pure $
       SolcError { type: _type
                 , severity
@@ -156,13 +156,13 @@ parseOutputContract
   -> Either String OutputContract
 parseOutputContract json = do
   obj <- decodeJson json
-  abi <- obj .? "abi"
-  evm <- obj .? "evm"
+  abi <- obj .: "abi"
+  evm <- obj .: "evm"
   evmObj <- decodeJson evm
-  bytecodeO <- evmObj .? "bytecode"
-  bytecode <- bytecodeO .? "object"
-  deployedBytecodeO <- evmObj .? "deployedBytecode"
-  deployedBytecode <- deployedBytecodeO .? "object"
+  bytecodeO <- evmObj .: "bytecode"
+  bytecode <- bytecodeO .: "object"
+  deployedBytecodeO <- evmObj .: "deployedBytecode"
+  deployedBytecode <- deployedBytecodeO .: "object"
   pure $ OutputContract { abi, bytecode, deployedBytecode }
 
 encodeOutputContract
@@ -186,7 +186,7 @@ parseSolcOutput
   -> Either String SolcOutput
 parseSolcOutput json = do
   o <- decodeJson json
-  errors <- fromMaybe [] <$> o .?? "errors"
-  contractsMap <- o .? "contracts"
+  errors <- fromMaybe [] <$> o .:? "errors"
+  contractsMap <- o .: "contracts"
   contracts <- for contractsMap (traverse parseOutputContract)
   pure $ SolcOutput {errors, contracts}

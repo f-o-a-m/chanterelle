@@ -5,7 +5,7 @@ import Control.Alt ((<|>))
 import Chanterelle.Internal.Types.Compile (CompileError)
 import Chanterelle.Internal.Types.Project (Network)
 import Chanterelle.Internal.Utils.Json
-import Data.Argonaut (class DecodeJson, class EncodeJson, (:=), (~>), (.?), (.??), decodeJson, encodeJson, jsonEmptyObject)
+import Data.Argonaut (class DecodeJson, class EncodeJson, (:=), (~>), (.:), (.:?), decodeJson, encodeJson, jsonEmptyObject)
 import Data.Array (catMaybes)
 import Data.Maybe (Maybe, maybe)
 import Foreign.Object (Object)
@@ -53,7 +53,7 @@ instance decodeJsonGenesisConfig :: DecodeJson GenesisConfig where
         eip155Block    <- gfoWithDecoder decodeJsonBlockNumber obj "eip155Block"
         eip158Block    <- gfoWithDecoder decodeJsonBlockNumber obj "eip158Block"
         homesteadBlock <- gfoWithDecoder decodeJsonBlockNumber obj "homesteadBlock"
-        clique         <- obj .?? "clique"
+        clique         <- obj .:? "clique"
         pure $ GenesisConfig { chainId, byzantiumBlock, eip150Block, eip150Hash, eip155Block, eip158Block, homesteadBlock, clique }
 
 instance encodeJsonGenesisConfig :: EncodeJson GenesisConfig where
@@ -71,8 +71,8 @@ instance encodeJsonGenesisConfig :: EncodeJson GenesisConfig where
 instance decodeJsonCliqueSettings :: DecodeJson CliqueSettings where
     decodeJson j = do
         obj <- decodeJson j
-        period <- decodeJsonBigNumber =<< obj .? "period"
-        epoch <- decodeJsonBigNumber =<< obj .? "epoch"
+        period <- decodeJsonBigNumber =<< obj .: "period"
+        epoch <- decodeJsonBigNumber =<< obj .: "epoch"
         pure $ CliqueSettings { period, epoch }
 
 instance encodeJsonCliqueSettings :: EncodeJson CliqueSettings where
@@ -98,7 +98,7 @@ instance decodeJsonGenesisAlloc :: DecodeJson GenesisAlloc where
     decodeJson j = do
         obj <- decodeJson j
         code <- gfoWithDecoder decodeJsonHexString obj "code"
-        storage <- obj .?? "storage"
+        storage <- obj .:? "storage"
         balance <- gfWithDecoder decodeJsonBigNumber obj "balance"
         pure $ GenesisAlloc { code, storage, balance }
 
@@ -131,16 +131,16 @@ newtype GenesisBlock
 instance decodeJsonGenesisBlock :: DecodeJson GenesisBlock where
     decodeJson j = do
         obj        <- decodeJson j
-        config     <- obj .? "config"
-        allocs     <- obj .? "alloc"
-        nonce      <- obj .? "nonce"      >>= decodeJsonBigNumber
+        config     <- obj .: "config"
+        allocs     <- obj .: "alloc"
+        nonce      <- obj .: "nonce"      >>= decodeJsonBigNumber
         coinbase   <- gfWithDecoder decodeJsonAddress obj "coinbase"
-        extraData  <- obj .? "extraData"
-        gasLimit   <- obj .? "gasLimit"   >>= decodeJsonBigNumber
-        mixHash    <- obj .? "mixHash"    >>= decodeJsonHexString
-        parentHash <- obj .? "parentHash" >>= decodeJsonHexString
-        timestamp  <- obj .? "timestamp"  >>= decodeJsonBigNumber
-        difficulty <- obj .? "difficulty" >>= decodeJsonBigNumber
+        extraData  <- obj .: "extraData"
+        gasLimit   <- obj .: "gasLimit"   >>= decodeJsonBigNumber
+        mixHash    <- obj .: "mixHash"    >>= decodeJsonHexString
+        parentHash <- obj .: "parentHash" >>= decodeJsonHexString
+        timestamp  <- obj .: "timestamp"  >>= decodeJsonBigNumber
+        difficulty <- obj .: "difficulty" >>= decodeJsonBigNumber
         pure $ GenesisBlock { config, allocs, nonce, coinbase, extraData, gasLimit, mixHash, parentHash, timestamp, difficulty }
 
 instance encodeJsonGenesisBlock :: EncodeJson GenesisBlock where

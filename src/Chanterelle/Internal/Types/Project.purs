@@ -5,7 +5,7 @@ import Prelude
 import Chanterelle.Internal.Utils.Json (decodeJsonAddress, decodeJsonHexString, encodeJsonAddress, encodeJsonHexString, gfWithDecoder)
 import Control.Alt ((<|>))
 import Effect.Aff (Milliseconds)
-import Data.Argonaut (class EncodeJson, class DecodeJson, encodeJson, decodeJson, (:=), (~>), (.?), (.??), jsonEmptyObject)
+import Data.Argonaut (class EncodeJson, class DecodeJson, encodeJson, decodeJson, (:=), (~>), (.:), (.:?), jsonEmptyObject)
 import Data.Array (elem, filter, null)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe, fromMaybe)
@@ -46,7 +46,7 @@ instance encodeJsonInjectableLibraryCode :: EncodeJson InjectableLibraryCode whe
 
 instance decodeJsonInjectableLibraryCode :: DecodeJson InjectableLibraryCode where
   decodeJson d = decodeSourceCode <|> decodeBytecode <|> Left "not a valid InjectableLibrarySource"
-      where decodeSourceCode = decodeJson d >>= (\o -> InjectableWithSourceCode <$> o .?? "root" <*> o .? "file")
+      where decodeSourceCode = decodeJson d >>= (\o -> InjectableWithSourceCode <$> o .:? "root" <*> o .: "file")
             decodeBytecode   = do
               o <- decodeJson d
               bc <- gfWithDecoder decodeJsonHexString o "bytecode"
@@ -95,13 +95,13 @@ instance decodeJsonLibraries :: DecodeJson Libraries where
           decodeFixedLibraryWithNetwork (Tuple name l) = do
             fln <- decodeJson l
             address <- gfWithDecoder decodeJsonAddress fln "address"
-            networks <- fln .? "via"
+            networks <- fln .: "via"
             pure $ FixedLibraryWithNetwork { name, address, networks }
 
           decodeInjectableLibrary (Tuple name l) = do
             ilo <- decodeJson l
             address <- gfWithDecoder decodeJsonAddress ilo "address"
-            code    <- ilo .? "code"
+            code    <- ilo .: "code"
             pure $ InjectableLibrary { name, address, code }
 
           failDramatically (Tuple name _) = Left ("Malformed library descriptor for " <> name)
@@ -147,8 +147,8 @@ instance decodeJsonNetworks :: DecodeJson Networks where
   decodeJson j = decodeJson j >>= (\o -> Networks <$> for (M.toUnfoldable o) decodeNetwork)
     where decodeNetwork (Tuple name net) = do
             o <- decodeJson net
-            providerUrl   <- o .? "url"
-            allowedChains <- o .? "chains"
+            providerUrl   <- o .: "url"
+            allowedChains <- o .: "chains"
             pure $ Network { name, providerUrl, allowedChains }
 
 instance encodeJsonNetworks :: EncodeJson Networks where
@@ -215,8 +215,8 @@ instance encodeJsonSolcOptimizerSettings :: EncodeJson SolcOptimizerSettings whe
 instance decodeJsonSolcOptimizerSettings :: DecodeJson SolcOptimizerSettings where
   decodeJson j = do
       obj <- decodeJson j
-      enabled <- fromMaybe default.enabled <$> obj .?? "enabled"
-      runs    <- fromMaybe default.runs    <$> obj .?? "runs"
+      enabled <- fromMaybe default.enabled <$> obj .:? "enabled"
+      runs    <- fromMaybe default.runs    <$> obj .:? "runs"
       pure $ SolcOptimizerSettings { enabled, runs }
 
       where (SolcOptimizerSettings default) = defaultSolcOptimizerSettings
@@ -279,21 +279,21 @@ instance encodeJsonChanterelleProjectSpec :: EncodeJson ChanterelleProjectSpec w
 instance decodeJsonChanterelleProjectSpec :: DecodeJson ChanterelleProjectSpec where
   decodeJson j = do
     obj                   <- decodeJson j
-    name                  <- obj .? "name"
-    version               <- obj .? "version"
-    sourceDir             <- obj .? "source-dir"
-    artifactsDir          <- fromMaybe "build" <$> obj .?? "artifacts-dir"
-    modules               <- obj .? "modules"
-    dependencies          <- fromMaybe mempty <$> obj .?? "dependencies"
-    extraAbis             <- obj .?? "extra-abis"
-    libraries             <- fromMaybe mempty <$> obj .?? "libraries"
-    networks              <- fromMaybe mempty <$> obj .?? "networks"
-    solcOptimizerSettings <- obj .?? "solc-optimizer"
-    solcOutputSelection   <- fromMaybe mempty <$> obj .?? "solc-output-selection"
-    psGenObj              <- obj .? "purescript-generator"
-    psGenOutputPath       <- psGenObj .? "output-path"
-    psGenExprPrefix       <- fromMaybe "" <$> psGenObj .?? "expression-prefix"
-    psGenModulePrefix     <- fromMaybe "" <$> psGenObj .?? "module-prefix"
+    name                  <- obj .: "name"
+    version               <- obj .: "version"
+    sourceDir             <- obj .: "source-dir"
+    artifactsDir          <- fromMaybe "build" <$> obj .:? "artifacts-dir"
+    modules               <- obj .: "modules"
+    dependencies          <- fromMaybe mempty <$> obj .:? "dependencies"
+    extraAbis             <- obj .:? "extra-abis"
+    libraries             <- fromMaybe mempty <$> obj .:? "libraries"
+    networks              <- fromMaybe mempty <$> obj .:? "networks"
+    solcOptimizerSettings <- obj .:? "solc-optimizer"
+    solcOutputSelection   <- fromMaybe mempty <$> obj .:? "solc-output-selection"
+    psGenObj              <- obj .: "purescript-generator"
+    psGenOutputPath       <- psGenObj .: "output-path"
+    psGenExprPrefix       <- fromMaybe "" <$> psGenObj .:? "expression-prefix"
+    psGenModulePrefix     <- fromMaybe "" <$> psGenObj .:? "module-prefix"
     let psGen = { exprPrefix: psGenExprPrefix, modulePrefix: psGenModulePrefix, outputPath: psGenOutputPath }
     pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, modules, dependencies, extraAbis, libraries, networks, solcOptimizerSettings, solcOutputSelection, psGen }
 

@@ -4,7 +4,7 @@ import Prelude
 import Control.Alt ((<|>))
 import Control.Error.Util (note)
 import Foreign.Object (Object)
-import Data.Argonaut (Json, decodeJson, encodeJson, (.?), (.??))
+import Data.Argonaut (Json, decodeJson, encodeJson, (.:), (.:?))
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..), maybe)
 import Network.Ethereum.Core.BigNumber (hexadecimal, parseBigNumber, toString, unsafeToInt)
@@ -47,10 +47,10 @@ decodeJsonAddress j = do
     h <- note "Address is not a valid HexString" $ mkHexString s
     note "Address is malformed" $ mkAddress h
 
--- getField (aka .?) with a manual decoder
+-- getField (aka .:) with a manual decoder
 gfWithDecoder :: forall a. (Json -> Either String a) -> Object Json -> String -> Either String a
-gfWithDecoder decode obj k = (obj .? k) >>= decode
+gfWithDecoder decode obj k = (obj .: k) >>= decode
 
--- getFieldOptional (aka .??) with a manual decoder
+-- getFieldOptional (aka .:?) with a manual decoder
 gfoWithDecoder :: forall a. (Json -> Either String a) -> Object Json -> String -> Either String (Maybe a)
-gfoWithDecoder decode obj key = (obj .?? key) >>= maybe (pure Nothing) (map Just <<< decode)
+gfoWithDecoder decode obj key = (obj .:? key) >>= maybe (pure Nothing) (map Just <<< decode)
