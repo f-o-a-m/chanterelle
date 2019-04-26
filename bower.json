@@ -10,21 +10,21 @@
   ],
   "dependencies": {
     "purescript-prelude": "^4.0.0",
-    "purescript-web3": "^1.0.0",
-    "purescript-web3-generator": "^1.0.0",
+    "purescript-eth-core": "#upgrade",
+    "purescript-web3": "#upgrade",
+    "purescript-web3-generator": "#upgrade",
     "purescript-console": "^4.0.0",
     "purescript-errors": "^4.0.0",
     "purescript-node-process": "^6.0.0",
-    "purescript-debug": "^4.0.0",
-    "purescript-optparse": "f-o-a-m/purescript-optparse#v0.1.0",
+    "purescript-optparse": "^1.0.0",
     "purescript-mkdirp": "joshuahhh/purescript-mkdirp#48ecb4039d5fe3be82d0e82c3a9f2338d1af82d2",
     "purescript-logging": "^3.0.0",
     "purescript-validation": "^4.0.0",
-    "purescript-random": "^4.0.0",
-    "purescript-foreign-object": "^1.1.0"
+    "purescript-random": "^4.0.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^4.0.0",
+    "purescript-debug": "^4.0.0",
     "purescript-spec": "^3.0.0"
   }
 }
