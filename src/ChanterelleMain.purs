@@ -105,7 +105,7 @@ main = launchAff_ do
     pure $ DeployOptions {nodeURL, timeout, script: SelectPS script}
   case res of
     Left err -> do
-      log Error $ "Couldn't load deploy script" <> show err
+      log Error $ "Couldn't load deploy script. " <> show err
     Right args' -> chanterelle args'
 
 foreign import loadDeployMFromScriptPath :: String -> Effect (DeployM Unit)
