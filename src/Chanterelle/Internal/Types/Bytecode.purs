@@ -3,6 +3,7 @@ module Chanterelle.Internal.Types.Bytecode
   , LinkReference(..)
   , SolcBytecode(..)
   , linkLibrary
+  , unlinkedLibraryNames
   ) where
 
 import Prelude
@@ -25,7 +26,6 @@ data Bytecode = BCLinked { bytecode :: HexString }
               | BCUnlinked { rawBytecode :: String, linkReferences :: Object (Array LinkReference) }
 
 newtype SolcBytecode = SolcBytecode Bytecode
-
 
 instance decodeJsonSolcBytecode :: DecodeJson SolcBytecode where
   decodeJson o = do
@@ -113,3 +113,7 @@ flattenLinkReferences solcLinkRefs = upsertElems (SM.empty) (concatMap unfoldLin
       case uncons elems of
         Nothing -> theMap
         Just { head, tail } -> upsertElems (upsertElem theMap head) tail
+
+unlinkedLibraryNames :: Bytecode -> Array String
+unlinkedLibraryNames (BCLinked _) = []
+unlinkedLibraryNames (BCUnlinked u) = SM.keys u.linkReferences

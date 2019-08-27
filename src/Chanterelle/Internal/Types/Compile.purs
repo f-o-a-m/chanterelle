@@ -5,22 +5,22 @@ import Prelude
 import Chanterelle.Internal.Types.Bytecode (Bytecode, SolcBytecode(..))
 import Chanterelle.Internal.Types.Project (ChanterelleProject, Library(..), Libraries(..), SolcOptimizerSettings)
 import Chanterelle.Internal.Utils.Json (encodeJsonAddress)
-import Data.Argonaut (class DecodeJson, class EncodeJson, (:=), (~>), (.?), (.??), decodeJson, encodeJson, jsonEmptyObject)
-import Data.Argonaut as A
-import Effect.Aff (Aff, Milliseconds(..))
-import Effect.Aff.Class (class MonadAff)
-import Effect.Class (class MonadEffect)
 import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (class MonadAsk)
+import Data.Argonaut (class DecodeJson, class EncodeJson, (:=), (~>), (.?), (.??), decodeJson, encodeJson, jsonEmptyObject)
 import Data.Argonaut as A
+import Data.Array (catMaybes)
 import Data.Either (Either)
-import Data.Maybe (fromMaybe)
-import Foreign.Object (Object)
-import Foreign.Object as M
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Traversable (for, traverse)
 import Data.Tuple (Tuple(..))
+import Effect.Aff (Aff, Milliseconds(..))
+import Effect.Aff.Class (class MonadAff)
+import Effect.Class (class MonadEffect)
+import Foreign.Object (Object)
+import Foreign.Object as M
 import Network.Ethereum.Web3 (HexString, unHex)
 
 data CompileError = CompileParseError    { objectName :: String, parseError :: String }
@@ -102,10 +102,11 @@ instance encodeSolcSettings :: EncodeJson SolcSettings where
     ~> jsonEmptyObject
 
     where solcifyAllLibs libs = solcifyLibs <$> libs
-          solcifyLibs (Libraries l) = M.fromFoldable (solcifyLib <$> l)
-          solcifyLib (FixedLibrary { name, address } )            = Tuple name (encodeJsonAddress address)
-          solcifyLib (FixedLibraryWithNetwork { name, address } ) = Tuple name (encodeJsonAddress address)
-          solcifyLib (InjectableLibrary { name, address } )       = Tuple name (encodeJsonAddress address)
+          solcifyLibs (Libraries l) = M.fromFoldable $ catMaybes (solcifyLib <$> l)
+          solcifyLib (FixedLibrary { name, address } )            = Just $ Tuple name (encodeJsonAddress address)
+          solcifyLib (FixedLibraryWithNetwork { name, address } ) = Just $ Tuple name (encodeJsonAddress address)
+          solcifyLib (InjectableLibrary { name, address } )       = Just $ Tuple name (encodeJsonAddress address)
+          solcifyLib _ = Nothing
 
 --------------------------------------------------------------------------------
 

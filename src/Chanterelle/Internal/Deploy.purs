@@ -173,7 +173,7 @@ deployLibrary txo ccfg@{filepath, name} = do
   (DeployConfig {provider}) <- ask
   bc <- getContractBytecode ccfg
   case bc of
-    BCUnlinked _ -> throwError $ DeployingUnlinkedBytecodeError { name }
+    BCUnlinked _ -> throwError $ DeployingUnlinkedBytecodeError { name, libs: CBC.unlinkedLibraryNames bc }
     BCLinked { bytecode } -> do
       let txo' = txo # _data ?~ bytecode
                      # _value %~ map convert
@@ -222,7 +222,7 @@ deployContract txOptions ccfg@{filepath, name, constructor} = do
   validatedArgs <- validateDeployArgs ccfg
   bc <- getContractBytecode ccfg
   case bc of
-    BCUnlinked _ -> throwError $ DeployingUnlinkedBytecodeError { name }
+    BCUnlinked _ -> throwError $ DeployingUnlinkedBytecodeError { name, libs: CBC.unlinkedLibraryNames bc }
     BCLinked { bytecode } -> do
       let deploymentAction = constructor txOptions bytecode validatedArgs
       {deployAddress, deployHash} <- deployContractAndWriteToArtifact filepath name deploymentAction

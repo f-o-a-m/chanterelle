@@ -118,7 +118,7 @@ compileModuleWithoutWriting
   -> m SolcOutput
 compileModuleWithoutWriting m@(ChanterelleModule mod) solcInput = do
   (ChanterelleProject project) <- ask
-  log Info ("compiling " <> mod.moduleName)
+  log Info ("compiling " <> show mod.moduleType <> " " <> mod.moduleName)
   output <- liftEffect $ runFn2 _compile (A.stringify $ encodeJson solcInput) (loadSolcCallback m project.root project.spec)
   case AP.jsonParser output >>= parseSolcOutput of
     Left err -> throwError $ CompileParseError {objectName: "Solc Output", parseError: err}

@@ -14,6 +14,7 @@ import Data.String (Pattern(..), joinWith, split)
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
 import Network.Ethereum.Web3 (Address, HexString)
+import Node.Path as Path
 import Node.Path (FilePath)
 
 --------------------------------------------------------------------------------
@@ -55,6 +56,7 @@ instance decodeJsonInjectableLibraryCode :: DecodeJson InjectableLibraryCode whe
 data Library = FixedLibrary            { name :: String, address :: Address  }
              | FixedLibraryWithNetwork { name :: String, address :: Address, networks :: NetworkRefs }
              | InjectableLibrary       { name :: String, address :: Address, code :: InjectableLibraryCode }
+             | DeployableLibrary       { name :: String, sourceRoot :: Maybe FilePath, sourceCode :: FilePath }
 
 isFixedLibrary :: Library -> Boolean
 isFixedLibrary (FixedLibrary _) = true
@@ -79,13 +81,16 @@ instance encodeJsonLibraries :: EncodeJson Libraries where
                                                    "address" := encodeJsonAddress l.address
                                                 ~> "code"    := encodeJson l.code
                                                 ~> jsonEmptyObject
+        mkTuple (DeployableLibrary l)       = Tuple l.name $
+                                                   "code" := encodeJson l.sourceCode
+                                                ~> jsonEmptyObject
         asMap    = M.fromFoldable asAssocs
      in encodeJson asMap
 
 instance decodeJsonLibraries :: DecodeJson Libraries where
   decodeJson j = do
     obj <- decodeJson j
-    libs <- for (M.toUnfoldable obj) $ \t -> (decodeFixedLibrary t) <|> (decodeFixedLibraryWithNetwork t) <|> (decodeInjectableLibrary t) <|> (failDramatically t)
+    libs <- for (M.toUnfoldable obj) $ \t -> (decodeFixedLibrary t) <|> (decodeFixedLibraryWithNetwork t) <|> (decodeInjectableLibrary t) <|> (decodeDeployableLibrary t) <|> (failDramatically t)
     pure (Libraries libs)
 
     where decodeFixedLibrary (Tuple name l) = do
@@ -103,6 +108,13 @@ instance decodeJsonLibraries :: DecodeJson Libraries where
             address <- gfWithDecoder decodeJsonAddress ilo "address"
             code    <- ilo .? "code"
             pure $ InjectableLibrary { name, address, code }
+
+          decodeDeployableLibrary (Tuple name l) = do 
+            ilo <- decodeJson l
+            libCode <- ilo .? "code"
+            case libCode of
+              InjectableWithSourceCode sourceRoot sourceCode -> pure $ DeployableLibrary { name, sourceRoot, sourceCode }
+              _ -> Left ("Deployable library code for " <> name <> " may only be specified with source code")
 
           failDramatically (Tuple name _) = Left ("Malformed library descriptor for " <> name)
 
@@ -227,12 +239,19 @@ defaultSolcOptimizerSettings = SolcOptimizerSettings { enabled: false, runs: 200
 
 ---------------------------------------------------------------------
 
+data ChanterelleModuleType = LibraryModule | ContractModule
+
+instance showChanterelleModuleType :: Show ChanterelleModuleType where
+  show LibraryModule = "libary module"
+  show ContractModule = "contract module"
+
 data ChanterelleModule =
   ChanterelleModule { moduleName      :: String
                     , solContractName :: String
                     , solPath         :: FilePath
                     , jsonPath        :: FilePath
                     , pursPath        :: FilePath
+                    , moduleType      :: ChanterelleModuleType
                     }
 
 newtype ChanterelleProjectSpec =
@@ -240,6 +259,7 @@ newtype ChanterelleProjectSpec =
                          , version               :: String
                          , sourceDir             :: FilePath
                          , artifactsDir          :: FilePath
+                         , libArtifactsDir       :: FilePath
                          , modules               :: Array String
                          , dependencies          :: Array Dependency
                          , extraAbis             :: Maybe FilePath
@@ -283,6 +303,7 @@ instance decodeJsonChanterelleProjectSpec :: DecodeJson ChanterelleProjectSpec w
     version               <- obj .? "version"
     sourceDir             <- obj .? "source-dir"
     artifactsDir          <- fromMaybe "build" <$> obj .?? "artifacts-dir"
+    libArtifactsDir       <- fromMaybe (Path.concat [artifactsDir, "libraries"]) <$> obj .?? "library-artifacts-dir"
     modules               <- obj .? "modules"
     dependencies          <- fromMaybe mempty <$> obj .?? "dependencies"
     extraAbis             <- obj .?? "extra-abis"
@@ -295,7 +316,7 @@ instance decodeJsonChanterelleProjectSpec :: DecodeJson ChanterelleProjectSpec w
     psGenExprPrefix       <- fromMaybe "" <$> psGenObj .?? "expression-prefix"
     psGenModulePrefix     <- fromMaybe "" <$> psGenObj .?? "module-prefix"
     let psGen = { exprPrefix: psGenExprPrefix, modulePrefix: psGenModulePrefix, outputPath: psGenOutputPath }
-    pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, modules, dependencies, extraAbis, libraries, networks, solcOptimizerSettings, solcOutputSelection, psGen }
+    pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, libArtifactsDir, modules, dependencies, extraAbis, libraries, networks, solcOptimizerSettings, solcOutputSelection, psGen }
 
 data ChanterelleProject =
      ChanterelleProject { root        :: FilePath -- ^ parent directory containing chanterelle.json

@@ -90,7 +90,7 @@ derive newtype instance alternativeParDeployM :: Alternative DeployMPar
 data DeployError = ConfigurationError String
                  | OnDeploymentError {name :: String, message :: String}
                  | PostDeploymentError {name :: String, message :: String}
-                 | DeployingUnlinkedBytecodeError { name :: String }
+                 | DeployingUnlinkedBytecodeError { name :: String, libs :: Array String }
                  | LinkingLinkedBytecodeError { name :: String, libraryName :: String } 
                  | LinkingError String
 

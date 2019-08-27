@@ -18,12 +18,13 @@ import Chanterelle.Internal.Types.Genesis as Genesis
 import Chanterelle.Internal.Types.Project (Network(..))
 import Chanterelle.Internal.Utils.Time (now, toISOString)
 import Control.Logger as Logger
-import Effect (Effect)
-import Effect.Class (liftEffect, class MonadEffect)
-import Effect.Console as Console
+import Data.Array (intercalate)
 import Data.String (toUpper)
 import Data.Traversable (for_)
 import Data.Tuple (Tuple(..))
+import Effect (Effect)
+import Effect.Class (liftEffect, class MonadEffect)
+import Effect.Console as Console
 
 data LogLevel = Debug | Info | Warn | Error
 
@@ -113,7 +114,7 @@ logDeployError = liftEffect <<< case _ of
     Deploy.ConfigurationError errMsg -> log Error errMsg
     Deploy.OnDeploymentError msg     -> log Error (onDeployMessage msg)
     Deploy.PostDeploymentError msg   -> log Error (postDeployMessage msg)
-    Deploy.DeployingUnlinkedBytecodeError msg -> log Error (msg.name <> " has unlinked references to libraries")
+    Deploy.DeployingUnlinkedBytecodeError msg -> log Error (msg.name <> " has unlinked references to libraries: " <> intercalate ", " msg.libs)
     Deploy.LinkingLinkedBytecodeError msg -> log Error ("Attempted to link library " <> msg.libraryName <> " to " <> msg.name <> ", which is already fully linked...")
     Deploy.LinkingError msg -> log Error ("Linking error: " <> msg)
   where

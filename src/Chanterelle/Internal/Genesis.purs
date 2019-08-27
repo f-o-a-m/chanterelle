@@ -5,7 +5,7 @@ import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types.Bytecode (Bytecode(..))
 import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract(..), runCompileMExceptT)
 import Chanterelle.Internal.Types.Genesis (GenesisAlloc(..), GenesisBlock(..), GenesisGenerationError(..), insertGenesisAllocs, lookupGenesisAllocs)
-import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), InjectableLibraryCode(..), Libraries(..), Library(..), Network(..), Networks(..), isFixedLibrary, resolveNetworkRefs)
+import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleModuleType(..), ChanterelleProject(..), ChanterelleProjectSpec(..), InjectableLibraryCode(..), Libraries(..), Library(..), Network(..), Networks(..), isFixedLibrary, resolveNetworkRefs)
 import Chanterelle.Internal.Utils.Lazy (firstSuccess)
 import Chanterelle.Internal.Utils.Web3 (resolveCodeForContract)
 import Control.Error.Util (note)
@@ -13,7 +13,7 @@ import Control.Monad.Error.Class (try, throwError)
 import Control.Monad.Except.Trans (ExceptT(..), except, runExceptT, withExceptT)
 import Control.Monad.State.Trans (execStateT, get, put)
 import Data.Argonaut as A
-import Data.Array ((!!), replicate, null, all)
+import Data.Array ((!!), catMaybes, replicate, null, all)
 import Data.Either (Either(..))
 import Data.Foldable (class Foldable, elem)
 import Data.Int (floor, toNumber)
@@ -101,7 +101,7 @@ generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExcep
     then throwError $ NothingToDo ntdReason
     else do
       genesis <- loadGenesisIn
-      injects <- for libs $ case _ of
+      mInjects <- for libs $ case _ of
         FixedLibrary { name } -> throwError $ CouldntInjectLibrary name "is a fixed library without any source code"
         FixedLibraryWithNetwork { name, address, networks } -> do
             let (ChanterelleProjectSpec spec) = project.spec
@@ -120,16 +120,15 @@ generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExcep
                   log Warn $ "Failures encountered when resolving library " <> show name <> ": "
                   for_ failures $ \(Tuple (Network failedNet) err) -> log Warn $ "    via " <> show failedNet.name <> ": " <> err
                   log Info $ "Successfully resolved library " <> show name <> " via network " <> show successNet.name
-
-                  pure { name, address, injectedBytecode: result }
+                  pure $ Just { name, address, injectedBytecode: result }
         InjectableLibrary { name, address, code } -> case code of
             InjectableWithBytecode bc -> do
                 injectedBytecode <- withExceptT (CouldntInjectLibraryAddress name) <<< except $ substituteLibraryAddress bc address
-                pure { name, address, injectedBytecode }
+                pure $ Just { name, address, injectedBytecode }
             InjectableWithSourceCode r f -> do
                 let libProject = cp
                 hexBytecode <- withExceptT (CouldntCompileLibrary name) <<< flip runCompileMExceptT libProject $ do
-                    let mfi@(ChanterelleModule mfi') = moduleForInput { name, root: r, filePath: f }
+                    let mfi@(ChanterelleModule mfi') = libModuleForInput { name, root: r, filePath: f }
                     input <-  makeSolcInput name f
                     output <- compileModuleWithoutWriting mfi input
                     decoded <- decodeContract name output
@@ -138,7 +137,11 @@ generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExcep
                         BCLinked x -> pure x.bytecode
                         BCUnlinked _ -> throwError $ UnexpectedSolcOutput "Source code compiled to unlinked bytecode"
                 injectedBytecode <- withExceptT (CouldntInjectLibraryAddress name) <<< except $ substituteLibraryAddress hexBytecode address
-                pure { name, address, injectedBytecode }
+                pure $ Just { name, address, injectedBytecode }
+        DeployableLibrary { name } -> do
+          log Warn $ "Not injecting library " <> name <> " into genesis as it appears to be deployable."
+          pure Nothing
+      let injects = catMaybes mInjects
       injectedGenesis <- flip execStateT genesis <<< for injects $ \{ name, address, injectedBytecode } -> do
         (GenesisBlock currGen) <- get
         newAllocs <- case lookupGenesisAllocs address currGen.allocs of
@@ -152,9 +155,9 @@ generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExcep
   where (ChanterelleProjectSpec spec) = project.spec
         (Libraries libs)              = spec.libraries
 
-        moduleForInput {name, root, filePath } = 
+        libModuleForInput {name, root, filePath } = 
             let { root, dir, base, ext, name } = Path.parse filePath
-             in ChanterelleModule { moduleName: name, solContractName: name, solPath: filePath, jsonPath: "", pursPath: "" }
+             in ChanterelleModule { moduleName: name, solContractName: name, moduleType: LibraryModule, solPath: filePath, jsonPath: "", pursPath: "" }
 
         { nothingToDo, ntdReason } = if null libs
                                           then { nothingToDo: true, ntdReason: "No libraries specified in project" }
