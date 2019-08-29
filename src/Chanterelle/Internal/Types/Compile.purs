@@ -9,11 +9,11 @@ import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (class MonadAsk)
-import Data.Argonaut (class DecodeJson, class EncodeJson, (:=), (~>), (.?), (.??), decodeJson, encodeJson, jsonEmptyObject)
+import Data.Argonaut (class DecodeJson, class EncodeJson, (:=), (~>), (.:), (.:!), (.!=), decodeJson, encodeJson, jsonEmptyObject)
 import Data.Argonaut as A
 import Data.Array (catMaybes)
 import Data.Either (Either)
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..))
 import Data.Traversable (for, traverse)
 import Data.Tuple (Tuple(..))
 import Effect.Aff (Aff, Milliseconds(..))
@@ -135,10 +135,10 @@ newtype SolcError =
 instance decodeSolcError :: DecodeJson SolcError where
   decodeJson json = do
     obj <- decodeJson json
-    _type <- obj .? "type"
-    severity <- obj .? "severity"
-    message <- obj .? "message"
-    formattedMessage <-obj .? "formattedMessage"
+    _type <- obj .: "type"
+    severity <- obj .: "severity"
+    message <- obj .: "message"
+    formattedMessage <-obj .: "formattedMessage"
     pure $
       SolcError { type: _type
                 , severity
@@ -160,12 +160,12 @@ parseSolcOutputContract
   -> Either String OutputContract
 parseSolcOutputContract json = do
   obj <- decodeJson json
-  abi <- obj .? "abi"
-  evm <- obj .? "evm"
+  abi <- obj .: "abi"
+  evm <- obj .: "evm"
   evmObj <- decodeJson evm
-  bytecodeO <- evmObj .? "bytecode"
+  bytecodeO <- evmObj .: "bytecode"
   SolcBytecode bytecode <- decodeJson bytecodeO
-  deployedBytecodeO <- evmObj .? "deployedBytecode"
+  deployedBytecodeO <- evmObj .: "deployedBytecode"
   SolcBytecode deployedBytecode <- decodeJson deployedBytecodeO
   pure $ OutputContract { abi, bytecode, deployedBytecode }
 
@@ -190,7 +190,7 @@ parseSolcOutput
   -> Either String SolcOutput
 parseSolcOutput json = do
   o <- decodeJson json
-  errors <- fromMaybe [] <$> o .?? "errors"
-  contractsMap <- o .? "contracts"
+  errors <- o .:! "errors" .!= mempty
+  contractsMap <- o .: "contracts"
   contracts <- for contractsMap (traverse parseSolcOutputContract)
   pure $ SolcOutput {errors, contracts}
