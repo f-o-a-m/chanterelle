@@ -6,7 +6,7 @@
   "scripts": {
     "build": "pulp build",
     "docs": "cd docs; make html;",
-    "postinstall": "HOME=`mktemp -d` bower install --allow-root && npm run build"
+    "postinstall": "echo 'If you are installing chanterelle to use globally, you likely want to run `chanterelle postinstall`.'"
   },
   "devDependencies": {
     "purescript": "^0.12.0",

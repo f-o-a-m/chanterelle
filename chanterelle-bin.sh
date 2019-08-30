@@ -12,15 +12,61 @@ get_script_dir() {
   echo "$DIR"
 }
 
-CHNTRL_DIR=$(get_script_dir)
+CHNTRL_DIR=$(get_script_dir);
 CHNTRL_OUTPUT_DIR="$CHNTRL_DIR/output";
+CHNTRL_MAIN_MODULE="ChanterelleMain/index.js"
+CHNTRL_GLOBAL_MAIN="$CHNTRL_OUTPUT_DIR/$CHNTRL_MAIN_MODULE";
+PURS_OUTPUT=${PURS_OUTPUT:-"./output"}
+CHNTRL_LOCAL_MAIN="$PURS_OUTPUT/$CHNTRL_MAIN_MODULE";
 
-if [ ! -f './output/ChanterelleMain/index.js' ] 
-then 
-    echo "Did not detect a project-level Chanterelle version, will fall back to the system-wide installation." >&2
-    echo "Make sure you have purescript-chantrelle in your PureScript dependencies and it is compiled." >&2
-    node -e "require('$CHNTRL_OUTPUT_DIR/ChanterelleMain/index.js').main();" -- "chanterelle" $*
+run_chanterelle() {
+    CHANTERELLEMAIN_INDEX_JS="$1"; shift
+    exec node -e "require('$CHANTERELLEMAIN_INDEX_JS').main();" -- "chanterelle" $@
+}
+
+global_install_available() {
+    [ -f "$CHNTRL_GLOBAL_MAIN" ]
+}
+
+postinstall() {
+    cd "$CHNTRL_DIR"
+    if [ "$EUID" == "0" ]
+    then
+        bower install --allow-root --config.interactive=false && npm run build
+    else
+        bower install --config.interactive=false && npm run build
+    fi
+
+    if ! global_install_available
+    then
+      echo '`chanterelle postinstall` did not complete successfully, see output above, correct the issue, and try again'
+      exit 1
+    fi
+}
+
+if [ "$1" == "postinstall" ]
+then
+    if global_install_available && [ "$2" != "--force" ]
+    then
+      echo 'chanterelle postinstall appears to have already completed successfully. Rerun with --force if you want to run it again anyway'
+    else
+      postinstall
+    fi
 else
-    node -e "require('./output/ChanterelleMain/index.js').main();" -- "chanterelle" $*
+    if [ -f "$CHNTRL_LOCAL_MAIN" ]
+    then
+      run_chanterelle "$CHNTRL_LOCAL_MAIN" $@
+    else
+        echo "Did not detect a project-level Chanterelle version, will attempt to fall back to the system-wide installation." >&2
+        echo "Make sure you have purescript-chantrelle in your PureScript dependencies and it is compiled." >&2
+        if ! global_install_available
+        then
+          echo 'A global installation of chanterelle is not available, likely because `chanterelle postinstall` was never run or did not complete successfully' >&2
+          echo 'Please run `chanterelle postinstall` and try again' >&2
+          exit 1
+        else
+          run_chanterelle "$CHNTRL_GLOBAL_MAIN" $@
+        fi
+    fi
 fi
 
