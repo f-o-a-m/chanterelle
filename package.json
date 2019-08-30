@@ -5,7 +5,8 @@
   "license": "ISC",
   "scripts": {
     "build": "pulp build",
-    "docs": "cd docs; make html;"
+    "docs": "cd docs; make html;",
+    "postinstall": "bower install && npm run build"
   },
   "devDependencies": {
     "purescript": "^0.12.0",
