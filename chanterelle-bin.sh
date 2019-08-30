@@ -32,9 +32,9 @@ postinstall() {
     cd "$CHNTRL_DIR"
     if [ "$EUID" == "0" ]
     then
-        bower install --allow-root --config.interactive=false && npm run build
+        npm install && bower install --allow-root --config.interactive=false && npm run build
     else
-        bower install --config.interactive=false && npm run build
+        npm install && bower install --config.interactive=false && npm run build
     fi
 
     if ! global_install_available
