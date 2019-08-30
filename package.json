@@ -10,7 +10,7 @@
     "docs": "cd docs; make html;",
     "postinstall": "echo 'If you are installing chanterelle to use globally, you likely want to run `chanterelle postinstall`.'"
   },
-  "devDependencies": {
+  "dependencies": {
     "purescript": "^0.12.0",
     "pulp": "^12.2.0",
     "purescript-psa": "^0.6.0",
