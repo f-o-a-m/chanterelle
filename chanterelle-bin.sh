@@ -28,29 +28,29 @@ global_install_available() {
     [ -f "$CHNTRL_GLOBAL_MAIN" ]
 }
 
-postinstall() {
+global_postinstall() {
     cd "$CHNTRL_DIR"
     if [ "$EUID" == "0" ]
     then
-        npm install && npm run postinstall-bower-root && npm run build
+        npm install && npm run global-postinstall-bower-root && npm run build
     else
-        npm install && npm run postinstall-bower-non-root && npm run build
+        npm install && npm run global-postinstall-bower-non-root && npm run build
     fi
 
     if ! global_install_available
     then
-      echo '`chanterelle postinstall` did not complete successfully, see output above, correct the issue, and try again'
+      echo '`chanterelle global-postinstall` did not complete successfully, see output above, correct the issue, and try again'
       exit 1
     fi
 }
 
-if [ "$1" == "postinstall" ]
+if [ "$1" == "global-postinstall" ]
 then
     if global_install_available && [ "$2" != "--force" ]
     then
-      echo 'chanterelle postinstall appears to have already completed successfully. Rerun with --force if you want to run it again anyway'
+      echo 'chanterelle global-postinstall appears to have already completed successfully. Rerun with --force if you want to run it again anyway'
     else
-      postinstall
+      global_postinstall
     fi
 else
     if [ -f "$CHNTRL_LOCAL_MAIN" ]
@@ -61,8 +61,8 @@ else
         echo "Make sure you have purescript-chantrelle in your PureScript dependencies and it is compiled." >&2
         if ! global_install_available
         then
-          echo 'A global installation of chanterelle is not available, likely because `chanterelle postinstall` was never run or did not complete successfully' >&2
-          echo 'Please run `chanterelle postinstall` and try again' >&2
+          echo 'A global installation of chanterelle is not available, likely because `chanterelle global-postinstall` was never run or did not complete successfully' >&2
+          echo 'Please run `chanterelle global-postinstall` and try again' >&2
           exit 1
         else
           run_chanterelle "$CHNTRL_GLOBAL_MAIN" $@

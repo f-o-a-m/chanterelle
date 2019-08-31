@@ -4,8 +4,8 @@
   "description": "A more functional truffle",
   "license": "ISC",
   "scripts": {
-    "postinstall-bower-root": "bower install --allow-root --config.interactive=false",
-    "postinstall-bower-non-root": "bower install --config.interactive=false",
+    "global-postinstall-bower-root": "bower install --allow-root --config.interactive=false",
+    "global-postinstall-bower-non-root": "bower install --config.interactive=false",
     "build": "pulp build",
     "docs": "cd docs; make html;",
     "postinstall": "echo 'If you are installing chanterelle to use globally, you likely want to run `chanterelle postinstall`.'"
