@@ -65,6 +65,7 @@ else
           echo 'Please run `chanterelle global-postinstall` and try again' >&2
           exit 1
         else
+          export CHNTRL_IS_GLOBAL=yes
           run_chanterelle "$CHNTRL_GLOBAL_MAIN" $@
         fi
     fi
