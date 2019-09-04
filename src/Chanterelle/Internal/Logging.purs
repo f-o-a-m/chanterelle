@@ -6,6 +6,7 @@ module Chanterelle.Internal.Logging
     , logCompileError
     , logDeployError
     , logGenesisGenerationError
+    , logSolcError
     ) where
 
 import Prelude
@@ -19,12 +20,15 @@ import Chanterelle.Internal.Types.Project (Network(..))
 import Chanterelle.Internal.Utils.Time (now, toISOString)
 import Control.Logger as Logger
 import Data.Array (intercalate)
-import Data.String (toUpper)
+import Data.Maybe (fromMaybe)
+import Data.String (joinWith, toUpper, toLower)
 import Data.Traversable (for_)
 import Data.Tuple (Tuple(..))
+import Data.Unfoldable as Unfoldable
 import Effect (Effect)
 import Effect.Class (liftEffect, class MonadEffect)
 import Effect.Console as Console
+import Language.Solidity.Compiler.Types as ST
 
 data LogLevel = Debug | Info | Warn | Error
 
@@ -91,6 +95,24 @@ log level msg = do
       when (level >= currentLevel) $
         Logger.log fancyColorLogger { level, msg }
 
+solcErrorSeverity :: ST.ErrorSeverity -> LogLevel
+solcErrorSeverity ST.SeverityError = Error
+solcErrorSeverity ST.SeverityWarning = Warn
+
+logSolcError :: forall m
+              . MonadEffect m
+             => String
+             -> ST.CompilationError
+             -> m Unit
+logSolcError moduleName (ST.CompilationError err) = log severity $ "Solidity compiler " <> severityStr <> " in module " <> moduleName <> ":\n" <> msg
+  where severity = solcErrorSeverity err.severity
+        severityStr = toLower (show severity)
+        msg = fromMaybe builtMsg err.formattedMessage
+        builtMsg = show err.type <> ", in" <> err.component <> ": " <> err.message <> locations
+        rawLocations = map (append "at: " <<< show) ((Unfoldable.fromMaybe err.sourceLocation) <> err.secondarySourceLocations)
+        locations = joinWith "\n" rawLocations
+
+
 logCompileError :: forall m
                  . MonadEffect m
                 => Compile.CompileError
@@ -99,7 +121,7 @@ logCompileError = case _ of
     Compile.CompileParseError msg     -> log Error (parseErrorMessage msg)
     Compile.MissingArtifactError msg  -> log Error (artifactErrorMessage msg)
     Compile.FSError errMsg            -> log Error ("File System Error -- " <> errMsg)
-    Compile.CompilationError errs     -> for_ errs (log Error)
+    Compile.CompilationError e        -> for_ e.errors (logSolcError e.moduleName)
     Compile.MalformedProjectError mpe -> log Error ("Couldn't parse chanterelle.json: " <> mpe)
     Compile.UnexpectedSolcOutput e    -> log Error ("Unexpected output from solc: " <> e)
   where
