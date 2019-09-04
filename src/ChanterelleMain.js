@@ -13,3 +13,5 @@ exports.loadDeployMFromScriptPath = function (filePath) {
 };
 
 exports.version_ = require("../../package.json").version
+
+exports.is_global_ = process.env['CHNTRL_IS_GLOBAL'] === 'yes'

@@ -50,6 +50,7 @@ data Command s
   | Codegen
   | Genesis GenesisOptions
   | Deploy (DeployOptions s)
+  | GlobalDeploy (DeployOptions s)
 derive instance genericCommand :: Generic (Command s) _
 instance showCommand :: Show (DeployOptions s) => Show (Command s) where show = genericShow
 
@@ -60,6 +61,7 @@ traverseDeployOptions f (Args' o cmd) = Args' o <$> case cmd of
   Codegen -> pure Codegen
   Genesis opts -> pure $ Genesis opts
   Deploy dopts -> Deploy <$> f dopts
+  GlobalDeploy dopts -> GlobalDeploy <$> f dopts
 
 data GenesisOptions = GenesisOptions
   { input :: String
@@ -97,9 +99,13 @@ runCommand project = case _ of
     Codegen -> doCodegen
     Genesis opts -> doGenesis opts
     Deploy opts -> doDeploy opts
+    GlobalDeploy _ -> doGlobalDeploy
   where
     doDeploy (DeployOptions {nodeURL, timeout, script: SelectPS s}) = do
       deploy nodeURL timeout s
+    doGlobalDeploy = do
+      log Error $ "deploy is unavailable as Chanterelle is running from a global installation"
+      log Error $ "Please ensure your project's Chanterelle instance has compiled"
     doClassicBuild = doCompile *> doCodegen
     doCompile = runCompileM Chanterelle.compile project >>= case _ of
       Left err -> logCompileError err
