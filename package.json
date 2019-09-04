@@ -1,6 +1,6 @@
 {
   "name": "chanterelle",
-  "version": "2.0.2",
+  "version": "3.1.0",
   "description": "A more functional truffle",
   "license": "ISC",
   "scripts": {
