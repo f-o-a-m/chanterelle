@@ -91,8 +91,8 @@ data DeployError = ConfigurationError String
                  | OnDeploymentError {name :: String, message :: String}
                  | PostDeploymentError {name :: String, message :: String}
                  | DeployingUnlinkedBytecodeError { name :: String, libs :: Array String }
-                 | LinkingLinkedBytecodeError { name :: String, libraryName :: String } 
-                 | LinkingError String
+                 | LinkingLinkedBytecodeError { name :: String, libraryName :: String, bytecodeKind :: String } 
+                 | LinkingError { contractName :: String, libraryName :: String, libraryAddress :: Address, bytecodeKind :: String, msg :: String }
 
 -- | Throw an `Error` Exception inside DeployM.
 throwDeploy :: forall a
@@ -104,9 +104,12 @@ throwDeploy = liftEffect <<< throwException
 -- | Config Types
 --------------------------------------------------------------------------------
 
+-- | An Ethereum Chain ID
+type NetworkID = Int
+
 -- | primary deployment configuration
 newtype DeployConfig =
-  DeployConfig { networkId :: String
+  DeployConfig { networkID :: NetworkID
                , primaryAccount :: Address
                , provider :: Provider
                , timeout :: Milliseconds

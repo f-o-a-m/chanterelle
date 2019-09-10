@@ -7,19 +7,18 @@ import Chanterelle.Internal.Codegen (generatePS) as Chanterelle
 import Chanterelle.Internal.Compile (compile) as Chanterelle
 import Chanterelle.Internal.Genesis (generateGenesis)
 import Chanterelle.Internal.Logging (LogLevel(..), log, logCompileError, logGenesisGenerationError, readLogLevel, setLogLevel)
-import Chanterelle.Internal.Types (DeployM, runCompileM)
+import Chanterelle.Internal.Types (DeployM, runCompileMExceptT)
 import Chanterelle.Internal.Types.Project (ChanterelleProject)
-import Chanterelle.Internal.Utils (jsonStringifyWithSpaces)
+import Chanterelle.Internal.Utils (eitherM_, jsonStringifyWithSpaces, writeTextFile)
 import Chanterelle.Project (loadProject)
 import Control.Monad.Error.Class (try)
+import Control.Monad.Except.Trans (runExceptT)
 import Data.Argonaut as A
 import Data.Either (Either(..))
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Effect.Aff (Aff)
 import Effect.Class (liftEffect)
-import Node.Encoding (Encoding(..))
-import Node.FS.Aff (writeTextFile)
 import Node.Path (resolve)
 import Node.Process (cwd)
 
@@ -98,19 +97,14 @@ runCommand project = case _ of
     Genesis opts -> doGenesis opts
     Deploy opts -> doDeploy opts
   where
-    doDeploy (DeployOptions {nodeURL, timeout, script: SelectPS s}) = do
-      deploy nodeURL timeout s
+    doDeploy (DeployOptions {nodeURL, timeout, script: SelectPS s}) = deploy nodeURL timeout s
     doClassicBuild = doCompile *> doCodegen
-    doCompile = runCompileM Chanterelle.compile project >>= case _ of
-      Left err -> logCompileError err
-      Right _ -> pure unit
-    doCodegen = runCompileM Chanterelle.generatePS project >>= case _ of
-      Left err -> logCompileError err
-      Right _ -> pure unit
+    doCompile = eitherM_ logCompileError $ runCompileMExceptT Chanterelle.compile project
+    doCodegen = eitherM_ logCompileError $ runCompileMExceptT Chanterelle.generatePS project
     doGenesis (GenesisOptions {input,output}) = generateGenesis project input >>= case _ of
       Left err -> logGenesisGenerationError err
       Right gb -> do
         let strungGb = jsonStringifyWithSpaces 4 (A.encodeJson gb)
-        try (writeTextFile UTF8 output strungGb) >>= case _ of
+        runExceptT (writeTextFile output strungGb) >>= case _ of
           Left err -> log Error $ "Couldn't write genesis block to " <> show output <> ": " <> show err
           Right _  -> log Info $ "Successfully wrote generated genesis block to " <> show output

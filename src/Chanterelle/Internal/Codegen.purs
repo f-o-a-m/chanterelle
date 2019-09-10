@@ -64,7 +64,6 @@ generatePS = do
         log Error $ "while parsing abi type of object at index: "
           <> show err.idx <> " from: " <> err.abiPath <> " got error: " <> err.error
 
-
 projectPSArgs
   :: ChanterelleProject
   -> PSWeb3Gen.GeneratorOptions

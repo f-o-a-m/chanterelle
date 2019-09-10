@@ -4,7 +4,8 @@
   "description": "A more functional truffle",
   "license": "ISC",
   "scripts": {
-    "build": "pulp build -- --strict",
+    "build": "pulp build",
+    "build-strict": "pulp build -- --strict",
     "docs": "cd docs; make html;"
   },
   "devDependencies": {
