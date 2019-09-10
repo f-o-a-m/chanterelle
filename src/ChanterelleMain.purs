@@ -18,30 +18,38 @@ import Options.Applicative (Parser, ParserInfo, argument, command, customExecPar
 import Text.PrettyPrint.Leijen (indent, text, (</>))
 
 foreign import version_ :: String
+foreign import is_global_ :: Boolean
+
 version :: forall a. Parser (a -> a)
 version = infoOption version_
   (  long "version"
   <> help "Print version information" )
 
-parser :: DirPath -> Parser ArgsCLI
-parser cwd' = ado
+parser :: Boolean -> DirPath -> Parser ArgsCLI
+parser isGlobal cwd' = ado
   opts <- commonOpts cwd'
   cmds <- hsubparser
             ( command "build"
               (info (pure Build)
-                    (progDesc "Build project"))
+                    (progDesc "Build project (compile and codegen)"))
            <> command "compile"
               (info (pure Compile)
                     (progDesc "Compile project"))
            <> command "codegen"
               (info (pure Codegen)
-                    (progDesc "generate purescript"))
+                    (progDesc "Generate PureScript"))
            <> command "genesis"
               (info (Genesis <$> genesisParser)
-                    (progDesc "generate purescript"))
-           <> command "deploy"
-              (info (Deploy <$> deployParser)
-                    (progDesc "run deploy script")) )
+                    (progDesc "Generate a genesis block with libraries"))
+           <> ( if isGlobal
+                then command "deploy"
+                       (info (GlobalDeploy <$> deployParser)
+                        (progDesc "Run a deploy script -- disabled as chanterelle is running from a global installation"))
+                else command "deploy"
+                       (info (Deploy <$> deployParser)
+                        (progDesc "Run a deploy script"))
+             )
+           )
   in Args' opts cmds
 
 genesisParser :: Parser GenesisOptions
@@ -93,19 +101,21 @@ commonOpts cwd' = map CommonOpts $ {optVerbosity:_, rootPath:_}
 
 
 pinfo :: DirPath -> ParserInfo ArgsCLI
-pinfo cwd' = info (parser cwd' <**> (lift2 (>>>) version helper))
-  ( progDesc "A more functional truffle" )
+pinfo cwd' = info ((parser is_global_ cwd') <**> (lift2 (>>>) version helper))
+  ( progDesc $ "A more functional truffle" <> (if is_global_ then " !! USING GLOBAL INSTALL -- `deploy` NOT AVAILABLE !!" else mempty) )
 
 main :: Effect Unit
 main = launchAff_ do
   ourCwd <- liftEffect $ cwd
   args <- liftEffect $ customExecParser (prefs showHelpOnEmpty) (pinfo ourCwd)
   res <- runExceptT $ flip traverseDeployOptions args \(DeployOptions {nodeURL, timeout, script: SelectCLI scriptPath}) -> do
-    script <- ExceptT $ try (liftEffect $ loadDeployMFromScriptPath scriptPath)
+    script <- if is_global_
+              then pure (pure unit)
+              else ExceptT $ try (liftEffect $ loadDeployMFromScriptPath scriptPath)
     pure $ DeployOptions {nodeURL, timeout, script: SelectPS script}
   case res of
     Left err -> do
-      log Error $ "Couldn't load deploy script" <> show err
+      log Error $ "Couldn't load deploy script. " <> show err
     Right args' -> chanterelle args'
 
 foreign import loadDeployMFromScriptPath :: String -> Effect (DeployM Unit)

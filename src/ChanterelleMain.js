@@ -6,10 +6,12 @@ exports.loadDeployMFromScriptPath = function (filePath) {
     var scriptPath = path.isAbsolute(filePath) ? filePath : path.join (process.cwd(), filePath);
     var script = require(scriptPath).deploy
     if (script == undefined) {
-      throw "Deploy script is invalid: " + scriptPath
+      throw "Deploy script is invalid or module does not export a \"deploy\" function: " + scriptPath
     }
     return script;
   };
 };
 
 exports.version_ = require("../../package.json").version
+
+exports.is_global_ = process.env['CHNTRL_IS_GLOBAL'] === 'yes'
