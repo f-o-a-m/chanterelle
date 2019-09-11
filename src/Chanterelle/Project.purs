@@ -14,6 +14,7 @@ import Data.String (Pattern(..), Replacement(..), replaceAll, split)
 import Effect.Aff (attempt)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Exception (Error, error)
+import Language.Solidity.Compiler as Solc
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
 import Node.Path (FilePath)
@@ -68,4 +69,7 @@ loadProject root = do
               pursPath = ""
            in Just $ ChanterelleModule { moduleName: lib.name, solContractName: lib.name, moduleType: LibraryModule, solPath, jsonPath, pursPath }
         _ -> Nothing
-  pure $ ChanterelleProject { root, srcIn, jsonOut, psOut, spec, modules, libModules, specModTime }
+  solc <- case project.solcVersion of
+            Nothing -> pure Solc.defaultCompiler
+            Just v  -> Solc.loadRemoteVersion v
+  pure $ ChanterelleProject { root, srcIn, jsonOut, psOut, spec, modules, libModules, specModTime, solc }

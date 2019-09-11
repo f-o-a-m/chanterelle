@@ -4,15 +4,16 @@ import Prelude
 
 import Chanterelle.Internal.Utils.Json (decodeJsonAddress, decodeJsonHexString, encodeJsonAddress, encodeJsonHexString, gfWithDecoder)
 import Control.Alt ((<|>))
-import Data.Argonaut (class EncodeJson, class DecodeJson, encodeJson, decodeJson, (:=), (~>), (.:), (.:!), (.!=), jsonEmptyObject)
+import Data.Argonaut (class EncodeJson, class DecodeJson, encodeJson, decodeJson, (:=), (:=?), (~>), (~>?), (.:), (.:!), (.!=), jsonEmptyObject)
 import Data.Array (elem, filter, null)
 import Data.Either (Either(..))
-import Data.Maybe (Maybe, fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (Pattern(..), joinWith, split)
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
 import Effect.Aff (Milliseconds)
 import Foreign.Object as M
+import Language.Solidity.Compiler (SolidityCompiler)
 import Language.Solidity.Compiler.Types as ST
 import Network.Ethereum.Web3 (Address, HexString)
 import Node.Path (FilePath)
@@ -266,60 +267,71 @@ newtype ChanterelleProjectSpec =
                          , extraAbis             :: Maybe FilePath
                          , libraries             :: Libraries
                          , networks              :: Networks
-                         , solcOutputSelection   :: Array String
-                         , solcOptimizerSettings :: Maybe ST.OptimizerSettings
-                         , solcEvmVersion        :: Maybe ST.EvmVersion
                          , psGen                 :: { exprPrefix   :: String
                                                     , modulePrefix :: String
                                                     , outputPath   :: String
                                                     }
+                         , solcVersion           :: Maybe String
+                         , solcOutputSelection   :: Array String
+                         , solcOptimizerSettings :: Maybe ST.OptimizerSettings
+                         , solcEvmVersion        :: Maybe ST.EvmVersion
                          }
 
 derive instance eqChanterelleProjectSpec  :: Eq ChanterelleProjectSpec
 
 instance encodeJsonChanterelleProjectSpec :: EncodeJson ChanterelleProjectSpec where
   encodeJson (ChanterelleProjectSpec project) =
-         "name"                  := encodeJson project.name
-      ~> "version"               := encodeJson project.version
-      ~> "source-dir"            := encodeJson project.sourceDir
-      ~> "artifacts-dir"         := encodeJson project.artifactsDir
-      ~> "modules"               := encodeJson project.modules
-      ~> "dependencies"          := encodeJson project.dependencies
-      ~> "extra-abis"            := encodeJson project.dependencies
-      ~> "libraries"             := encodeJson project.libraries
-      ~> "networks"              := encodeJson project.networks
-      ~> "solc-output-selection" := encodeJson project.solcOutputSelection
-      ~> "solc-optimizer"        := encodeJson project.solcOptimizerSettings
-      ~> "purescript-generator"  := psGenEncode
-      ~> jsonEmptyObject
+          "name"                  := project.name
+      ~>  "version"               := project.version
+      ~>  "source-dir"            := project.sourceDir
+      ~>  "artifacts-dir"         := project.artifactsDir
+      ~>  "modules"               := project.modules
+      ~>  "dependencies"          := project.dependencies
+      ~>  "extra-abis"            := project.dependencies
+      ~>  "libraries"             := project.libraries
+      ~>  "networks"              := project.networks
+      ~>  "purescript-generator"  := psGenEncode
+      ~>  "solc-version"          :=? project.solcVersion
+      ~>? "solc-output-selection" :=? omitEmpty project.solcOutputSelection
+      ~>? "solc-optimizer"        :=? project.solcOptimizerSettings
+      ~>? "solc-evm-version"      :=? project.solcEvmVersion
+      ~>? jsonEmptyObject
 
-      where psGenEncode =  "output-path"       := encodeJson project.psGen.outputPath
-                        ~> "expression-prefix" := encodeJson project.psGen.exprPrefix
-                        ~> "module-prefix"     := encodeJson project.psGen.modulePrefix
-                        ~> jsonEmptyObject
+      where psGenEncode =
+                  "output-path"       :=  project.psGen.outputPath
+              ~>  "expression-prefix" :=? omitEmpty project.psGen.exprPrefix
+              ~>? "module-prefix"     :=? omitEmpty project.psGen.modulePrefix
+              ~>?  jsonEmptyObject
+
+            omitEmpty :: forall a. Eq a => Monoid a => a -> Maybe a
+            omitEmpty s = if s == mempty then Nothing else Just s
 
 instance decodeJsonChanterelleProjectSpec :: DecodeJson ChanterelleProjectSpec where
   decodeJson j = do
     obj                   <- decodeJson j
-    name                  <- obj .: "name"
-    version               <- obj .: "version"
-    sourceDir             <- obj .: "source-dir"
+    name                  <- obj .:  "name"
+    version               <- obj .:  "version"
+    sourceDir             <- obj .:  "source-dir"
     artifactsDir          <- obj .:! "artifacts-dir" .!= "build"
     libArtifactsDir       <- obj .:! "library-artifacts-dir" .!= (Path.concat [artifactsDir, "libraries"])
-    modules               <- obj .: "modules"
+    modules               <- obj .:  "modules"
     dependencies          <- obj .:! "dependencies" .!= mempty
     extraAbis             <- obj .:! "extra-abis"
     libraries             <- obj .:! "libraries" .!= mempty
     networks              <- obj .:! "networks" .!= mempty
+    solcVersion           <- obj .:  "solc-version"
     solcOptimizerSettings <- obj .:! "solc-optimizer"
     solcOutputSelection   <- obj .:! "solc-output-selection" .!= mempty
     solcEvmVersion        <- obj .:! "solc-evm-version"
-    psGenObj              <- obj .: "purescript-generator"
-    psGenOutputPath       <- psGenObj .: "output-path"
-    psGenExprPrefix       <- psGenObj .:! "expression-prefix" .!= ""
-    psGenModulePrefix     <- psGenObj .:! "module-prefix" .!= ""
-    let psGen = { exprPrefix: psGenExprPrefix, modulePrefix: psGenModulePrefix, outputPath: psGenOutputPath }
-    pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, libArtifactsDir, modules, dependencies, extraAbis, libraries, networks, solcEvmVersion, solcOptimizerSettings, solcOutputSelection, psGen }
+    psGen                 <- psGenDecode =<< obj .: "purescript-generator"
+    pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, libArtifactsDir, modules, dependencies, extraAbis, libraries, networks, psGen, solcVersion, solcEvmVersion, solcOptimizerSettings, solcOutputSelection }
+
+    where psGenDecode psj = do
+            obj <- decodeJson psj
+            outputPath   <- obj .:  "output-path"
+            exprPrefix   <- obj .:! "expression-prefix" .!= ""
+            modulePrefix <- obj .:! "module-prefix"     .!= ""
+            pure { exprPrefix, modulePrefix, outputPath }
 
 data ChanterelleProject =
      ChanterelleProject { root        :: FilePath -- ^ parent directory containing chanterelle.json
@@ -330,4 +342,5 @@ data ChanterelleProject =
                         , modules     :: Array ChanterelleModule
                         , libModules  :: Array ChanterelleModule 
                         , specModTime :: Milliseconds -- ^ timestamp of the last time the chanterelle project spec (chanterelle.)json was modified
+                        , solc        :: SolidityCompiler
                         }

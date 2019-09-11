@@ -9,7 +9,7 @@
     "build": "pulp build",
     "build-strict": "pulp build -- --strict",
     "docs": "cd docs; make html;",
-    "postinstall": "echo 'If you are installing chanterelle to use globally, you likely want to run `chanterelle postinstall`.'"
+    "postinstall": "echo 'If you are installing chanterelle to use globally, you likely want to run `chanterelle global-postinstall`.'"
   },
   "dependencies": {
     "purescript": "^0.12.0",
