@@ -3,6 +3,7 @@ module Chanterelle.Internal.Utils.Error where
 import Prelude
 
 import Control.Monad.Error.Class (class MonadThrow, throwError, try)
+import Control.Monad.Except (withExcept)
 import Control.Monad.Except.Trans (ExceptT, runExceptT, withExceptT)
 import Data.Bifunctor (lmap)
 import Data.Either (Either, either)
@@ -29,24 +30,29 @@ catchingAff' f = withExceptM' f <<< liftAff
 
 except'
   :: forall m e a
-   . Monad m
-  => MonadThrow e m
+   . MonadThrow e m
   => Either e a
   -> m a
 except' = either throwError pure
 
+withExcept'
+  :: forall m e e' a
+   . MonadThrow e' m
+   => (e -> e')
+   -> Either e a
+   -> m a
+withExcept' f = except' <<< lmap f
+
 exceptM'
   :: forall m e a
-   . Monad m
-  => MonadThrow e m
+   . MonadThrow e m
   => m (Either e a)
   -> m a
 exceptM' m = m >>= except'
 
 withExceptM'
   :: forall m e e' a
-   . Monad m
-  => MonadThrow e' m
+   . MonadThrow e' m
   => (e -> e')
   -> m (Either e a)
   -> m a
@@ -54,8 +60,7 @@ withExceptM' f m = map (lmap f) m >>= except'
 
 withExceptT'
   :: forall m e e' a
-   . Monad m
-  => MonadThrow e' m
+   . MonadThrow e' m
   => (e -> e')
   -> ExceptT e m a
   -> m a
@@ -63,8 +68,7 @@ withExceptT' e m = runExceptT (withExceptT e m) >>= except'
 
 exceptNoteA'
   :: forall m e a
-   . Monad m
-  => MonadThrow e m
+   . MonadThrow e m
   => m (Maybe a)
   -> e
   -> m a
@@ -74,8 +78,7 @@ infixl 9 exceptNoteA' as !?
 
 exceptNoteM'
   :: forall m e a
-   . Monad m
-  => MonadThrow e m
+   . MonadThrow e m
   => Maybe a
   -> e
   -> m a

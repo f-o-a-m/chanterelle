@@ -4,13 +4,14 @@ import Prelude
 
 import Chanterelle.Internal.Types.Bytecode (Bytecode, fromSolidityBytecodeOutput)
 import Chanterelle.Internal.Types.Project (ChanterelleProject)
-import Control.Monad.Error.Class (class MonadThrow, throwError)
+import Chanterelle.Internal.Utils.Error (withExcept')
+import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (class MonadAsk)
 import Data.Argonaut (decodeJson, jsonEmptyObject, (:=), (~>))
 import Data.Argonaut as A
-import Data.Either (Either(..), note)
+import Data.Either (Either, note)
 import Effect.Aff (Aff, Milliseconds(..))
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect)
@@ -66,7 +67,7 @@ newtype OutputContract =
 
 fromSolidityContractLevelOutput :: ST.ContractLevelOutput -> Either String OutputContract
 fromSolidityContractLevelOutput (ST.ContractLevelOutput clo) = do
-  abi <- decodeJson clo.abi
+  abi <- decodeJson =<< note "Solidity contract output did not have an \"abi\" field" clo.abi
   (ST.EvmOutput evm) <- note "Solidity contract output did not have an \"evm\" field" clo.evm
   bytecode' <- note "Solidity contract output did not have an \"evm.bytecode\" field" evm.bytecode
   bytecode <- fromSolidityBytecodeOutput bytecode'
@@ -78,10 +79,7 @@ resolveSolidityContractLevelOutput :: forall m
                                     . MonadThrow CompileError m
                                    => ST.ContractLevelOutput
                                    -> m OutputContract
-resolveSolidityContractLevelOutput clo =
-  case fromSolidityContractLevelOutput clo of
-    Left e -> throwError (UnexpectedSolcOutput e)
-    Right o -> pure o
+resolveSolidityContractLevelOutput = withExcept' UnexpectedSolcOutput <<< fromSolidityContractLevelOutput
 
 encodeOutputContract
   :: OutputContract
