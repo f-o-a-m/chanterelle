@@ -3,7 +3,6 @@ module Chanterelle.Internal.Utils.Error where
 import Prelude
 
 import Control.Monad.Error.Class (class MonadThrow, throwError, try)
-import Control.Monad.Except (withExcept)
 import Control.Monad.Except.Trans (ExceptT, runExceptT, withExceptT)
 import Data.Bifunctor (lmap)
 import Data.Either (Either, either)
