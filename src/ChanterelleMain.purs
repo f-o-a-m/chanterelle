@@ -13,6 +13,7 @@ import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Class (liftEffect)
+import Language.Solidity.Compiler as Solc
 import Node.Process (cwd)
 import Options.Applicative (Parser, ParserInfo, argument, command, customExecParser, help, helpDoc, helper, hsubparser, info, infoOption, int, long, metavar, option, prefs, progDesc, short, showHelpOnEmpty, str, strOption, value, (<**>))
 import Text.PrettyPrint.Leijen (indent, text, (</>))
@@ -20,8 +21,11 @@ import Text.PrettyPrint.Leijen (indent, text, (</>))
 foreign import version_ :: String
 foreign import is_global_ :: Boolean
 
+versionString :: String
+versionString = "Chanterelle " <> version_ <> "\n" <> "Default Solc " <> Solc.version Solc.defaultCompiler
+
 version :: forall a. Parser (a -> a)
-version = infoOption version_
+version = infoOption versionString
   (  long "version"
   <> help "Print version information" )
 

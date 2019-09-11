@@ -22,7 +22,7 @@
     "secp256k1": "^3.0.1",
     "bower": "^1.8.2",
     "rlp": "^2.0.0",
-    "solc": "^0.4.24"
+    "solc": "^0.5"
   },
   "bin": {
     "chanterelle": "chanterelle-bin.sh"
