@@ -104,11 +104,12 @@ logSolcError :: forall m
              => String
              -> ST.CompilationError
              -> m Unit
-logSolcError moduleName (ST.CompilationError err) = log severity $ "Solidity compiler " <> severityStr <> " in module " <> moduleName <> ":\n" <> msg
+logSolcError moduleName (ST.SimpleCompilationError msg) = log Error $ "Solidity compiler error in module " <> moduleName <> ":\n" <> msg
+logSolcError moduleName (ST.FullCompilationError err) = log severity $ "Solidity compiler " <> severityStr <> " in module " <> moduleName <> ":\n" <> msg
   where severity = solcErrorSeverity err.severity
         severityStr = toLower (show severity)
         msg = fromMaybe builtMsg err.formattedMessage
-        builtMsg = show err.type <> ", in" <> err.component <> ": " <> err.message <> locations
+        builtMsg = show err.type <> ", in " <> err.component <> ": " <> err.message <> locations
         rawLocations = map (append "at: " <<< show) ((Unfoldable.fromMaybe err.sourceLocation) <> err.secondarySourceLocations)
         locations = joinWith "\n" rawLocations
 

@@ -188,7 +188,9 @@ decodeModuleOutput
   -> m (ST.ContractMapped ST.ContractLevelOutput)
 decodeModuleOutput moduleName (ST.CompilerOutput output) = do
     let moduleFilename = moduleName <> ".sol"
-        ({ yes: warnings, no: errors }) = partition (\(ST.CompilationError se) -> se.severity == ST.SeverityWarning) output.errors
+        isSolcWarning (ST.FullCompilationError se) = se.severity == ST.SeverityWarning
+        isSolcWarning _ = false
+        ({ yes: warnings, no: errors }) = partition isSolcWarning output.errors
     for_ warnings (logSolcError moduleName)
     case M.lookup moduleFilename output.contracts of
       Nothing -> throwError $ CompilationError { moduleName, errors }

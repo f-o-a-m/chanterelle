@@ -319,7 +319,7 @@ instance decodeJsonChanterelleProjectSpec :: DecodeJson ChanterelleProjectSpec w
     extraAbis             <- obj .:! "extra-abis"
     libraries             <- obj .:! "libraries" .!= mempty
     networks              <- obj .:! "networks" .!= mempty
-    solcVersion           <- obj .:  "solc-version"
+    solcVersion           <- obj .:! "solc-version"
     solcOptimizerSettings <- obj .:! "solc-optimizer"
     solcOutputSelection   <- obj .:! "solc-output-selection" .!= mempty
     solcEvmVersion        <- obj .:! "solc-evm-version"
