@@ -23,6 +23,7 @@ data CompileError = CompileParseError    { objectName :: String, parseError :: S
                   | FSError String
                   | CompilationError  { moduleName :: String, errors :: Array ST.CompilationError }
                   | UnexpectedSolcOutput String
+                  | CompilerUnavailable String
 
 --------------------------------------------------------------------------------
 -- | CompileM Compilation monad

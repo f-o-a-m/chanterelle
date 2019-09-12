@@ -12,8 +12,9 @@ import Prelude
 import Chanterelle.Internal.Logging (LogLevel(..), log, logSolcError)
 import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract(..)) as CompileReexports
 import Chanterelle.Internal.Types.Compile (CompileError(..), encodeOutputContract, resolveSolidityContractLevelOutput)
-import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), Dependency(..))
-import Chanterelle.Internal.Utils.FS (assertDirectory, fileIsDirty)
+import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), Dependency(..), getSolc)
+import Chanterelle.Internal.Utils (withExceptM')
+import Chanterelle.Internal.Utils.FS (assertDirectory', fileIsDirty)
 import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces)
 import Chanterelle.Internal.Utils.Time (now, toEpoch)
 import Control.Error.Util (hush)
@@ -112,8 +113,9 @@ compileModuleWithoutWriting
   -> m ST.CompilerOutput
 compileModuleWithoutWriting m@(ChanterelleModule mod) solcInput = do
   (ChanterelleProject project) <- ask
+  solc <- withExceptM' CompilerUnavailable $ getSolc project.solc
   log Info ("compiling " <> show mod.moduleType <> " " <> mod.moduleName)
-  output <- Solc.compile project.solc solcInput (loadSolcCallback m project.root project.spec) --liftEffect $ runFn2 _compile (A.stringify $ encodeJson solcInput) (loadSolcCallback m project.root project.spec)
+  output <- Solc.compile solc solcInput (loadSolcCallback m project.root project.spec) --liftEffect $ runFn2 _compile (A.stringify $ encodeJson solcInput) (loadSolcCallback m project.root project.spec)
   case output of
     Left err -> throwError $ CompileParseError {objectName: "Solidity Compiler", parseError: err}
     Right output' -> pure output'
@@ -222,7 +224,7 @@ writeBuildArtifact srcName filepath output solContractName = do
   co <- decodeModuleOutput srcName output
   co' <- resolveModuleContract filepath solContractName co
   outputContract <- resolveSolidityContractLevelOutput co'
-  assertDirectory (Path.dirname filepath)
+  assertDirectory' (Path.dirname filepath)
   epochTime <- toEpoch <$> liftEffect now
   log Debug $ "Writing artifact " <> filepath
   liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract outputContract epochTime

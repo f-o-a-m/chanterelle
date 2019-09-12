@@ -4,16 +4,16 @@ import Prelude
 
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types.Compile (CompileError(..))
-import Chanterelle.Internal.Utils.Error (catchingAff)
+import Chanterelle.Internal.Utils.Error (catchingAff, withExceptT')
+import Control.Monad.Error.Class (class MonadThrow, throwError)
+import Data.DateTime.Instant (fromDateTime, unInstant)
 import Effect.Aff (Milliseconds)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (liftEffect)
-import Control.Monad.Error.Class (class MonadThrow, throwError)
-import Data.DateTime.Instant (fromDateTime, unInstant)
+import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
 import Node.FS.Stats as Stats
 import Node.FS.Sync.Mkdirp (mkdirp)
-import Node.Encoding (Encoding(UTF8))
 import Node.Path (FilePath)
 import Node.Path as Path
 
@@ -30,7 +30,7 @@ unparsePath p = Path.concat [p.dir, p.name <> p.ext]
 assertDirectory
   :: forall m
    . MonadAff m
-  => MonadThrow CompileError m
+  => MonadThrow String m
   => FilePath
   -> m Unit
 assertDirectory dn = do
@@ -40,8 +40,16 @@ assertDirectory dn = do
     else do
       isDir <- liftAff (Stats.isDirectory <$> FS.stat dn)
       if not isDir
-        then throwError $ FSError ("Path " <> dn <> " exists but is not a directory!")
+        then throwError ("Path " <> dn <> " exists but is not a directory!")
         else log Debug ("path " <>  dn <> " exists and is a directory")
+
+assertDirectory'
+  :: forall m
+   . MonadAff m
+  => MonadThrow CompileError m
+  => FilePath
+  -> m Unit
+assertDirectory' = withExceptT' FSError <<< assertDirectory
 
 fileModTime
   :: forall m

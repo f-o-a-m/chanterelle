@@ -11,7 +11,10 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (Pattern(..), joinWith, split)
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
-import Effect.Aff (Milliseconds)
+import Effect.AVar as AVar
+import Effect.Aff (Aff, Milliseconds)
+import Effect.Aff.Class (class MonadAff, liftAff)
+import Effect.Class (class MonadEffect, liftEffect)
 import Foreign.Object as M
 import Language.Solidity.Compiler (SolidityCompiler)
 import Language.Solidity.Compiler.Types as ST
@@ -342,5 +345,30 @@ data ChanterelleProject =
                         , modules     :: Array ChanterelleModule
                         , libModules  :: Array ChanterelleModule 
                         , specModTime :: Milliseconds -- ^ timestamp of the last time the chanterelle project spec (chanterelle.)json was modified
-                        , solc        :: SolidityCompiler
+                        , solc        :: ChanterelleSolc
                         }
+
+newtype ChanterelleSolc = ChanterelleSolc { solc :: AVar.AVar (Either String SolidityCompiler), loadSolc :: Aff (Either String SolidityCompiler) }
+
+getSolc
+  :: forall m
+   . MonadAff m
+  => ChanterelleSolc
+  -> m (Either String SolidityCompiler)
+getSolc cs@(ChanterelleSolc s) = do
+  readSolc <- liftEffect $ AVar.tryRead s.solc
+  case readSolc of
+    Just solc -> pure solc
+    Nothing -> do
+      loaded <- liftAff s.loadSolc
+      void <<< liftEffect $ AVar.tryPut loaded s.solc
+      getSolc cs
+
+mkChanterelleSolc
+  :: forall m
+   . MonadEffect m
+  => Aff (Either String SolidityCompiler)
+  -> m ChanterelleSolc
+mkChanterelleSolc loadSolc = do
+  solc <- liftEffect AVar.empty
+  pure $  ChanterelleSolc { solc, loadSolc }

@@ -2,24 +2,50 @@ module Chanterelle.Project (loadProject) where
 
 import Prelude
 
-import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleModuleType(..), ChanterelleProject(..), ChanterelleProjectSpec(..), InjectableLibraryCode(..), Libraries(..), Library(..))
-import Chanterelle.Internal.Utils.FS (fileModTime)
+import Chanterelle.Internal.Logging (LogLevel(..), log)
+import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleModuleType(..), ChanterelleProject(..), ChanterelleProjectSpec(..), InjectableLibraryCode(..), Libraries(..), Library(..), mkChanterelleSolc)
+import Chanterelle.Internal.Utils.FS (assertDirectory, fileModTime, readTextFile, writeTextFile)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
+import Control.Monad.Except (ExceptT(..), runExceptT)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
 import Data.Array (catMaybes, last)
 import Data.Either (Either(..), either)
 import Data.Maybe (Maybe(..), fromJust, maybe)
 import Data.String (Pattern(..), Replacement(..), replaceAll, split)
-import Effect.Aff (attempt)
+import Effect.Aff (Aff, attempt)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Exception (Error, error)
+import Language.Solidity.Compiler (SolidityCompiler)
 import Language.Solidity.Compiler as Solc
+import Language.Solidity.Compiler.Releases as SolcReleases
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
 import Node.Path (FilePath)
 import Node.Path as Path
 import Partial.Unsafe (unsafePartialBecause)
+
+mkProjectSolc
+  :: Maybe String
+  -> FilePath
+  -> Aff (Either String SolidityCompiler)
+mkProjectSolc Nothing _ = pure (Right Solc.defaultCompiler)
+mkProjectSolc (Just v) artifactPath = map Solc.useCompiler <$> fetchOrCacheCompiler
+  where fetchOrCacheCompiler = do
+          let compilerCacheDirectory = Path.concat [ artifactPath, "__compiler"]
+              compilerCacheFile = Path.concat [ compilerCacheDirectory, v]
+          cacheAttempt <- runExceptT (readTextFile compilerCacheFile)
+          case cacheAttempt of
+            Right src -> do
+              log Info $ "Using cached solc " <> " at " <> compilerCacheFile
+              pure (Right src)
+            Left err -> runExceptT do
+              log Info $ "Downloading solc " <> v <> " to " <> compilerCacheFile
+              assertDirectory compilerCacheDirectory
+              source <- ExceptT $ SolcReleases.getReleaseSource SolcReleases.defaultReleaseRepo v
+              writeTextFile compilerCacheFile source
+              log Info $ "solc " <> v <> " download completed..."
+              pure source
 
 loadProject
   :: forall m
@@ -69,7 +95,5 @@ loadProject root = do
               pursPath = ""
            in Just $ ChanterelleModule { moduleName: lib.name, solContractName: lib.name, moduleType: LibraryModule, solPath, jsonPath, pursPath }
         _ -> Nothing
-  solc <- case project.solcVersion of
-            Nothing -> pure Solc.defaultCompiler
-            Just v  -> Solc.loadRemoteVersion v
+  solc <- mkChanterelleSolc $ mkProjectSolc project.solcVersion project.artifactsDir
   pure $ ChanterelleProject { root, srcIn, jsonOut, psOut, spec, modules, libModules, specModTime, solc }

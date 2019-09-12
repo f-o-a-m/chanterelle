@@ -125,6 +125,7 @@ logCompileError = case _ of
     Compile.CompilationError e        -> for_ e.errors (logSolcError e.moduleName)
     Compile.MalformedProjectError mpe -> log Error ("Couldn't parse chanterelle.json: " <> mpe)
     Compile.UnexpectedSolcOutput e    -> log Error ("Unexpected output from solc: " <> e)
+    Compile.CompilerUnavailable e     -> log Error ("Solidity compiler unavailable: " <> e)
   where
     parseErrorMessage msg = "Parse Error -- " <> "Object: " <> msg.objectName <>  ", Message: " <> msg.parseError
     artifactErrorMessage msg = "Missing Artifact -- " <> "FileName: " <> msg.fileName <> ", Object Name: " <> msg.objectName
