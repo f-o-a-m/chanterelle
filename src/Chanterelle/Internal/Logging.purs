@@ -21,7 +21,7 @@ import Chanterelle.Internal.Utils.Time (now, toISOString)
 import Control.Logger as Logger
 import Data.Array (intercalate)
 import Data.Maybe (fromMaybe)
-import Data.String (joinWith, toUpper, toLower)
+import Data.String (joinWith, toUpper)
 import Data.Traversable (for_)
 import Data.Tuple (Tuple(..))
 import Data.Unfoldable as Unfoldable
@@ -95,10 +95,6 @@ log level msg = do
       when (level >= currentLevel) $
         Logger.log fancyColorLogger { level, msg }
 
-solcErrorSeverity :: ST.ErrorSeverity -> LogLevel
-solcErrorSeverity ST.SeverityError = Error
-solcErrorSeverity ST.SeverityWarning = Warn
-
 logSolcError :: forall m
               . MonadEffect m
              => String
@@ -106,13 +102,14 @@ logSolcError :: forall m
              -> m Unit
 logSolcError moduleName (ST.SimpleCompilationError msg) = log Error $ "Solidity compiler error in module " <> moduleName <> ":\n" <> msg
 logSolcError moduleName (ST.FullCompilationError err) = log severity $ "Solidity compiler " <> severityStr <> " in module " <> moduleName <> ":\n" <> msg
-  where severity = solcErrorSeverity err.severity
-        severityStr = toLower (show severity)
+  where { severity, severityStr } =
+          case err.severity of
+            ST.SeverityError   -> { severity: Error, severityStr: "error" }
+            ST.SeverityWarning -> { severity: Warn,  severityStr: "warning" }
         msg = fromMaybe builtMsg err.formattedMessage
         builtMsg = show err.type <> ", in " <> err.component <> ": " <> err.message <> locations
         rawLocations = map (append "at: " <<< show) ((Unfoldable.fromMaybe err.sourceLocation) <> err.secondarySourceLocations)
         locations = joinWith "\n" rawLocations
-
 
 logCompileError :: forall m
                  . MonadEffect m
