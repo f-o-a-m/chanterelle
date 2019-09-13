@@ -29,23 +29,30 @@ mkProjectSolc
   :: Maybe String
   -> FilePath
   -> Aff (Either String SolidityCompiler)
-mkProjectSolc Nothing _ = pure (Right Solc.defaultCompiler)
-mkProjectSolc (Just v) artifactPath = map Solc.useCompiler <$> fetchOrCacheCompiler
-  where fetchOrCacheCompiler = do
+mkProjectSolc version artifactPath = runExceptT $
+  case version of
+    Nothing -> useCompiler { compilerOrigin: "Default", compiler: Solc.defaultCompiler }
+    Just v  -> fetchOrCacheCompiler v >>= useCompiler
+  where useCompiler { compilerOrigin, compiler } = do
+          log Info $ compilerOrigin <> " compiler's reported version is " <> Solc.version compiler
+          pure compiler
+        fetchOrCacheCompiler v = do
           let compilerCacheDirectory = Path.concat [ artifactPath, "__compiler"]
               compilerCacheFile = Path.concat [ compilerCacheDirectory, v]
           cacheAttempt <- runExceptT (readTextFile compilerCacheFile)
           case cacheAttempt of
             Right src -> do
-              log Info $ "Using cached solc " <> " at " <> compilerCacheFile
-              pure (Right src)
-            Left err -> runExceptT do
+              log Info $ "Using cached solc " <> v <> " at " <> compilerCacheFile
+              let compiler = Solc.useCompiler src
+              pure { compilerOrigin: "Cached", compiler }
+            Left err -> do
               log Info $ "Downloading solc " <> v <> " to " <> compilerCacheFile
               assertDirectory compilerCacheDirectory
               source <- ExceptT $ SolcReleases.getReleaseSource SolcReleases.defaultReleaseRepo v
               writeTextFile compilerCacheFile source
               log Info $ "solc " <> v <> " download completed..."
-              pure source
+              let compiler = Solc.useCompiler source
+              pure { compilerOrigin: "Downloaded", compiler }
 
 loadProject
   :: forall m
