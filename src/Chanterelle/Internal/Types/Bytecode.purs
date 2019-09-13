@@ -1,7 +1,8 @@
-module Chanterelle.Internal.Types.Bytecode 
+module Chanterelle.Internal.Types.Bytecode
   ( Bytecode(..)
   , LibraryLinkReferences
   , fromSolidityBytecodeOutput
+  , emptyBytecode
   , linkLibrary
   , unlinkedLibraryNames
   ) where
@@ -18,13 +19,18 @@ import Data.String (splitAt)
 import Data.Tuple (Tuple(..))
 import Foreign.Object as SM
 import Language.Solidity.Compiler.Types as ST
-import Network.Ethereum.Core.HexString (HexString, mkHexString, unHex)
+import Network.Ethereum.Core.HexString (HexString, fromAscii, mkHexString, unHex)
 import Network.Ethereum.Core.Signatures (Address, unAddress)
 
 type LibraryLinkReferences = ST.ContractMapped (Array ST.LinkReference)
 
 data Bytecode = BCLinked { bytecode :: HexString, linkReferences :: LibraryLinkReferences }
               | BCUnlinked { rawBytecode :: ST.BytecodeObject, remainingLinkReferences :: LibraryLinkReferences, linkReferences :: LibraryLinkReferences }
+derive instance eqBytecode  :: Eq Bytecode
+derive instance ordBytecode :: Ord Bytecode
+
+emptyBytecode :: Bytecode
+emptyBytecode = BCLinked { bytecode: fromAscii "", linkReferences: SM.empty }
 
 fromSolidityBytecodeOutput :: ST.BytecodeOutput -> Either String Bytecode
 fromSolidityBytecodeOutput (ST.BytecodeOutput o) = do
@@ -95,7 +101,7 @@ flattenLinkReferences :: ST.FileMapped LibraryLinkReferences -> LibraryLinkRefer
 flattenLinkReferences solcLinkRefs = upsertElems (SM.empty) (concatMap unfoldLinkRefs $ SM.toUnfoldable solcLinkRefs)
   where
     unfoldLinkRefs (Tuple _ v) = SM.toUnfoldable v
-    upsertElem theMap (Tuple k v) = 
+    upsertElem theMap (Tuple k v) =
       case SM.lookup k theMap of
         Nothing -> SM.insert k v theMap
         Just ex -> SM.insert k (ex <> v) theMap

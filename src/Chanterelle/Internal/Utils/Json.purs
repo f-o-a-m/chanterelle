@@ -1,12 +1,15 @@
 module Chanterelle.Internal.Utils.Json where
 
 import Prelude
+
+import Chanterelle.Internal.Utils.Error (except')
 import Control.Alt ((<|>))
 import Control.Error.Util (note)
-import Foreign.Object (Object)
-import Data.Argonaut (Json, decodeJson, encodeJson, (.:), (.:!))
+import Control.Monad.Error.Class (class MonadThrow)
+import Data.Argonaut (class DecodeJson, Json, decodeJson, encodeJson, jsonParser, (.:), (.:!))
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..), maybe)
+import Foreign.Object (Object)
 import Network.Ethereum.Core.BigNumber (hexadecimal, parseBigNumber, toString, unsafeToInt)
 import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber(..), HexString, embed, mkAddress, mkHexString, unAddress)
 
@@ -54,3 +57,12 @@ gfWithDecoder decode obj k = (obj .: k) >>= decode
 -- getFieldOptional (aka .??) with a manual decoder
 gfoWithDecoder :: forall a. (Json -> Either String a) -> Object Json -> String -> Either String (Maybe a)
 gfoWithDecoder decode obj key = (obj .:! key) >>= maybe (pure Nothing) (map Just <<< decode)
+
+parseDecodeM
+  :: forall m j
+   . DecodeJson j
+  => Monad m
+  => MonadThrow String m
+  => String
+  -> m j
+parseDecodeM = except' <<< (decodeJson <=< jsonParser)

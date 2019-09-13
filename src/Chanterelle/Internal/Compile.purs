@@ -9,14 +9,13 @@ module Chanterelle.Internal.Compile
 
 import Prelude
 
+import Chanterelle.Internal.Artifact (writeArtifact)
 import Chanterelle.Internal.Logging (LogLevel(..), log, logSolcError)
-import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract(..)) as CompileReexports
-import Chanterelle.Internal.Types.Compile (CompileError(..), encodeOutputContract, resolveSolidityContractLevelOutput)
+import Chanterelle.Internal.Types.Compile (CompileError(..)) as CompileReexports
+import Chanterelle.Internal.Types.Compile (CompileError(..), resolveSolidityContractLevelOutput)
 import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), Dependency(..), getSolc)
-import Chanterelle.Internal.Utils (withExceptM')
+import Chanterelle.Internal.Utils.Error (withExceptM', withExceptT')
 import Chanterelle.Internal.Utils.FS (assertDirectory', fileIsDirty)
-import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces)
-import Chanterelle.Internal.Utils.Time (now, toEpoch)
 import Control.Error.Util (hush)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Reader (class MonadAsk, ask)
@@ -34,7 +33,7 @@ import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Aff (attempt)
 import Effect.Aff.Class (class MonadAff, liftAff)
-import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Class (class MonadEffect)
 import Effect.Exception (catchException)
 import Foreign.Object as M
 import Language.Solidity.Compiler (compile) as Solc
@@ -223,8 +222,6 @@ writeBuildArtifact
 writeBuildArtifact srcName filepath output solContractName = do
   co <- decodeModuleOutput srcName output
   co' <- resolveModuleContract filepath solContractName co
-  outputContract <- resolveSolidityContractLevelOutput co'
+  outputArtifact <- resolveSolidityContractLevelOutput co'
   assertDirectory' (Path.dirname filepath)
-  epochTime <- toEpoch <$> liftEffect now
-  log Debug $ "Writing artifact " <> filepath
-  liftAff $ FS.writeTextFile UTF8 filepath <<< jsonStringifyWithSpaces 4 $ encodeOutputContract outputContract epochTime
+  withExceptT' FSError $ writeArtifact filepath outputArtifact

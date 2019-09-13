@@ -2,8 +2,9 @@ module Chanterelle.Internal.Genesis where
 
 import Chanterelle.Internal.Compile (compileModuleWithoutWriting, decodeModuleOutput, makeSolcInput, resolveModuleContract)
 import Chanterelle.Internal.Logging (LogLevel(..), log)
+import Chanterelle.Internal.Types (Artifact(..))
 import Chanterelle.Internal.Types.Bytecode (Bytecode(..))
-import Chanterelle.Internal.Types.Compile (CompileError(..), OutputContract(..), resolveSolidityContractLevelOutput, runCompileMExceptT)
+import Chanterelle.Internal.Types.Compile (CompileError(..), resolveSolidityContractLevelOutput, runCompileMExceptT)
 import Chanterelle.Internal.Types.Genesis (GenesisAlloc(..), GenesisBlock(..), GenesisGenerationError(..), insertGenesisAllocs, lookupGenesisAllocs)
 import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleModuleType(..), ChanterelleProject(..), ChanterelleProjectSpec(..), InjectableLibraryCode(..), Libraries(..), Library(..), Network(..), Networks(..), isFixedLibrary, resolveNetworkRefs)
 import Chanterelle.Internal.Utils.Lazy (firstSuccess)
@@ -133,7 +134,7 @@ generateGenesis cp@(ChanterelleProject project) genesisIn = liftAff <<< runExcep
                     output <- compileModuleWithoutWriting mfi input
                     decoded <- decodeModuleOutput name output
                     mc <- resolveModuleContract f mfi'.solContractName decoded
-                    OutputContract { deployedBytecode } <- resolveSolidityContractLevelOutput mc
+                    Artifact { code: { deployedBytecode }} <- resolveSolidityContractLevelOutput mc
                     case deployedBytecode of
                         BCLinked x -> pure x.bytecode
                         BCUnlinked _ -> throwError $ UnexpectedSolcOutput "Source code compiled to unlinked bytecode"

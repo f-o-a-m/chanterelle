@@ -138,6 +138,8 @@ logDeployError = liftEffect <<< case _ of
     Deploy.DeployingUnlinkedBytecodeError msg -> log Error (msg.name <> " has unlinked references to libraries: " <> intercalate ", " msg.libs)
     Deploy.LinkingLinkedBytecodeError msg -> log Error ("Attempted to link library " <> msg.libraryName <> " to the " <> msg.bytecodeKind <> " of " <> msg.name <> ", which is already fully linked...")
     Deploy.LinkingError msg -> log Error ("Error while linking " <> msg.libraryName <> " at " <> show msg.libraryAddress <> " to the " <> msg.bytecodeKind <> " of " <> msg.contractName <> ": " <> msg.msg)
+    Deploy.Impossibility msg -> log Error ("The impossible happened! " <> msg)
+
   where
     onDeployMessage   msg = "Error During Deployment -- Name: " <> msg.name <> ", Message: " <> msg.message
     postDeployMessage msg = "Error After Deployment -- Name: " <> msg.name <> ", Message: " <> msg.message

@@ -22,7 +22,8 @@
     "purescript-logging": "^3.0.0",
     "purescript-validation": "^4.0.0",
     "purescript-random": "^4.0.0",
-    "purescript-foreign-object": "^1.1.0"
+    "purescript-foreign-object": "^1.1.0",
+    "purescript-numbers": ">=4.1.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^4.0.0",

@@ -2,17 +2,15 @@ module Chanterelle.Internal.Types.Compile where
 
 import Prelude
 
-import Chanterelle.Internal.Types.Bytecode (Bytecode, fromSolidityBytecodeOutput)
+import Chanterelle.Internal.Types.Artifact (Artifact, fromSolidityContractLevelOutput)
 import Chanterelle.Internal.Types.Project (ChanterelleProject)
 import Chanterelle.Internal.Utils.Error (withExcept')
 import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (class MonadAsk)
-import Data.Argonaut (decodeJson, jsonEmptyObject, (:=), (~>))
-import Data.Argonaut as A
-import Data.Either (Either, note)
-import Effect.Aff (Aff, Milliseconds(..))
+import Data.Either (Either)
+import Effect.Aff (Aff)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect)
 import Language.Solidity.Compiler.Types as ST
@@ -57,38 +55,8 @@ derive newtype instance monadAskCompileM    :: MonadAsk ChanterelleProject Compi
 derive newtype instance monadEffCompileM    :: MonadEffect CompileM
 derive newtype instance monadAffCompileM    :: MonadAff CompileM
 
---------------------------------------------------------------------------------
-
--- This is the artifact we want, compatible with truffle (subset)
-newtype OutputContract =
-  OutputContract { abi :: Array A.Json
-                 , bytecode :: Bytecode
-                 , deployedBytecode :: Bytecode
-                 }
-
-fromSolidityContractLevelOutput :: ST.ContractLevelOutput -> Either String OutputContract
-fromSolidityContractLevelOutput (ST.ContractLevelOutput clo) = do
-  abi <- decodeJson =<< note "Solidity contract output did not have an \"abi\" field" clo.abi
-  (ST.EvmOutput evm) <- note "Solidity contract output did not have an \"evm\" field" clo.evm
-  bytecode' <- note "Solidity contract output did not have an \"evm.bytecode\" field" evm.bytecode
-  bytecode <- fromSolidityBytecodeOutput bytecode'
-  deployedBytecode' <- note "Solidity contract output did not have an \"evm.deployedBytecode\" field" evm.deployedBytecode
-  deployedBytecode <- fromSolidityBytecodeOutput deployedBytecode'
-  pure $ OutputContract { abi, bytecode, deployedBytecode }
-
 resolveSolidityContractLevelOutput :: forall m
                                     . MonadThrow CompileError m
                                    => ST.ContractLevelOutput
-                                   -> m OutputContract
+                                   -> m Artifact
 resolveSolidityContractLevelOutput = withExcept' UnexpectedSolcOutput <<< fromSolidityContractLevelOutput
-
-encodeOutputContract
-  :: OutputContract
-  -> Milliseconds
-  -> A.Json
-encodeOutputContract (OutputContract {abi, bytecode}) (Milliseconds ts) =
-       "abi"        := A.fromArray abi
-    ~> "bytecode"   := bytecode
-    ~> "networks"   := jsonEmptyObject
-    ~> "compiledAt" := ts
-    ~> jsonEmptyObject

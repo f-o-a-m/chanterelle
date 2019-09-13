@@ -93,6 +93,7 @@ data DeployError = ConfigurationError String
                  | DeployingUnlinkedBytecodeError { name :: String, libs :: Array String }
                  | LinkingLinkedBytecodeError { name :: String, libraryName :: String, bytecodeKind :: String } 
                  | LinkingError { contractName :: String, libraryName :: String, libraryAddress :: Address, bytecodeKind :: String, msg :: String }
+                 | Impossibility String
 
 -- | Throw an `Error` Exception inside DeployM.
 throwDeploy :: forall a
