@@ -22,9 +22,12 @@ import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Parallel (parOneOf)
 import Data.Either (Either)
 import Data.Int (toNumber)
+import Data.Map as Map
 import Data.Validation.Semigroup (unV)
 import Effect.Aff (Aff, Milliseconds(..), attempt, delay)
 import Effect.Aff.Class (class MonadAff)
+import Effect.Ref as Ref
+import Effect.Class (liftEffect)
 import Effect.Exception (Error, error)
 import Network.Ethereum.Web3 (Provider, runWeb3)
 
@@ -52,7 +55,8 @@ makeDeployConfigWithProvider provider tout =
    in catchingAff' toError $ runWeb3 provider do
         primaryAccount <- Web3.getPrimaryAccount
         networkID <- Web3.getNetworkID
-        pure $ DeployConfig {provider, primaryAccount, networkID, timeout, writeArtifacts: true }
+        artifactCache <- liftEffect $ Ref.new Map.empty
+        pure $ DeployConfig {provider, primaryAccount, networkID, timeout, ignoreNetworksInArtifact: false, writeArtifacts: true, artifactCache }
 
 -- | try an aff action for the specified amount of time before giving up.
 withTimeout

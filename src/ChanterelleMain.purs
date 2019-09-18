@@ -2,7 +2,7 @@ module ChanterelleMain where
 
 import Prelude
 
-import Chanterelle (Args'(..), ArgsCLI, Command(..), CommonOpts(..), DeployOptions(..), DirPath, GenesisOptions(..), SelectCLI(..), SelectPS(..), chanterelle, traverseDeployOptions)
+import Chanterelle (Args'(..), ArgsCLI, Command(..), CommonOpts(..), DeployOptions(..), DirPath, SelectCLI(..), SelectPS(..), chanterelle, traverseDeployOptions)
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types (DeployM)
 import Control.Apply (lift2)
@@ -42,9 +42,6 @@ parser isGlobal cwd' = ado
            <> command "codegen"
               (info (pure Codegen)
                     (progDesc "Generate PureScript"))
-           <> command "genesis"
-              (info (Genesis <$> genesisParser)
-                    (progDesc "Generate a genesis block with libraries"))
            <> ( if isGlobal
                 then command "deploy"
                        (info (GlobalDeploy <$> deployParser)
@@ -55,20 +52,6 @@ parser isGlobal cwd' = ado
              )
            )
   in Args' opts cmds
-
-genesisParser :: Parser GenesisOptions
-genesisParser = ado
-  input <- strOption
-            ( long "input"
-           <> metavar "INPUT"
-           <> value "dist"
-           <> help "path to some json file containing GENESIS_INPUT" )
-  output <- strOption
-            ( long "output"
-           <> metavar "OUTPUT"
-           <> value "dist" 
-           <> help "path to some json file containing GENESIS_OUTPUT")
-  in GenesisOptions {input, output}
 
 deployParser :: Parser (DeployOptions SelectCLI)
 deployParser = ado

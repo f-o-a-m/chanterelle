@@ -2,14 +2,14 @@ module Chanterelle.Internal.Types.Project where
 
 import Prelude
 
-import Chanterelle.Internal.Utils.Json (decodeJsonAddress, decodeJsonHexString, encodeJsonAddress, encodeJsonHexString, gfWithDecoder)
 import Control.Alt ((<|>))
-import Data.Argonaut (class EncodeJson, class DecodeJson, encodeJson, decodeJson, (:=), (:=?), (~>), (~>?), (.:), (.:!), (.!=), jsonEmptyObject)
-import Data.Array (elem, filter, null)
+import Data.Argonaut (class DecodeJson, class EncodeJson, decodeJson, encodeJson, fromString, jsonEmptyObject, (.!=), (.:), (.:!), (:=), (:=?), (~>), (~>?))
+import Data.Array (elem, filter, foldl, null, snoc)
 import Data.Either (Either(..))
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..))
+import Data.Newtype (class Newtype)
 import Data.String (Pattern(..), joinWith, split)
-import Data.Traversable (for)
+import Data.Traversable (for, traverse)
 import Data.Tuple (Tuple(..))
 import Effect.AVar as AVar
 import Effect.Aff (Aff, Milliseconds)
@@ -18,7 +18,6 @@ import Effect.Class (class MonadEffect, liftEffect)
 import Foreign.Object as M
 import Language.Solidity.Compiler (SolidityCompiler)
 import Language.Solidity.Compiler.Types as ST
-import Network.Ethereum.Web3 (Address, HexString)
 import Node.Path (FilePath)
 import Node.Path as Path
 
@@ -38,90 +37,44 @@ instance decodeJsonDependency :: DecodeJson Dependency where
 
 ---------------------------------------------------------------------
 
-data InjectableLibraryCode = InjectableWithSourceCode (Maybe FilePath) FilePath
-                           | InjectableWithBytecode HexString
-
-derive instance eqInjectableLibraryCode :: Eq InjectableLibraryCode
-
-instance encodeJsonInjectableLibraryCode :: EncodeJson InjectableLibraryCode where
-  encodeJson (InjectableWithSourceCode r f) = encodeJson $ M.fromFoldable elems
-    where elems = file <> root
-          file  = [Tuple "file" $ encodeJson f]
-          root  = fromMaybe [] (pure <<< Tuple "root" <<< encodeJson <$> r)
-  encodeJson (InjectableWithBytecode c)   = encodeJson $ M.singleton "bytecode" (encodeJsonHexString c)
-
-instance decodeJsonInjectableLibraryCode :: DecodeJson InjectableLibraryCode where
-  decodeJson d = decodeSourceCode <|> decodeBytecode <|> Left "not a valid InjectableLibrarySource"
-      where decodeSourceCode = decodeJson d >>= (\o -> InjectableWithSourceCode <$> o .:! "root" <*> o .: "file")
-            decodeBytecode   = do
-              o <- decodeJson d
-              bc <- gfWithDecoder decodeJsonHexString o "bytecode"
-              pure $ InjectableWithBytecode bc
-
-data Library = FixedLibrary            { name :: String, address :: Address  }
-             | FixedLibraryWithNetwork { name :: String, address :: Address, networks :: NetworkRefs }
-             | InjectableLibrary       { name :: String, address :: Address, code :: InjectableLibraryCode }
-             | DeployableLibrary       { name :: String, sourceRoot :: Maybe FilePath, sourceCode :: FilePath }
-
-isFixedLibrary :: Library -> Boolean
-isFixedLibrary (FixedLibrary _) = true
-isFixedLibrary _                = false
+newtype Library = Library { name :: String, sourceRoot :: Maybe FilePath, sourceFile :: FilePath }
+derive instance newtypeLibrary :: Newtype Library _
+derive newtype instance eqLibrary :: Eq Library
+derive newtype instance ordLibrary :: Ord Library
 
 newtype Libraries = Libraries (Array Library)
 
-derive instance eqLibrary                  :: Eq Library
 derive instance eqLibraries                :: Eq Libraries
 derive newtype instance monoidLibraries    :: Monoid Libraries
 derive newtype instance semigroupLibraries :: Semigroup Libraries
 
 instance encodeJsonLibraries :: EncodeJson Libraries where
   encodeJson (Libraries libs) =
-    let asAssocs = mkTuple <$> libs
-        mkTuple (FixedLibrary l)            = Tuple l.name (encodeJsonAddress l.address)
-        mkTuple (FixedLibraryWithNetwork l) = Tuple l.name $
-                                                   "address" := encodeJsonAddress  l.address
-                                                ~> "via"     := encodeJson l.networks
-                                                ~> jsonEmptyObject
-        mkTuple (InjectableLibrary l)       = Tuple l.name $
-                                                   "address" := encodeJsonAddress l.address
-                                                ~> "code"    := encodeJson l.code
-                                                ~> jsonEmptyObject
-        mkTuple (DeployableLibrary l)       = Tuple l.name $
-                                                   "code" := encodeJson l.sourceCode
-                                                ~> jsonEmptyObject
+    let asAssocs = (\(Library l) -> Tuple l.name $ libToObj l) <$> libs
+        libToObj l = case l.sourceRoot of
+                       Nothing -> fromString l.sourceFile
+                       Just root ->
+                             "file" := l.sourceFile
+                          ~> "root" := root
+                          ~> jsonEmptyObject
         asMap    = M.fromFoldable asAssocs
      in encodeJson asMap
 
 instance decodeJsonLibraries :: DecodeJson Libraries where
   decodeJson j = do
     obj <- decodeJson j
-    libs <- for (M.toUnfoldable obj) $ \t -> (decodeFixedLibrary t) <|> (decodeFixedLibraryWithNetwork t) <|> (decodeInjectableLibrary t) <|> (decodeDeployableLibrary t) <|> (failDramatically t)
-    pure (Libraries libs)
+    Libraries <$> traverse decodeLibrary (M.toUnfoldable obj)
 
-    where decodeFixedLibrary (Tuple name l) = do
-            address <- decodeJsonAddress l
-            pure $ FixedLibrary { name, address }
-
-          decodeFixedLibraryWithNetwork (Tuple name l) = do
-            fln <- decodeJson l
-            address <- gfWithDecoder decodeJsonAddress fln "address"
-            networks <- fln .: "via"
-            pure $ FixedLibraryWithNetwork { name, address, networks }
-
-          decodeInjectableLibrary (Tuple name l) = do
-            ilo <- decodeJson l
-            address <- gfWithDecoder decodeJsonAddress ilo "address"
-            code    <- ilo .: "code"
-            pure $ InjectableLibrary { name, address, code }
-
-          decodeDeployableLibrary (Tuple name l) = do 
-            ilo <- decodeJson l
-            libCode <- ilo .: "code"
-            case libCode of
-              InjectableWithSourceCode sourceRoot sourceCode -> pure $ DeployableLibrary { name, sourceRoot, sourceCode }
-              _ -> Left ("Deployable library code for " <> name <> " may only be specified with source code")
-
-          failDramatically (Tuple name _) = Left ("Malformed library descriptor for " <> name)
+    where decodeLibrary (Tuple name l) =
+            let decodeObjLib = do
+                  libObj <- decodeJson l
+                  sourceFile <- libObj .: "file"
+                  sourceRoot <- Just <$> libObj .: "root"
+                  pure $ Library { name, sourceFile, sourceRoot}
+                decodeStrLib = do
+                  sourceFile <- decodeJson l
+                  pure $ Library { name, sourceFile, sourceRoot: Nothing }
+             in decodeObjLib <|> decodeStrLib
 
 ---------------------------------------------------------------------
 
@@ -138,7 +91,6 @@ instance decodeJsonChainSpec :: DecodeJson ChainSpec where
     where decodeStr = decodeJson j
           decodeAllChains = decodeStr >>= (\s -> if s == "*" then Right AllChains else Left "Not * for AllChains")
           decodeSpecificChains = decodeStr >>= (\s -> SpecificChains <$> for (split (Pattern ",") s) pure)
-
 
 instance encodeJsonChainSpec :: EncodeJson ChainSpec where
   encodeJson AllChains = encodeJson "*"
@@ -219,6 +171,26 @@ resolveNetworkRefs refs definedNets = case refs of
 
 ---------------------------------------------------------------------
 
+data SolcOutputSelectionSpec = SolcFileLevelSelectionSpec ST.FileLevelSelection
+                             | SolcContractLevelSelectionSpec ST.ContractLevelSelection
+derive instance eqSolcOutputSelectionSpec :: Eq SolcOutputSelectionSpec
+derive instance ordSolcOutputSelectionSpec :: Ord SolcOutputSelectionSpec
+
+instance decodeJsonSolcOutputSelectionSpec :: DecodeJson SolcOutputSelectionSpec where
+  decodeJson j = (SolcFileLevelSelectionSpec <$> ST.decodeJsonSelection j) <|> (SolcContractLevelSelectionSpec <$> ST.decodeJsonSelection j)
+
+instance encodeJsonSolcOutputSelectionSpec :: EncodeJson SolcOutputSelectionSpec where
+  encodeJson (SolcFileLevelSelectionSpec f) = ST.encodeJsonSelection f
+  encodeJson (SolcContractLevelSelectionSpec c) = ST.encodeJsonSelection c
+
+partitionSelectionSpecs :: Array SolcOutputSelectionSpec -> { cls :: Array ST.ContractLevelSelection, fls :: Array ST.FileLevelSelection }
+partitionSelectionSpecs = foldl f init
+  where init = { fls: [], cls: [] }
+        f { fls, cls } (SolcFileLevelSelectionSpec fs) = { fls: fls `snoc` fs, cls }
+        f { fls, cls } (SolcContractLevelSelectionSpec cs) = { fls, cls: cls `snoc` cs }
+
+---------------------------------------------------------------------
+
 newtype SolcOptimizerSettings = SolcOptimizerSettings { enabled :: Boolean, runs :: Int }
 
 derive instance eqSolcOptimizerSettings :: Eq SolcOptimizerSettings
@@ -275,7 +247,7 @@ newtype ChanterelleProjectSpec =
                                                     , outputPath   :: String
                                                     }
                          , solcVersion           :: Maybe String
-                         , solcOutputSelection   :: Array String
+                         , solcOutputSelection   :: Array SolcOutputSelectionSpec
                          , solcOptimizerSettings :: Maybe ST.OptimizerSettings
                          , solcEvmVersion        :: Maybe ST.EvmVersion
                          }

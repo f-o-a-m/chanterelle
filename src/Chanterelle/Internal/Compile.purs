@@ -13,7 +13,7 @@ import Chanterelle.Internal.Artifact (writeArtifact)
 import Chanterelle.Internal.Logging (LogLevel(..), log, logSolcError)
 import Chanterelle.Internal.Types.Compile (CompileError(..)) as CompileReexports
 import Chanterelle.Internal.Types.Compile (CompileError(..), resolveSolidityContractLevelOutput)
-import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), Dependency(..), getSolc)
+import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), Dependency(..), getSolc, partitionSelectionSpecs)
 import Chanterelle.Internal.Utils.Error (withExceptM', withExceptT')
 import Chanterelle.Internal.Utils.FS (assertDirectory', fileIsDirty)
 import Control.Error.Util (hush)
@@ -164,8 +164,9 @@ makeSolcInput moduleName sourcePath = do
   code <- liftAff $ FS.readTextFile UTF8 sourcePath
   let language = ST.Solidity
       sources = ST.Sources (M.singleton (moduleName <> ".sol") (makeSolcSource code))
-      contractLevelSelections = [ST.ABI, ST.EvmOutputSelection (Just $ ST.BytecodeSelection Nothing), ST.EvmOutputSelection (Just $ ST.DeployedBytecodeSelection Nothing)]
-      outputSelection = Just $ ST.OutputSelections (M.singleton "*" (ST.OutputSelection { file: [] , contract: M.singleton "*" contractLevelSelections }))
+      { cls: requestedContractSelections, fls: requestedFileSelections } = partitionSelectionSpecs spec.solcOutputSelection
+      contractLevelSelections = [ST.ABI, ST.EvmOutputSelection (Just $ ST.BytecodeSelection Nothing), ST.EvmOutputSelection (Just $ ST.DeployedBytecodeSelection Nothing)] <> requestedContractSelections
+      outputSelection = Just $ ST.OutputSelections (M.singleton "*" (ST.OutputSelection { file: requestedFileSelections , contract: M.singleton "*" contractLevelSelections }))
       depMappings = (\(Dependency dep) -> ST.Remapping { from: dep, to: (project.root <> "/node_modules/" <> dep) }) <$> spec.dependencies
       sourceDirMapping = [ST.GlobalRemapping { to: (Path.concat [project.root, spec.sourceDir]) }]
       remappings = sourceDirMapping <> depMappings

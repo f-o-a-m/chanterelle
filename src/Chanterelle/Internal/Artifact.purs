@@ -1,4 +1,4 @@
-module Chanterelle.Internal.Artifact 
+module Chanterelle.Internal.Artifact
   ( module ArtifactExports
   , readArtifact
   , updateArtifact
@@ -8,7 +8,7 @@ module Chanterelle.Internal.Artifact
 import Prelude
 
 import Chanterelle.Internal.Types.Artifact (Artifact(..))
-import Chanterelle.Internal.Types.Artifact (Artifact(..), ArtifactBytecode(..), _Deployed, _NetworkBytecode, _abi, _blockHash, _blockNumber, _bytecode, _code, _deployedBytecode, _lastModified, _network, _networks, _transactionHash, emptyArtifactBytecode, fromSolidityContractLevelOutput) as ArtifactExports
+import Chanterelle.Internal.Types.Artifact (Artifact(..), ArtifactBytecode(..), _Deployed, _NetworkBytecode, _abi, _address, _blockHash, _blockNumber, _bytecode, _code, _deployedBytecode, _lastModified, _network, _networks, _transactionHash, emptyArtifactBytecode, fromSolidityContractLevelOutput) as ArtifactExports
 import Chanterelle.Internal.Utils.FS (readTextFile, withTextFile, writeTextFile)
 import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces, parseDecodeM)
 import Chanterelle.Internal.Utils.Time (now, toEpoch)
@@ -54,5 +54,5 @@ writeArtifact
   => FilePath
   -> Artifact
   -> m Unit
-writeArtifact filepath a = 
+writeArtifact filepath a =
   liftEffect (setModTimeAndStringify a) >>= writeTextFile filepath

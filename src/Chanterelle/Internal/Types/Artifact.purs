@@ -25,7 +25,7 @@ type ArtifactBytecodeR a = Record
 
 type UndeployedArtifact = ArtifactBytecodeR ()
 type DeployedArtifact = ArtifactBytecodeR
-  ( deployAddress   :: Address
+  ( address         :: Address
   , blockHash       :: HexString
   , blockNumber     :: BlockNumber
   , transactionHash :: HexString
@@ -111,8 +111,8 @@ _Deployed = to $
     Undeployed _ -> Nothing
     Deployed d -> Just d
 
-_deployAddress :: Getter' DeployedArtifact Address
-_deployAddress = to _.deployAddress
+_address :: Getter' DeployedArtifact Address
+_address = to _.address
 
 _blockHash :: Getter' DeployedArtifact HexString
 _blockHash = to _.blockHash
@@ -122,6 +122,6 @@ _blockNumber = to _.blockNumber
 
 _transactionHash :: Getter' DeployedArtifact HexString
 _transactionHash = to _.transactionHash
-     
+
 _lastModified :: Lens' Artifact Number
 _lastModified = lens' $ \(Artifact a) -> Tuple a.lastModified (\lastModified' -> Artifact (a { lastModified = lastModified' }))

@@ -3,15 +3,15 @@ module Chanterelle.Project (loadProject) where
 import Prelude
 
 import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleModuleType(..), ChanterelleProject(..), ChanterelleProjectSpec(..), InjectableLibraryCode(..), Libraries(..), Library(..), mkChanterelleSolc)
+import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleModuleType(..), ChanterelleProject(..), ChanterelleProjectSpec(..), Libraries(..), Library(..), mkChanterelleSolc)
 import Chanterelle.Internal.Utils.FS (assertDirectory, fileModTime, readTextFile, writeTextFile)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Except (ExceptT(..), runExceptT)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
-import Data.Array (catMaybes, last)
+import Data.Array (last)
 import Data.Either (Either(..), either)
-import Data.Maybe (Maybe(..), fromJust, maybe)
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (Pattern(..), Replacement(..), replaceAll, split)
 import Effect.Aff (Aff, attempt)
 import Effect.Aff.Class (class MonadAff, liftAff)
@@ -23,7 +23,6 @@ import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
 import Node.Path (FilePath)
 import Node.Path as Path
-import Partial.Unsafe (unsafePartialBecause)
 
 mkProjectSolc
   :: Maybe String
@@ -77,30 +76,23 @@ loadProject root = do
       psOut      = Path.concat [root, project.psGen.outputPath]
       srcIn      = Path.concat [root, project.sourceDir]
       modules    = mkModule <$> project.modules
-      libModules = catMaybes $ mkLibModule <$> libs
+      libModules = mkLibModule <$> libs
       mkModule moduleName =
         let solPath      = Path.concat [srcIn, pathModName <> ".sol"]
             jsonPath     = Path.concat [jsonOut, pathModName <> ".json"]
             pursPath     = Path.concat [psOut, psModBase, pathModName <> ".purs"]
-            solContractName = unsafePartialBecause "String.split always returns a non-empty Array" $
-                                fromJust $ last $ split (Pattern ".") moduleName
+            solContractName = fromMaybe moduleName <<< last $ split (Pattern ".") moduleName
             pathModName = replaceAll (Pattern ".") (Replacement Path.sep) moduleName
             psModBase = replaceAll (Pattern ".") (Replacement Path.sep) project.psGen.modulePrefix
             moduleType = ContractModule
          in ChanterelleModule { moduleName, solContractName, moduleType, solPath, jsonPath, pursPath }
-      mkLibModule l = case l of
-        InjectableLibrary lib -> case lib.code of
-          InjectableWithSourceCode libRoot libPath ->
-            let solPath  = Path.concat [maybe "" identity libRoot, libPath]
-                jsonPath = Path.concat [libJsonOut, lib.name <> ".json"]
-                pursPath = ""
-            in Just $ ChanterelleModule { moduleName: lib.name, solContractName: lib.name, moduleType: LibraryModule, solPath, jsonPath, pursPath }
-          _ -> Nothing
-        DeployableLibrary lib ->
-          let solPath  = Path.concat [maybe "" identity lib.sourceRoot, lib.sourceCode]
-              jsonPath = Path.concat [libJsonOut, lib.name <> ".json"]
-              pursPath = ""
-           in Just $ ChanterelleModule { moduleName: lib.name, solContractName: lib.name, moduleType: LibraryModule, solPath, jsonPath, pursPath }
-        _ -> Nothing
+      mkLibModule (Library lib) =
+        let solPath  = Path.concat [fromMaybe "" lib.sourceRoot, lib.sourceFile]
+            jsonPath = Path.concat [libJsonOut, lib.name <> ".json"]
+            pursPath = ""
+            moduleName = lib.name
+            solContractName = moduleName
+            moduleType = LibraryModule
+        in ChanterelleModule { moduleName, solContractName, moduleType, solPath, jsonPath, pursPath }
   solc <- mkChanterelleSolc $ mkProjectSolc project.solcVersion project.artifactsDir
   pure $ ChanterelleProject { root, srcIn, jsonOut, psOut, spec, modules, libModules, specModTime, solc }

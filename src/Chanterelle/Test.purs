@@ -87,7 +87,7 @@ buildTestConfig url timeout deployScript = do
     Left err -> logDeployError err *> (liftEffect $ throw "Couldn't make deploy config for tests!")
     Right (DeployConfig baseDeployConfig) -> do
       let provider = baseDeployConfig.provider
-          deployConfig = DeployConfig $ baseDeployConfig { writeArtifacts = false }
+          deployConfig = DeployConfig $ baseDeployConfig { writeArtifacts = false, ignoreNetworksInArtifact = true }
       eDeployResults <- flip runDeployM deployConfig $ do
         eaccounts <- liftAff $ runWeb3 provider eth_getAccounts
         accounts <- either (\err -> throwError <<< ConfigurationError $ "Couldn't find accounts for tests " <> show err) pure eaccounts
