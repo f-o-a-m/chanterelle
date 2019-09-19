@@ -20,7 +20,6 @@ Welcome to Chanterelle's documentation!
    modules
    dependencies
    compiling
-   genesis-blocks
    libraries
    deployments
    testing

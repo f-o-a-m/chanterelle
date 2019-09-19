@@ -27,9 +27,14 @@ There are various testing utility functions in ``Chanterelle.Test``, probably th
     -> DeployM (Record r)
     -> Aff (TestConfig r)
 
-This function takes in some test configuration options and a deploy script, and outputs a record containing all of the unlocked accounts on the test node, a connection to the node, and whatever the output of your deployment script is. This output is then meant to be threaded through as an environment to the rest of your test suites.
+This function takes in some test configuration options and a deploy script, runs the deploy script, and outputs a record containing all of the unlocked accounts on the test node,
+a connection to the node, and whatever the output of your deployment script is. This output is then meant to be threaded through as an environment to the rest of your test suites.
 
-Note, unlike the deploy process meant for actual deployments, ``buildTestConfig`` will not write anything to the file system about the result of your deployment. In other words, test deployments are ephemeral.
+Note, unlike the deploy process meant for actual deployments, ``buildTestConfig`` will not write anything to the file system about the result of your deployment.
+Furthermore, while the Chanterelle artifacts are being read from your filesystem to fetch their bytecode for deployment, any deployments previously performed will be ignored, even if deployment
+information with the same network ID as your test node exists in the artifact.
+
+In other words, test deployments are entirely ephemeral and oblivious to any other deployments.
 
 Example Test Suite
 ------------------
@@ -71,4 +76,5 @@ The flow of the test is as follows:
 3. We create then our ``TransactionOptions`` and submit a transaction to change the count using the ``setCount`` function from the generated PureScript module.
 4. We call ``takeVar`` which blocks until the var is filled, then make sure the value we received is the one we put in.
 
-Admittingly this example is pretty trivial-- of course we're going to get back the value we put in. However, this pattern is pretty universal, namely take the supplied test config to help you template the transactions, call some functions, monitor for some event, then make sure the values are what you want.
+Admittingly this example is pretty trivial-- of course we're going to get back the value we put in. However, this pattern is pretty universal,
+namely taking the supplied test config to help you template the transactions, call some functions, monitor for some event, then make sure the values are what you want.

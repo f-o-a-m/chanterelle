@@ -23,23 +23,11 @@ A sample project is defined below, based on the `parking-dao application <https:
                  ],
       "dependencies": ["zeppelin-solidity"],
       "libraries": {
-          "FixedLib": "0x1337133713371337133713371337133713371337",
-          "AutocompiledLib": {
-              "address": "0xf00dcafe0ea7beef808080801234567890ABCDEF",
-              "code": {
-                  "file": "src/MyLibraries/AutocompiledLib.sol"
-              }
+          "ALibrary": "src/MyLibraries/AutocompiledLib.sol",
+          "AnotherLib": {
+              "root": "node_modules/some-npm-lib/contracts",
+              "file": "AnotherLib.sol"
           },
-          "InjectedLib": {
-              "address": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-              "code": {
-                  "bytecode": "0x73deadbeefdeadbeefdeadbeefdeadbeefdeadbeef301460606040..."
-              }
-          },
-          "FetchedLib": {
-              "address": "0x863df6bfa4469f3ead0be8f9f2aae51c91a907b4",
-              "via": ["mainnet", "rinkeby"]
-          }
       },
       "networks": {
             "some-private-net": {
@@ -56,6 +44,7 @@ A sample project is defined below, based on the `parking-dao application <https:
           "enabled": false,
           "runs: 200
       },
+      "solc-version": "<default>",
       "purescript-generator": {
           "output-path": "src",
           "module-prefix": "Contracts",
@@ -74,30 +63,27 @@ Note: All filepaths are relative to the ``chanterelle.json`` file, which is cons
 - ``version`` - ``Required``: The currrent version of your project (currently unused, for future use with package management)
 - ``source-dir`` - ``Required``:  Where your Solidity contracts are located.
 - ``artifacts-dir`` - ``Optional``:  The directory where the contract artifacts (ABI, bytecode, deployment info, etc) will be written. Defaults to ``build``.
-- ``modules`` - ``Required``: A list of all solidity contracts you wish to compile (see `Modules`)
+- ``modules`` - ``Required``: A list of all Solidity contracts you wish to compile (see `Modules`)
 - ``dependencies`` - ``Optional``: External Solidity (source-code) libraries/dependencies to use when compiling (see `Dependencies`).
-- ``libraries`` - ``Optional``: Solidity libraries to link against when compiling.
-    - A library may be defined as just an address. This is known as a "Fixed Library".
-      In this case, that address will be fed to solc when compiling contracts that depend on it.
-      However, generating genesis blocks will be unavailable as there is no means to get the code for the given library.
-    - A library may alternatively be defined as an address and a means to fetch the library.
-      The address will be fed into solc as with a Fixed Library, however, when generating a genesis block, Chanterelle will attempt
-      to compile the library or fetch it from any specified networks.
-    - If a library is injected as raw bytecode or fetched from a network, that code must begin with a library guard (``0x73<addr>3014``).
-      Chanterelle uses this to automagically inject the correct library address into the Genesis block.
-    - Supported networks to fetch from include: ``"mainnet"``, ``"ropsten"``, ``"rinkeby"``, ``"kovan"``, and  ``"localhost"``,
-      as well as any networks defined in the ``"networks"`` field of your project spec.
-- ``networks`` - ``Optional``: Additional networks to fetch libraries from.
+- ``libraries`` - ``Optional``: Solidity libraries to compile, which can be deployed and linked against.
+    - All libraries will automatically be compiled and output to ``<artifacts-dir>/libraries`` as part of the compile stage.
+    - Unlike modules, no PureScript bindings are generated for libraries, as they are intended to be used by other Solidity contracts.
+- ``networks`` - ``Optional``: Reserved for future use with package management and more elaborate deployment functionality.
     - Each network has a required ``"url"`` field, which tells Chanterelle how to reach a node on that network
     - Each network has a required ``"chains"`` field, which tells Chanterelle which network IDs to accept from that node. The value may either
       be a comma-separated list of network ID numbers (still has to be a string for just one network), or ``"*"`` to accept any network ID.
-- ``solc-optimizer`` - Optimizer options to pass to solc. Defaults are what's shown in the example.
-    - Supports ``enabled`` and ``runs``, just like ``solc`` 0.4.24 does.
-- ``solc-output-selection`` - Additional outputs to request from solc (currently unsupported, but see `solc documentation`)
+- ``solc-optimizer`` - ``Optional``: Optimizer options to pass to solc. Defaults are what's shown in the example.
+    - Supports the ``enabled`` and ``runs`` fields, which are passed on to ``solc``.
+- ``solc-output-selection`` - ``Optional``: Additional outputs to request from solc. Sometimes helpful for debugging Chanterelle itself. (currently unsupported, but see `solc documentation`)
+- ``solc-version`` - ``Optional``: Use a different version of the Solidity compiler.
+    - The default is whatever ``solc`` npm module is available in your build environment.
+    - It is recommended to use a version of ``solc`` >=0.5 in your package.json, and override to a lower version in ``chanterelle.json``.
+      This is because Chanterelle calls out to node.js ``solc``, and newer versions of the package have better compatibility in the input and output format.
+    - Chanterelle ships with solc "^0.5" by default.
 - ``purescript-generator`` - ``Required``: Options for purescript-web3-generator (see below)
 
 ``purescript-generator`` - options:
 
-- ``output-path`` - ``Required``: Where to place generated PureScript source files, for example this is your PureScript project source directory.
+- ``output-path`` - ``Required``: Where to place generated PureScript source files. Generally, this would be your PureScript project's source directory.
 - ``module-prefix`` - ``Optional``: What module name to prefix to your generated PureScript bindings. Note that the generated files will be stored relative to the output path (e.g. if set to ``Contracts`` as above, code will be generated into ``src/Contracts``). Defaults to ``Contracts``.
-- ``expression-prefix`` - ``Optional``:  Prefix `all` generated functions with the specified prefix. This is useful if you are depending on external smart contract libraries that name their solidity events or functions that are invalid purescript names.
+- ``expression-prefix`` - ``Optional``:  Prefix `all` generated functions with the specified prefix. This is useful if you are depending on external smart contracts or libraries that have Solidity events or functions whose names would be invalid PureScript identifiers.
