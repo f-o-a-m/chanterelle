@@ -5,7 +5,7 @@ module Chanterelle.Internal.Logging
     , readLogLevel
     , logCompileError
     , logDeployError
-    , logGenesisGenerationError
+    , logSolcError
     ) where
 
 import Prelude
@@ -14,16 +14,17 @@ import Ansi.Codes (Color(..))
 import Ansi.Output (withGraphics, foreground)
 import Chanterelle.Internal.Types.Compile as Compile
 import Chanterelle.Internal.Types.Deploy as Deploy
-import Chanterelle.Internal.Types.Genesis as Genesis
-import Chanterelle.Internal.Types.Project (Network(..))
 import Chanterelle.Internal.Utils.Time (now, toISOString)
 import Control.Logger as Logger
+import Data.Array (intercalate)
+import Data.Maybe (fromMaybe)
+import Data.String (joinWith, toUpper)
+import Data.Traversable (for_)
+import Data.Unfoldable as Unfoldable
 import Effect (Effect)
 import Effect.Class (liftEffect, class MonadEffect)
 import Effect.Console as Console
-import Data.String (toUpper)
-import Data.Traversable (for_)
-import Data.Tuple (Tuple(..))
+import Language.Solidity.Compiler.Types as ST
 
 data LogLevel = Debug | Info | Warn | Error
 
@@ -90,6 +91,22 @@ log level msg = do
       when (level >= currentLevel) $
         Logger.log fancyColorLogger { level, msg }
 
+logSolcError :: forall m
+              . MonadEffect m
+             => String
+             -> ST.CompilationError
+             -> m Unit
+logSolcError moduleName (ST.SimpleCompilationError msg) = log Error $ "Solidity compiler error in module " <> moduleName <> ":\n" <> msg
+logSolcError moduleName (ST.FullCompilationError err) = log severity $ "Solidity compiler " <> severityStr <> " in module " <> moduleName <> ":\n" <> msg
+  where { severity, severityStr } =
+          case err.severity of
+            ST.SeverityError   -> { severity: Error, severityStr: "error" }
+            ST.SeverityWarning -> { severity: Warn,  severityStr: "warning" }
+        msg = fromMaybe builtMsg err.formattedMessage
+        builtMsg = show err.type <> ", in " <> err.component <> ": " <> err.message <> locations
+        rawLocations = map (append "at: " <<< show) ((Unfoldable.fromMaybe err.sourceLocation) <> err.secondarySourceLocations)
+        locations = joinWith "\n" rawLocations
+
 logCompileError :: forall m
                  . MonadEffect m
                 => Compile.CompileError
@@ -98,9 +115,10 @@ logCompileError = case _ of
     Compile.CompileParseError msg     -> log Error (parseErrorMessage msg)
     Compile.MissingArtifactError msg  -> log Error (artifactErrorMessage msg)
     Compile.FSError errMsg            -> log Error ("File System Error -- " <> errMsg)
-    Compile.CompilationError errs     -> for_ errs (log Error)
+    Compile.CompilationError e        -> for_ e.errors (logSolcError e.moduleName)
     Compile.MalformedProjectError mpe -> log Error ("Couldn't parse chanterelle.json: " <> mpe)
     Compile.UnexpectedSolcOutput e    -> log Error ("Unexpected output from solc: " <> e)
+    Compile.CompilerUnavailable e     -> log Error ("Solidity compiler unavailable: " <> e)
   where
     parseErrorMessage msg = "Parse Error -- " <> "Object: " <> msg.objectName <>  ", Message: " <> msg.parseError
     artifactErrorMessage msg = "Missing Artifact -- " <> "FileName: " <> msg.fileName <> ", Object Name: " <> msg.objectName
@@ -113,22 +131,11 @@ logDeployError = liftEffect <<< case _ of
     Deploy.ConfigurationError errMsg -> log Error errMsg
     Deploy.OnDeploymentError msg     -> log Error (onDeployMessage msg)
     Deploy.PostDeploymentError msg   -> log Error (postDeployMessage msg)
+    Deploy.DeployingUnlinkedBytecodeError msg -> log Error (msg.name <> " has unlinked references to libraries: " <> intercalate ", " msg.libs)
+    Deploy.LinkingLinkedBytecodeError msg -> log Error ("Attempted to link library " <> msg.libraryName <> " to the " <> msg.bytecodeKind <> " of " <> msg.name <> ", which is already fully linked...")
+    Deploy.LinkingError msg -> log Error ("Error while linking " <> msg.libraryName <> " at " <> show msg.libraryAddress <> " to the " <> msg.bytecodeKind <> " of " <> msg.contractName <> ": " <> msg.msg)
+    Deploy.Impossibility msg -> log Error ("The impossible happened! " <> msg)
+
   where
     onDeployMessage   msg = "Error During Deployment -- Name: " <> msg.name <> ", Message: " <> msg.message
     postDeployMessage msg = "Error After Deployment -- Name: " <> msg.name <> ", Message: " <> msg.message
-
-logGenesisGenerationError :: forall m
-                           . MonadEffect m
-                          => Genesis.GenesisGenerationError
-                          -> m Unit
-logGenesisGenerationError = case _ of
-    Genesis.CouldntLoadGenesisBlock path msg     -> log Error $ "Couldn't load the genesis block at " <> show path <> ": " <> msg
-    Genesis.CouldntInjectLibraryAddress lib msg  -> log Error $ "Couldn't inject the address for " <> show lib <> ": " <> msg
-    Genesis.CouldntInjectLibrary lib msg         -> log Error $ "Couldn't inject " <> show lib <> ": " <> msg
-    Genesis.CouldntCompileLibrary lib ce         -> log Error ("Couldn't compile " <> show lib) *> logCompileError ce
-    Genesis.MalformedProjectErrorG msg           -> log Error $ "Couldn't load chanterelle.json: " <> msg
-    Genesis.NothingToDo reason                   -> log Warn  $ "Nothing to do! " <> reason
-    Genesis.CouldntResolveLibraryNoNetworks name -> log Error $ "Couldn't resolve the library " <> show name <> " as no networks are available that satisfy its lookup constraints!"
-    Genesis.CouldntResolveLibrary name errs      -> do
-      log Error $ "Couldn't resolve the library " <> show name <> " on any specified networks:"
-      for_ errs $ \(Tuple (Network net) err) -> log Error $ "    via " <> show net.name <> ": " <> err

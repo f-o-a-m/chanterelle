@@ -10,8 +10,9 @@
   ],
   "dependencies": {
     "purescript-prelude": "^4.0.0",
-    "purescript-web3": "^1.0.0",
-    "purescript-web3-generator": "^1.0.0",
+    "purescript-web3": "f-o-a-m/purescript-web3#dependency-bump",
+    "purescript-web3-generator": "f-o-a-m/purescript-web3-generator#dependency-bump",
+    "purescript-solc": "f-o-a-m/purescript-solc",
     "purescript-console": "^4.0.0",
     "purescript-errors": "^4.0.0",
     "purescript-node-process": "^6.0.0",
@@ -21,7 +22,8 @@
     "purescript-logging": "^3.0.0",
     "purescript-validation": "^4.0.0",
     "purescript-random": "^4.0.0",
-    "purescript-foreign-object": "^1.1.0"
+    "purescript-foreign-object": "^1.1.0",
+    "purescript-numbers": ">=4.1.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^4.0.0",

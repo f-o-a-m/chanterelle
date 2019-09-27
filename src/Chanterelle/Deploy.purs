@@ -6,10 +6,9 @@ module Chanterelle.Deploy
 
 import Prelude
 
-import Chanterelle.Internal.Deploy (deployContract, readDeployAddress) as Exports
+import Chanterelle.Internal.Deploy (deployContract, deployLibrary, linkLibrary, readDeployAddress) as Exports
 import Chanterelle.Internal.Logging (logDeployError)
 import Chanterelle.Internal.Types (runDeployM) as Exports
-import Chanterelle.Internal.Types.Deploy ((??)) as Exports
 import Chanterelle.Internal.Types.Deploy (DeployM, runDeployM)
 import Chanterelle.Internal.Utils (makeDeployConfigWithProvider, makeProvider)
 import Control.Monad.Except (runExceptT)
@@ -40,9 +39,7 @@ deployWithProvider
 deployWithProvider provider tout deployScript = do
   edeployConfig <- runExceptT $ makeDeployConfigWithProvider provider tout
   case edeployConfig of
-    Left err -> do
-      logDeployError err
-      throwError (error "Error in building DeployConfig!")
+    Left err -> logDeployError err *> throwError (error "Error in building DeployConfig!")
     Right deployConfig -> do
       eDeployResult <- runDeployM deployScript deployConfig
       case eDeployResult of

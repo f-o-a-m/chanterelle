@@ -2,6 +2,7 @@ module Chanterelle.Internal.Types.Deploy where
 
 import Prelude
 
+import Chanterelle.Internal.Types.Artifact (Artifact)
 import Control.Alt (class Alt)
 import Control.Alternative (class Alternative)
 import Control.Monad.Error.Class (class MonadThrow)
@@ -13,12 +14,14 @@ import Control.Plus (class Plus)
 import Data.Either (Either)
 import Data.Functor.Compose (Compose)
 import Data.Lens ((?~))
+import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Validation.Semigroup (V, invalid)
 import Effect.Aff (Aff, Fiber, Milliseconds, ParAff, forkAff, joinFiber, parallel)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Exception (Error, throwException)
+import Effect.Ref as Ref
 import Network.Ethereum.Web3 (Address, HexString, TransactionOptions, Web3, _data, _value, fromMinorUnit)
 import Network.Ethereum.Web3.Api (eth_sendTransaction)
 import Network.Ethereum.Web3.Types (NoPay)
@@ -31,7 +34,7 @@ import Node.Path (FilePath)
 
 -- | Monad Stack for contract deployment.
 newtype DeployM a =
-  DeployM (ReaderT DeployConfig (ExceptT DeployError Aff) a)
+  DeployM ((ReaderT DeployConfig (ExceptT DeployError Aff)) a)
 
 runDeployM
   :: forall a.
@@ -90,6 +93,10 @@ derive newtype instance alternativeParDeployM :: Alternative DeployMPar
 data DeployError = ConfigurationError String
                  | OnDeploymentError {name :: String, message :: String}
                  | PostDeploymentError {name :: String, message :: String}
+                 | DeployingUnlinkedBytecodeError { name :: String, libs :: Array String }
+                 | LinkingLinkedBytecodeError { name :: String, libraryName :: String, bytecodeKind :: String } 
+                 | LinkingError { contractName :: String, libraryName :: String, libraryAddress :: Address, bytecodeKind :: String, msg :: String }
+                 | Impossibility String
 
 -- | Throw an `Error` Exception inside DeployM.
 throwDeploy :: forall a
@@ -97,17 +104,41 @@ throwDeploy :: forall a
             -> DeployM a
 throwDeploy = liftEffect <<< throwException
 
+getArtifactCache
+  :: forall m
+   . MonadAsk DeployConfig m
+  => MonadEffect m
+  => m (Map.Map (LibraryConfig ()) Artifact)
+getArtifactCache = do
+  DeployConfig { artifactCache } <- ask
+  liftEffect (Ref.read artifactCache)
+
+setArtifactCache
+  :: forall m
+   . MonadAsk DeployConfig m
+  => MonadEffect m
+  => Map.Map (LibraryConfig ()) Artifact
+  -> m Unit
+setArtifactCache newCache = do
+  DeployConfig { artifactCache } <- ask
+  liftEffect $ Ref.modify_ (const newCache) artifactCache
+
 --------------------------------------------------------------------------------
 -- | Config Types
 --------------------------------------------------------------------------------
 
+-- | An Ethereum Chain ID
+type NetworkID = Int
+
 -- | primary deployment configuration
 newtype DeployConfig =
-  DeployConfig { networkId :: String
+  DeployConfig { networkID :: NetworkID
                , primaryAccount :: Address
                , provider :: Provider
                , timeout :: Milliseconds
-               , writeArtifacts :: Boolean
+               , writeArtifacts :: Boolean -- if true, artifacts will be persisted as deploy scripts modify them by linking or deploying. false is useful for testing
+               , ignoreNetworksInArtifact :: Boolean -- if true, artifacts that are loaded will not have networks fields populated, useful for testing.
+               , artifactCache :: Ref.Ref (Map.Map (LibraryConfig ()) Artifact)
                }
 
 -- | Contract Config
@@ -128,10 +159,16 @@ constructorNoArgs txOpts bytecode _ =
   eth_sendTransaction $ txOpts # _data ?~ bytecode
                                # _value ?~ fromMinorUnit zero
 
-type ConfigR args =
+type LibraryR args =
   ( filepath :: FilePath
   , name :: String
-  , constructor :: Constructor args
+  | args
+  )
+
+type LibraryConfig args = Record (LibraryR args)
+
+type ConfigR args = LibraryR
+  ( constructor :: Constructor args
   , unvalidatedArgs :: V (Array String) (Record args)
   )
 

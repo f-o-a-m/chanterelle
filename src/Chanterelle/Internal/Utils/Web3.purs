@@ -3,24 +3,24 @@ module Chanterelle.Internal.Utils.Web3 where
 import Prelude
 
 import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types.Deploy (DeployError(..))
+import Chanterelle.Internal.Types.Deploy (DeployError(..), NetworkID)
 import Chanterelle.Internal.Types.Project (Network(..), networkIDFitsChainSpec)
-import Effect.Aff (Milliseconds(..), delay)
-import Effect.Aff.Class (class MonadAff, liftAff)
-import Effect.Class (class MonadEffect, liftEffect)
-import Effect.Exception (error, try)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Except (ExceptT(..), except, runExceptT, withExceptT)
 import Control.Parallel (parOneOf)
-import Data.Array ((!!))
+import Data.Array (head)
 import Data.Either (Either(..))
-import Data.Maybe (maybe)
+import Data.Int (fromString)
+import Data.Maybe (Maybe, maybe)
 import Data.String (null)
+import Effect.Aff (Milliseconds(..), delay)
+import Effect.Aff.Class (class MonadAff, liftAff)
+import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Exception (Error, error, try)
 import Network.Ethereum.Web3 (Address, ChainCursor(Latest), HexString, Web3, runWeb3, unHex)
 import Network.Ethereum.Web3.Api (eth_getAccounts, eth_getCode, eth_getTransactionReceipt, net_version)
 import Network.Ethereum.Web3.Types (TransactionReceipt, Web3Error(..))
 import Network.Ethereum.Web3.Types.Provider (Provider, httpProvider)
-
 
 -- | Make an http provider with address given by NODE_URL, falling back
 -- | to localhost.
@@ -83,16 +83,35 @@ resolveCodeForContract network contract = runExceptT do
   provider <- (ExceptT $ resolveProvider network)
   ExceptT $ getCodeForContract contract provider
 
+logAndThrow
+  :: forall m a
+   . MonadEffect m
+  => MonadThrow Error m
+  => String
+  -> m a
+logAndThrow msg = log Error msg *> throwError (error msg)
+
+logAndThrow'
+  :: forall m a
+   . MonadEffect m
+  => MonadThrow Error m
+  => String
+  -> Maybe a
+  -> m a
+logAndThrow' msg = maybe (logAndThrow msg) pure
+
 -- | get the primary account for the ethereum client
 getPrimaryAccount
   :: Web3 Address
 getPrimaryAccount = do
     accounts <- eth_getAccounts
-    maybe accountsError pure $ accounts !! 0
-  where
-    accountsError = do
-      log Error "No PrimaryAccount found on ethereum client!"
-      throwError $ error "No PrimaryAccount found on ethereum client!"
+    logAndThrow' "No primary account exists on the ethereum node" $ head accounts
+
+getNetworkID
+  :: Web3 NetworkID
+getNetworkID = do
+    net_version <- net_version
+    logAndThrow' "net_version was not an Int!" $ fromString net_version
 
 -- | indefinitely poll for a transaction receipt, sleeping for 3
 -- | seconds in between every call.
@@ -118,5 +137,5 @@ web3WithTimeout
 web3WithTimeout maxTimeout action = do
   let timeout = liftAff do
         delay maxTimeout
-        throwError $ error "TimeOut"
+        logAndThrow "Web3 action timed out"
   parOneOf [action, timeout]

@@ -2,19 +2,24 @@ module Chanterelle.Internal.Types.Project where
 
 import Prelude
 
-import Chanterelle.Internal.Utils.Json (decodeJsonAddress, decodeJsonHexString, encodeJsonAddress, encodeJsonHexString, gfWithDecoder)
 import Control.Alt ((<|>))
-import Effect.Aff (Milliseconds)
-import Data.Argonaut (class EncodeJson, class DecodeJson, encodeJson, decodeJson, (:=), (~>), (.?), (.??), jsonEmptyObject)
-import Data.Array (elem, filter, null)
+import Data.Argonaut (class DecodeJson, class EncodeJson, decodeJson, encodeJson, fromString, jsonEmptyObject, (.!=), (.:), (.:!), (:=), (:=?), (~>), (~>?))
+import Data.Array (elem, filter, foldl, null, snoc)
 import Data.Either (Either(..))
-import Data.Maybe (Maybe, fromMaybe)
-import Foreign.Object as M
+import Data.Maybe (Maybe(..))
+import Data.Newtype (class Newtype)
 import Data.String (Pattern(..), joinWith, split)
-import Data.Traversable (for)
+import Data.Traversable (for, traverse)
 import Data.Tuple (Tuple(..))
-import Network.Ethereum.Web3 (Address, HexString)
+import Effect.AVar as AVar
+import Effect.Aff (Aff, Milliseconds)
+import Effect.Aff.Class (class MonadAff, liftAff)
+import Effect.Class (class MonadEffect, liftEffect)
+import Foreign.Object as M
+import Language.Solidity.Compiler (SolidityCompiler)
+import Language.Solidity.Compiler.Types as ST
 import Node.Path (FilePath)
+import Node.Path as Path
 
 --------------------------------------------------------------------------------
 -- | Chanterelle Project Types
@@ -32,79 +37,44 @@ instance decodeJsonDependency :: DecodeJson Dependency where
 
 ---------------------------------------------------------------------
 
-data InjectableLibraryCode = InjectableWithSourceCode (Maybe FilePath) FilePath
-                           | InjectableWithBytecode HexString
-
-derive instance eqInjectableLibraryCode :: Eq InjectableLibraryCode
-
-instance encodeJsonInjectableLibraryCode :: EncodeJson InjectableLibraryCode where
-  encodeJson (InjectableWithSourceCode r f) = encodeJson $ M.fromFoldable elems
-    where elems = file <> root
-          file  = [Tuple "file" $ encodeJson f]
-          root  = fromMaybe [] (pure <<< Tuple "root" <<< encodeJson <$> r)
-  encodeJson (InjectableWithBytecode c)   = encodeJson $ M.singleton "bytecode" (encodeJsonHexString c)
-
-instance decodeJsonInjectableLibraryCode :: DecodeJson InjectableLibraryCode where
-  decodeJson d = decodeSourceCode <|> decodeBytecode <|> Left "not a valid InjectableLibrarySource"
-      where decodeSourceCode = decodeJson d >>= (\o -> InjectableWithSourceCode <$> o .?? "root" <*> o .? "file")
-            decodeBytecode   = do
-              o <- decodeJson d
-              bc <- gfWithDecoder decodeJsonHexString o "bytecode"
-              pure $ InjectableWithBytecode bc
-
-data Library = FixedLibrary            { name :: String, address :: Address  }
-             | FixedLibraryWithNetwork { name :: String, address :: Address, networks :: NetworkRefs }
-             | InjectableLibrary       { name :: String, address :: Address, code :: InjectableLibraryCode }
-
-isFixedLibrary :: Library -> Boolean
-isFixedLibrary (FixedLibrary _) = true
-isFixedLibrary _                = false
+newtype Library = Library { name :: String, sourceRoot :: Maybe FilePath, sourceFile :: FilePath }
+derive instance newtypeLibrary :: Newtype Library _
+derive newtype instance eqLibrary :: Eq Library
+derive newtype instance ordLibrary :: Ord Library
 
 newtype Libraries = Libraries (Array Library)
 
-derive instance eqLibrary                  :: Eq Library
 derive instance eqLibraries                :: Eq Libraries
 derive newtype instance monoidLibraries    :: Monoid Libraries
 derive newtype instance semigroupLibraries :: Semigroup Libraries
 
 instance encodeJsonLibraries :: EncodeJson Libraries where
   encodeJson (Libraries libs) =
-    let asAssocs = mkTuple <$> libs
-        mkTuple (FixedLibrary l)            = Tuple l.name (encodeJsonAddress l.address)
-        mkTuple (FixedLibraryWithNetwork l) = Tuple l.name $
-                                                   "address" := encodeJsonAddress  l.address
-                                                ~> "via"     := encodeJson l.networks
-                                                ~> jsonEmptyObject
-        mkTuple (InjectableLibrary l)       = Tuple l.name $
-                                                   "address" := encodeJsonAddress l.address
-                                                ~> "code"    := encodeJson l.code
-                                                ~> jsonEmptyObject
+    let asAssocs = (\(Library l) -> Tuple l.name $ libToObj l) <$> libs
+        libToObj l = case l.sourceRoot of
+                       Nothing -> fromString l.sourceFile
+                       Just root ->
+                             "file" := l.sourceFile
+                          ~> "root" := root
+                          ~> jsonEmptyObject
         asMap    = M.fromFoldable asAssocs
      in encodeJson asMap
 
 instance decodeJsonLibraries :: DecodeJson Libraries where
   decodeJson j = do
     obj <- decodeJson j
-    libs <- for (M.toUnfoldable obj) $ \t -> (decodeFixedLibrary t) <|> (decodeFixedLibraryWithNetwork t) <|> (decodeInjectableLibrary t) <|> (failDramatically t)
-    pure (Libraries libs)
+    Libraries <$> traverse decodeLibrary (M.toUnfoldable obj)
 
-    where decodeFixedLibrary (Tuple name l) = do
-            address <- decodeJsonAddress l
-            pure $ FixedLibrary { name, address }
-
-          decodeFixedLibraryWithNetwork (Tuple name l) = do
-            fln <- decodeJson l
-            address <- gfWithDecoder decodeJsonAddress fln "address"
-            networks <- fln .? "via"
-            pure $ FixedLibraryWithNetwork { name, address, networks }
-
-          decodeInjectableLibrary (Tuple name l) = do
-            ilo <- decodeJson l
-            address <- gfWithDecoder decodeJsonAddress ilo "address"
-            code    <- ilo .? "code"
-            pure $ InjectableLibrary { name, address, code }
-
-          failDramatically (Tuple name _) = Left ("Malformed library descriptor for " <> name)
+    where decodeLibrary (Tuple name l) =
+            let decodeObjLib = do
+                  libObj <- decodeJson l
+                  sourceFile <- libObj .: "file"
+                  sourceRoot <- Just <$> libObj .: "root"
+                  pure $ Library { name, sourceFile, sourceRoot}
+                decodeStrLib = do
+                  sourceFile <- decodeJson l
+                  pure $ Library { name, sourceFile, sourceRoot: Nothing }
+             in decodeObjLib <|> decodeStrLib
 
 ---------------------------------------------------------------------
 
@@ -121,7 +91,6 @@ instance decodeJsonChainSpec :: DecodeJson ChainSpec where
     where decodeStr = decodeJson j
           decodeAllChains = decodeStr >>= (\s -> if s == "*" then Right AllChains else Left "Not * for AllChains")
           decodeSpecificChains = decodeStr >>= (\s -> SpecificChains <$> for (split (Pattern ",") s) pure)
-
 
 instance encodeJsonChainSpec :: EncodeJson ChainSpec where
   encodeJson AllChains = encodeJson "*"
@@ -147,8 +116,8 @@ instance decodeJsonNetworks :: DecodeJson Networks where
   decodeJson j = decodeJson j >>= (\o -> Networks <$> for (M.toUnfoldable o) decodeNetwork)
     where decodeNetwork (Tuple name net) = do
             o <- decodeJson net
-            providerUrl   <- o .? "url"
-            allowedChains <- o .? "chains"
+            providerUrl   <- o .: "url"
+            allowedChains <- o .: "chains"
             pure $ Network { name, providerUrl, allowedChains }
 
 instance encodeJsonNetworks :: EncodeJson Networks where
@@ -202,6 +171,26 @@ resolveNetworkRefs refs definedNets = case refs of
 
 ---------------------------------------------------------------------
 
+data SolcOutputSelectionSpec = SolcFileLevelSelectionSpec ST.FileLevelSelection
+                             | SolcContractLevelSelectionSpec ST.ContractLevelSelection
+derive instance eqSolcOutputSelectionSpec :: Eq SolcOutputSelectionSpec
+derive instance ordSolcOutputSelectionSpec :: Ord SolcOutputSelectionSpec
+
+instance decodeJsonSolcOutputSelectionSpec :: DecodeJson SolcOutputSelectionSpec where
+  decodeJson j = (SolcFileLevelSelectionSpec <$> ST.decodeJsonSelection j) <|> (SolcContractLevelSelectionSpec <$> ST.decodeJsonSelection j)
+
+instance encodeJsonSolcOutputSelectionSpec :: EncodeJson SolcOutputSelectionSpec where
+  encodeJson (SolcFileLevelSelectionSpec f) = ST.encodeJsonSelection f
+  encodeJson (SolcContractLevelSelectionSpec c) = ST.encodeJsonSelection c
+
+partitionSelectionSpecs :: Array SolcOutputSelectionSpec -> { cls :: Array ST.ContractLevelSelection, fls :: Array ST.FileLevelSelection }
+partitionSelectionSpecs = foldl f init
+  where init = { fls: [], cls: [] }
+        f { fls, cls } (SolcFileLevelSelectionSpec fs) = { fls: fls `snoc` fs, cls }
+        f { fls, cls } (SolcContractLevelSelectionSpec cs) = { fls, cls: cls `snoc` cs }
+
+---------------------------------------------------------------------
+
 newtype SolcOptimizerSettings = SolcOptimizerSettings { enabled :: Boolean, runs :: Int }
 
 derive instance eqSolcOptimizerSettings :: Eq SolcOptimizerSettings
@@ -215,8 +204,8 @@ instance encodeJsonSolcOptimizerSettings :: EncodeJson SolcOptimizerSettings whe
 instance decodeJsonSolcOptimizerSettings :: DecodeJson SolcOptimizerSettings where
   decodeJson j = do
       obj <- decodeJson j
-      enabled <- fromMaybe default.enabled <$> obj .?? "enabled"
-      runs    <- fromMaybe default.runs    <$> obj .?? "runs"
+      enabled <- obj .:! "enabled" .!= default.enabled
+      runs    <- obj .:! "runs"    .!= default.runs
       pure $ SolcOptimizerSettings { enabled, runs }
 
       where (SolcOptimizerSettings default) = defaultSolcOptimizerSettings
@@ -227,12 +216,19 @@ defaultSolcOptimizerSettings = SolcOptimizerSettings { enabled: false, runs: 200
 
 ---------------------------------------------------------------------
 
+data ChanterelleModuleType = LibraryModule | ContractModule
+
+instance showChanterelleModuleType :: Show ChanterelleModuleType where
+  show LibraryModule = "libary module"
+  show ContractModule = "contract module"
+
 data ChanterelleModule =
   ChanterelleModule { moduleName      :: String
                     , solContractName :: String
                     , solPath         :: FilePath
                     , jsonPath        :: FilePath
                     , pursPath        :: FilePath
+                    , moduleType      :: ChanterelleModuleType
                     }
 
 newtype ChanterelleProjectSpec =
@@ -240,62 +236,77 @@ newtype ChanterelleProjectSpec =
                          , version               :: String
                          , sourceDir             :: FilePath
                          , artifactsDir          :: FilePath
+                         , libArtifactsDir       :: FilePath
                          , modules               :: Array String
                          , dependencies          :: Array Dependency
                          , extraAbis             :: Maybe FilePath
                          , libraries             :: Libraries
                          , networks              :: Networks
-                         , solcOutputSelection   :: Array String
-                         , solcOptimizerSettings :: Maybe SolcOptimizerSettings
                          , psGen                 :: { exprPrefix   :: String
                                                     , modulePrefix :: String
                                                     , outputPath   :: String
                                                     }
+                         , solcVersion           :: Maybe String
+                         , solcOutputSelection   :: Array SolcOutputSelectionSpec
+                         , solcOptimizerSettings :: Maybe ST.OptimizerSettings
+                         , solcEvmVersion        :: Maybe ST.EvmVersion
                          }
 
 derive instance eqChanterelleProjectSpec  :: Eq ChanterelleProjectSpec
 
 instance encodeJsonChanterelleProjectSpec :: EncodeJson ChanterelleProjectSpec where
   encodeJson (ChanterelleProjectSpec project) =
-         "name"                  := encodeJson project.name
-      ~> "version"               := encodeJson project.version
-      ~> "source-dir"            := encodeJson project.sourceDir
-      ~> "artifacts-dir"         := encodeJson project.artifactsDir
-      ~> "modules"               := encodeJson project.modules
-      ~> "dependencies"          := encodeJson project.dependencies
-      ~> "extra-abis"            := encodeJson project.dependencies
-      ~> "libraries"             := encodeJson project.libraries
-      ~> "networks"              := encodeJson project.networks
-      ~> "solc-output-selection" := encodeJson project.solcOutputSelection
-      ~> "solc-optimizer"        := encodeJson project.solcOptimizerSettings
-      ~> "purescript-generator"  := psGenEncode
-      ~> jsonEmptyObject
+          "name"                  := project.name
+      ~>  "version"               := project.version
+      ~>  "source-dir"            := project.sourceDir
+      ~>  "artifacts-dir"         := project.artifactsDir
+      ~>  "modules"               := project.modules
+      ~>  "dependencies"          := project.dependencies
+      ~>  "extra-abis"            := project.dependencies
+      ~>  "libraries"             := project.libraries
+      ~>  "networks"              := project.networks
+      ~>  "purescript-generator"  := psGenEncode
+      ~>  "solc-version"          :=? project.solcVersion
+      ~>? "solc-output-selection" :=? omitEmpty project.solcOutputSelection
+      ~>? "solc-optimizer"        :=? project.solcOptimizerSettings
+      ~>? "solc-evm-version"      :=? project.solcEvmVersion
+      ~>? jsonEmptyObject
 
-      where psGenEncode =  "output-path"       := encodeJson project.psGen.outputPath
-                        ~> "expression-prefix" := encodeJson project.psGen.exprPrefix
-                        ~> "module-prefix"     := encodeJson project.psGen.modulePrefix
-                        ~> jsonEmptyObject
+      where psGenEncode =
+                  "output-path"       :=  project.psGen.outputPath
+              ~>  "expression-prefix" :=? omitEmpty project.psGen.exprPrefix
+              ~>? "module-prefix"     :=? omitEmpty project.psGen.modulePrefix
+              ~>?  jsonEmptyObject
+
+            omitEmpty :: forall a. Eq a => Monoid a => a -> Maybe a
+            omitEmpty s = if s == mempty then Nothing else Just s
 
 instance decodeJsonChanterelleProjectSpec :: DecodeJson ChanterelleProjectSpec where
   decodeJson j = do
     obj                   <- decodeJson j
-    name                  <- obj .? "name"
-    version               <- obj .? "version"
-    sourceDir             <- obj .? "source-dir"
-    artifactsDir          <- fromMaybe "build" <$> obj .?? "artifacts-dir"
-    modules               <- obj .? "modules"
-    dependencies          <- fromMaybe mempty <$> obj .?? "dependencies"
-    extraAbis             <- obj .?? "extra-abis"
-    libraries             <- fromMaybe mempty <$> obj .?? "libraries"
-    networks              <- fromMaybe mempty <$> obj .?? "networks"
-    solcOptimizerSettings <- obj .?? "solc-optimizer"
-    solcOutputSelection   <- fromMaybe mempty <$> obj .?? "solc-output-selection"
-    psGenObj              <- obj .? "purescript-generator"
-    psGenOutputPath       <- psGenObj .? "output-path"
-    psGenExprPrefix       <- fromMaybe "" <$> psGenObj .?? "expression-prefix"
-    psGenModulePrefix     <- fromMaybe "" <$> psGenObj .?? "module-prefix"
-    let psGen = { exprPrefix: psGenExprPrefix, modulePrefix: psGenModulePrefix, outputPath: psGenOutputPath }
-    pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, modules, dependencies, extraAbis, libraries, networks, solcOptimizerSettings, solcOutputSelection, psGen }
+    name                  <- obj .:  "name"
+    version               <- obj .:  "version"
+    sourceDir             <- obj .:  "source-dir"
+    artifactsDir          <- obj .:! "artifacts-dir" .!= "build"
+    libArtifactsDir       <- obj .:! "library-artifacts-dir" .!= (Path.concat [artifactsDir, "libraries"])
+    modules               <- obj .:  "modules"
+    dependencies          <- obj .:! "dependencies" .!= mempty
+    extraAbis             <- obj .:! "extra-abis"
+    libraries             <- obj .:! "libraries" .!= mempty
+    networks              <- obj .:! "networks" .!= mempty
+    solcVersion           <- obj .:! "solc-version"
+    solcOptimizerSettings <- obj .:! "solc-optimizer"
+    solcOutputSelection   <- obj .:! "solc-output-selection" .!= mempty
+    solcEvmVersion        <- obj .:! "solc-evm-version"
+    psGen                 <- psGenDecode =<< obj .: "purescript-generator"
+    pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, libArtifactsDir, modules, dependencies, extraAbis, libraries, networks, psGen, solcVersion, solcEvmVersion, solcOptimizerSettings, solcOutputSelection }
+
+    where psGenDecode psj = do
+            obj <- decodeJson psj
+            outputPath   <- obj .:  "output-path"
+            exprPrefix   <- obj .:! "expression-prefix" .!= ""
+            modulePrefix <- obj .:! "module-prefix"     .!= ""
+            pure { exprPrefix, modulePrefix, outputPath }
 
 data ChanterelleProject =
      ChanterelleProject { root        :: FilePath -- ^ parent directory containing chanterelle.json
@@ -304,5 +315,32 @@ data ChanterelleProject =
                         , psOut       :: FilePath -- ^ hydrated/absolute path of psGen (root + spec.psGen.outputPath)
                         , spec        :: ChanterelleProjectSpec -- ^ the contents of the chanterelle.json
                         , modules     :: Array ChanterelleModule
+                        , libModules  :: Array ChanterelleModule 
                         , specModTime :: Milliseconds -- ^ timestamp of the last time the chanterelle project spec (chanterelle.)json was modified
+                        , solc        :: ChanterelleSolc
                         }
+
+newtype ChanterelleSolc = ChanterelleSolc { solc :: AVar.AVar (Either String SolidityCompiler), loadSolc :: Aff (Either String SolidityCompiler) }
+
+getSolc
+  :: forall m
+   . MonadAff m
+  => ChanterelleSolc
+  -> m (Either String SolidityCompiler)
+getSolc cs@(ChanterelleSolc s) = do
+  readSolc <- liftEffect $ AVar.tryRead s.solc
+  case readSolc of
+    Just solc -> pure solc
+    Nothing -> do
+      loaded <- liftAff s.loadSolc
+      void <<< liftEffect $ AVar.tryPut loaded s.solc
+      getSolc cs
+
+mkChanterelleSolc
+  :: forall m
+   . MonadEffect m
+  => Aff (Either String SolidityCompiler)
+  -> m ChanterelleSolc
+mkChanterelleSolc loadSolc = do
+  solc <- liftEffect AVar.empty
+  pure $  ChanterelleSolc { solc, loadSolc }

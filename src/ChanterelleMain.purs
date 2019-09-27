@@ -2,7 +2,7 @@ module ChanterelleMain where
 
 import Prelude
 
-import Chanterelle (Args'(..), ArgsCLI, Command(..), CommonOpts(..), DeployOptions(..), DirPath, GenesisOptions(..), SelectCLI(..), SelectPS(..), chanterelle, traverseDeployOptions)
+import Chanterelle (Args'(..), ArgsCLI, Command(..), CommonOpts(..), DeployOptions(..), DirPath, SelectCLI(..), SelectPS(..), chanterelle, traverseDeployOptions)
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types (DeployM)
 import Control.Apply (lift2)
@@ -13,6 +13,7 @@ import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Class (liftEffect)
+import Language.Solidity.Compiler as Solc
 import Node.Process (cwd)
 import Options.Applicative (Parser, ParserInfo, argument, command, customExecParser, help, helpDoc, helper, hsubparser, info, infoOption, int, long, metavar, option, prefs, progDesc, short, showHelpOnEmpty, str, strOption, value, (<**>))
 import Text.PrettyPrint.Leijen (indent, text, (</>))
@@ -20,8 +21,11 @@ import Text.PrettyPrint.Leijen (indent, text, (</>))
 foreign import version_ :: String
 foreign import is_global_ :: Boolean
 
+versionString :: String
+versionString = "Chanterelle " <> version_ <> "\n" <> "Default Solc " <> Solc.version Solc.defaultCompiler
+
 version :: forall a. Parser (a -> a)
-version = infoOption version_
+version = infoOption versionString
   (  long "version"
   <> help "Print version information" )
 
@@ -38,9 +42,6 @@ parser isGlobal cwd' = ado
            <> command "codegen"
               (info (pure Codegen)
                     (progDesc "Generate PureScript"))
-           <> command "genesis"
-              (info (Genesis <$> genesisParser)
-                    (progDesc "Generate a genesis block with libraries"))
            <> ( if isGlobal
                 then command "deploy"
                        (info (GlobalDeploy <$> deployParser)
@@ -51,20 +52,6 @@ parser isGlobal cwd' = ado
              )
            )
   in Args' opts cmds
-
-genesisParser :: Parser GenesisOptions
-genesisParser = ado
-  input <- strOption
-            ( long "input"
-           <> metavar "INPUT"
-           <> value "dist"
-           <> help "path to some json file containing GENESIS_INPUT" )
-  output <- strOption
-            ( long "output"
-           <> metavar "OUTPUT"
-           <> value "dist" 
-           <> help "path to some json file containing GENESIS_OUTPUT")
-  in GenesisOptions {input, output}
 
 deployParser :: Parser (DeployOptions SelectCLI)
 deployParser = ado

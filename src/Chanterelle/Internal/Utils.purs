@@ -1,33 +1,39 @@
 module Chanterelle.Internal.Utils
   ( module Json
   , module Web3
+  , module Utils.Error
   , module Utils.FS
   , makeDeployConfig
   , makeDeployConfigWithProvider
+  , attemptWithTimeout
   , withTimeout
   , validateDeployArgs
   ) where
 
-import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces) as Json
-import Chanterelle.Internal.Utils.Web3 (getCodeForContract, getPrimaryAccount, makeProvider, pollTransactionReceipt, providerForNetwork, resolveCodeForContract, resolveProvider, web3WithTimeout) as Web3
-import Chanterelle.Internal.Utils.FS (assertDirectory, fileIsDirty, fileModTime, unparsePath) as Utils.FS
-
 import Prelude
+
 import Chanterelle.Internal.Types (ContractConfig, DeployConfig(..), DeployError(..))
-import Effect.Aff (Aff, Milliseconds(..), delay)
-import Effect.Aff.Class (class MonadAff, liftAff)
-import Effect.Exception (error)
+import Chanterelle.Internal.Utils.Error (catchingAff')
+import Chanterelle.Internal.Utils.Error (catchingAff, catchingAff', eitherM, eitherM_, except', exceptM', exceptNoteA', exceptNoteM', withExceptM', withExceptT', (!?), (??)) as Utils.Error
+import Chanterelle.Internal.Utils.FS (assertDirectory, fileIsDirty, fileModTime, readTextFile, unparsePath, withTextFile, writeTextFile) as Utils.FS
+import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces) as Json
+import Chanterelle.Internal.Utils.Web3 (getCodeForContract, getPrimaryAccount, getNetworkID, logAndThrow, logAndThrow', makeProvider, pollTransactionReceipt, providerForNetwork, resolveCodeForContract, resolveProvider, web3WithTimeout) as Web3
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Parallel (parOneOf)
-import Data.Either (Either(..))
+import Data.Either (Either)
 import Data.Int (toNumber)
+import Data.Map as Map
 import Data.Validation.Semigroup (unV)
+import Effect.Aff (Aff, Milliseconds(..), attempt, delay)
+import Effect.Aff.Class (class MonadAff)
+import Effect.Ref as Ref
+import Effect.Class (liftEffect)
+import Effect.Exception (Error, error)
 import Network.Ethereum.Web3 (Provider, runWeb3)
-import Network.Ethereum.Web3.Api (net_version)
 
 makeDeployConfig
-  :: forall m.
-     MonadAff m
+  :: forall m
+   . MonadAff m
   => MonadThrow DeployError m
   => String
   -> Int
@@ -37,39 +43,41 @@ makeDeployConfig url tout = do
   makeDeployConfigWithProvider provider tout
 
 makeDeployConfigWithProvider 
-  :: forall m.
-     MonadAff m
+  :: forall m
+   . MonadAff m
   => MonadThrow DeployError m
   => Provider
   -> Int
   -> m DeployConfig
-makeDeployConfigWithProvider provider tout = do
+makeDeployConfigWithProvider provider tout =
   let timeout = Milliseconds (toNumber tout)
-  econfig <- liftAff $ runWeb3 provider do
-    primaryAccount <- Web3.getPrimaryAccount
-    networkId <- net_version
-    pure $ DeployConfig {provider, primaryAccount, networkId, timeout, writeArtifacts: true }
-  case econfig of
-    Left err ->
-      let errMsg = "Couldn't create DeployConfig -- " <> show err
-      in throwError $ ConfigurationError errMsg
-    Right config -> pure config
+      toError = ConfigurationError <<< append "Couldn't create DeployConfig: " <<< show
+   in catchingAff' toError $ runWeb3 provider do
+        primaryAccount <- Web3.getPrimaryAccount
+        networkID <- Web3.getNetworkID
+        artifactCache <- liftEffect $ Ref.new Map.empty
+        pure $ DeployConfig {provider, primaryAccount, networkID, timeout, ignoreNetworksInArtifact: false, writeArtifacts: true, artifactCache }
 
 -- | try an aff action for the specified amount of time before giving up.
 withTimeout
-  :: forall a.
-     Milliseconds
+  :: forall a
+   . Milliseconds
   -> Aff a
   -> Aff a
-withTimeout maxTimeout action = do
-  let timeout = do
-        delay maxTimeout
-        throwError $ error "TimeOut"
-  parOneOf [action, timeout]
+withTimeout maxTimeout action =
+  let timeout = delay maxTimeout *> throwError (error "timed out")
+   in parOneOf [action, timeout]
+
+attemptWithTimeout
+  :: forall a
+   . Milliseconds
+  -> Aff a
+  -> Aff (Either Error a)
+attemptWithTimeout t = attempt <<< withTimeout t
 
 validateDeployArgs
-  :: forall m args.
-     MonadThrow DeployError m
+  :: forall m args
+   . MonadThrow DeployError m
   => ContractConfig args
   -> m (Record args)
 validateDeployArgs cfg =

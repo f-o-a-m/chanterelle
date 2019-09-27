@@ -7,9 +7,8 @@ import Prelude
 import Chanterelle.Internal.Logging (LogLevel(..), log)
 import Chanterelle.Internal.Types.Compile (CompileError(..))
 import Chanterelle.Internal.Types.Project (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..))
-import Chanterelle.Internal.Utils (assertDirectory)
+import Chanterelle.Internal.Utils.FS (assertDirectory')
 import Control.Error.Util (note)
-import Effect.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Reader (class MonadAsk, ask)
 import Data.AbiParser (Abi(Abi), AbiDecodeError(..), AbiWithErrors) as PSWeb3Gen
@@ -24,6 +23,7 @@ import Data.Lens ((^?))
 import Data.Lens.Index (ix)
 import Data.Maybe (Maybe(..))
 import Data.Traversable (for, for_)
+import Effect.Aff.Class (class MonadAff, liftAff)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
 import Node.Path (FilePath)
@@ -46,7 +46,7 @@ generatePS = do
           pure Nothing
         Right x -> pure $ Just x
       let psModule = PSWeb3Gen.generateCodeFromAbi (projectPSArgs p) (PSWeb3Gen.Abi $ mapMaybe (map Identity) abi) mod.moduleName
-      assertDirectory (Path.dirname mod.pursPath)
+      assertDirectory' (Path.dirname mod.pursPath)
       log Info $ "writing PureScript bindings for " <> mod.moduleName
       liftAff $ FS.writeTextFile UTF8 mod.pursPath psModule
   -- generate all the modules from the extra-abis path
@@ -63,7 +63,6 @@ generatePS = do
       for_ errs \(PSWeb3Gen.ABIError err) ->
         log Error $ "while parsing abi type of object at index: "
           <> show err.idx <> " from: " <> err.abiPath <> " got error: " <> err.error
-
 
 projectPSArgs
   :: ChanterelleProject
