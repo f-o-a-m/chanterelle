@@ -16,13 +16,12 @@ import Chanterelle.Internal.Types.Compile (CompileError(..), resolveSolidityCont
 import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), Dependency(..), getSolc, partitionSelectionSpecs)
 import Chanterelle.Internal.Utils.Error (withExceptM', withExceptT')
 import Chanterelle.Internal.Utils.FS (assertDirectory', fileIsDirty)
-import Control.Error.Util (hush)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Reader (class MonadAsk, ask)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
 import Data.Array (catMaybes, partition)
-import Data.Either (Either(..))
+import Data.Either (Either(..), hush)
 import Data.Lens ((^?))
 import Data.Lens.Index (ix)
 import Data.Maybe (Maybe(..), fromMaybe)

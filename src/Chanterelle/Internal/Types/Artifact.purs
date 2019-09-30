@@ -4,14 +4,12 @@ import Prelude
 
 import Chanterelle.Internal.Types.Bytecode (Bytecode, emptyBytecode, fromSolidityBytecodeOutput)
 import Control.Alt ((<|>))
-import Control.Error.Util (note)
 import Data.Argonaut (class DecodeJson, class EncodeJson, Json, decodeJson, encodeJson)
-import Data.Either (Either)
+import Data.Either (Either, note)
 import Data.Lens (Lens', Getter', lens', to)
 import Data.Lens.At (at)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
-import Data.Number (infinity)
 import Data.Tuple (Tuple(..))
 import Foreign.Object as M
 import Language.Solidity.Compiler.Types as ST
@@ -73,7 +71,7 @@ fromSolidityContractLevelOutput (ST.ContractLevelOutput clo) = do
   bytecode <- fromSolidityBytecodeOutput bytecode'
   deployedBytecode' <- note "Solidity contract output did not have an \"evm.deployedBytecode\" field" evm.deployedBytecode
   deployedBytecode <- fromSolidityBytecodeOutput deployedBytecode'
-  let lastModified = infinity
+  let lastModified = top
   pure $ Artifact { abi, code: { bytecode, deployedBytecode }, lastModified, networks: M.empty }
 
 _abi :: Lens' Artifact (Array Json)
