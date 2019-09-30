@@ -150,7 +150,7 @@ deployLibrary
   -> m (DeployReceipt LibraryMeta)
 deployLibrary txo ccfg@{filepath, name} = do
   DeployConfig { provider } <- ask
-  nbc@ArtifactBytecode { bytecode: bc } <- getContractBytecode ccfg
+  nbc@(ArtifactBytecode { bytecode: bc }) <- getContractBytecode ccfg
   case bc of
     BCUnlinked _ -> throwError $ DeployingUnlinkedBytecodeError { name, libs: CBC.unlinkedLibraryNames bc }
     BCLinked { bytecode } -> do
@@ -195,7 +195,7 @@ deployContract
   -> m (DeployReceipt args)
 deployContract txOptions ccfg@{name, constructor} = do
   DeployConfig { provider } <- ask
-  nbc@ArtifactBytecode { bytecode: bc } <- getContractBytecode ccfg
+  nbc@(ArtifactBytecode { bytecode: bc }) <- getContractBytecode ccfg
   case bc of
     BCUnlinked _ -> throwError $ DeployingUnlinkedBytecodeError { name, libs: CBC.unlinkedLibraryNames bc }
     BCLinked { bytecode } -> do
