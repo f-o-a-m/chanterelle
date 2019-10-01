@@ -7,13 +7,13 @@ import Chanterelle.Internal.Types.Compile (CompileError(..))
 import Chanterelle.Internal.Utils.Error (catchingAff, withExceptT')
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Data.DateTime.Instant (fromDateTime, unInstant)
+import Effect (Effect)
 import Effect.Aff (Milliseconds)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (liftEffect)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
 import Node.FS.Stats as Stats
-import Node.FS.Sync.Mkdirp (mkdirp)
 import Node.Path (FilePath)
 import Node.Path as Path
 
@@ -42,6 +42,8 @@ assertDirectory dn = do
       if not isDir
         then throwError ("Path " <> dn <> " exists but is not a directory!")
         else log Debug ("path " <>  dn <> " exists and is a directory")
+
+foreign import mkdirp ::String -> Effect Unit
 
 assertDirectory'
   :: forall m

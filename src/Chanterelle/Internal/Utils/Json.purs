@@ -4,10 +4,9 @@ import Prelude
 
 import Chanterelle.Internal.Utils.Error (except')
 import Control.Alt ((<|>))
-import Control.Error.Util (note)
 import Control.Monad.Error.Class (class MonadThrow)
 import Data.Argonaut (class DecodeJson, Json, decodeJson, encodeJson, jsonParser, (.:), (.:!))
-import Data.Either (Either(..))
+import Data.Either (Either(..), note)
 import Data.Maybe (Maybe(..), maybe)
 import Foreign.Object (Object)
 import Network.Ethereum.Core.BigNumber (hexadecimal, parseBigNumber, toString, unsafeToInt)
