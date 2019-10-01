@@ -12,7 +12,7 @@
     "purescript-prelude": "^4.0.0",
     "purescript-web3": "^2.0.0",
     "purescript-web3-generator": "^2.0.0",
-    "purescript-solc": "safareli/purescript-solc#safareli-upgrade",
+    "purescript-solc": "^1.0.0",
     "purescript-console": "^4.0.0",
     "purescript-node-process": "^7.0.0",
     "purescript-optparse": "^3.0.0",
