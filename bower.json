@@ -10,7 +10,7 @@
   ],
   "dependencies": {
     "purescript-prelude": "^4.0.0",
-    "purescript-web3": "f-o-a-m/purescript-web3#safareli-upgrade",
+    "purescript-web3": "f-o-a-m/purescript-web3#master",
     "purescript-web3-generator": "f-o-a-m/purescript-web3-generator#safareli-upgrade",
     "purescript-solc": "safareli/purescript-solc#safareli-upgrade",
     "purescript-console": "^4.0.0",
