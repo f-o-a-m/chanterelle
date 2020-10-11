@@ -13,3 +13,5 @@
 /compile.js
 /docs/_build/
 /chanterelle.js
+/.spago/
+package-lock.json

@@ -4,25 +4,22 @@
   "description": "A more functional truffle",
   "license": "ISC",
   "scripts": {
-    "global-postinstall-bower-root": "bower install --allow-root --config.interactive=false",
-    "global-postinstall-bower-non-root": "bower install --config.interactive=false",
-    "build": "pulp build",
-    "build-strict": "pulp build -- --strict",
+    "global-postinstall-spago": "spago install",
+    "build": "spago build",
     "docs": "cd docs; make html;",
     "postinstall": "echo 'If you are installing chanterelle to use globally, you likely want to run `chanterelle global-postinstall`.'"
   },
   "dependencies": {
     "purescript": "^0.13.0",
-    "pulp": "^13.0.0",
     "purescript-psa": "^0.7.3",
     "bn.js": "^4.11.0",
     "ethjs-provider-http": "^0.1.6",
     "mkdirp": "^0.5.1",
     "keccak": "^1.0.2",
     "secp256k1": "^3.0.1",
-    "bower": "^1.8.2",
     "rlp": "^2.0.0",
-    "solc": "^0.5"
+    "solc": "^0.5",
+    "spago": "^0.16.0"
   },
   "bin": {
     "chanterelle": "chanterelle-bin.sh"
