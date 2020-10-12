@@ -47,7 +47,6 @@ You will likely also want to install Chanterelle local to particular project:
 .. code-block:: shell
 
     npm install --save f-o-a-m/chanterelle      # Add the Chanterelle CLI to NPM path for NPM package scripts
-    bower install --save purescript-chanterelle # Add Chanterelle as a dependency for deployment scripts
 
 If the Chanterelle CLI is invoked within a project containing a local installation that has been compiled,
 it will use the version within that project as opposed to the global one.
@@ -72,7 +71,7 @@ Fair enough, but why do I need to run this ``global-postinstall`` subcommand?
 Great question! Chanterelle itself is written in PureScript, and as such it depends on the PureScript compiler. The ``global-postinstall`` merely
 compiles the Chanterelle codebase, as it would if you had a project-local version. This is not done as a package postinstall script as, very often in 
 global package setups, NPM might not give sufficient permissions to install the PureScript compiler package that Chanterelle depends on or otherwise 
-install dependencies (for instance, Bower won't be able to read certain configuration files to pull in Chanterelle's PureScript dependencies). To
+install dependencies. To
 maximize the flexibilty of the global installation feature, and avoid running into user-specific permissions Chanterelle separates out this step
 such that it is independent of being installed via NPM.
 

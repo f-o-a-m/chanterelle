@@ -3,8 +3,9 @@ module Chanterelle.Internal.Types.Project where
 import Prelude
 
 import Control.Alt ((<|>))
-import Data.Argonaut (class DecodeJson, class EncodeJson, decodeJson, encodeJson, fromString, jsonEmptyObject, (.!=), (.:), (.:!), (:=), (:=?), (~>), (~>?))
+import Data.Argonaut (class DecodeJson, class EncodeJson, JsonDecodeError(..), decodeJson, encodeJson, fromString, jsonEmptyObject, (.!=), (.:), (.:!), (:=), (:=?), (~>), (~>?))
 import Data.Array (elem, filter, foldl, null, snoc)
+import Data.Bifunctor (lmap)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
@@ -87,10 +88,14 @@ networkIDFitsChainSpec AllChains _ = true
 networkIDFitsChainSpec (SpecificChains chains) id = id `elem` chains
 
 instance decodeJsonChainSpec :: DecodeJson ChainSpec where
-  decodeJson j = decodeAllChains <|> decodeSpecificChains <|> Left "Invalid chain specifier"
+  decodeJson j = decodeAllChains <|> decodeSpecificChains <|> Left (Named "Invalid chain specifier" $ UnexpectedValue j)
     where decodeStr = decodeJson j
-          decodeAllChains = decodeStr >>= (\s -> if s == "*" then Right AllChains else Left "Not * for AllChains")
-          decodeSpecificChains = decodeStr >>= (\s -> SpecificChains <$> for (split (Pattern ",") s) pure)
+          decodeAllChains = decodeStr >>= \s -> 
+            if s == "*" 
+              then Right AllChains 
+              else Left $ Named "Not * for AllChains" $ UnexpectedValue j
+          decodeSpecificChains = decodeStr >>= \s -> 
+            SpecificChains <$> for (split (Pattern ",") s) pure
 
 instance encodeJsonChainSpec :: EncodeJson ChainSpec where
   encodeJson AllChains = encodeJson "*"
@@ -140,11 +145,14 @@ data NetworkRefs = AllNetworks        -- "**"
 derive instance eqNetworkRefs :: Eq NetworkRefs
 
 instance decodeJsonNetworkRefs :: DecodeJson NetworkRefs where
-  decodeJson j = (SpecificRefs <$> decodeJson j) <|> (decodeStringy =<< decodeJson j) <|> Left "Invalid NetworkRef"
+  decodeJson j = 
+    (SpecificRefs <$> decodeJson j) <|> 
+      (decodeStringy =<< decodeJson j) <|> 
+      (Left $ Named "Invalid NetworkRef" $ UnexpectedValue j)
     where decodeStringy = case _ of
             "*" -> Right AllDefinedNetworks
             "**" -> Right AllNetworks
-            _ -> Left "Not * or **"
+            _ -> Left $ Named "Not * or **" $ UnexpectedValue j
 
 instance encodeJsonNetworkRefs :: EncodeJson NetworkRefs where
   encodeJson AllNetworks = encodeJson "**"
@@ -177,7 +185,9 @@ derive instance eqSolcOutputSelectionSpec :: Eq SolcOutputSelectionSpec
 derive instance ordSolcOutputSelectionSpec :: Ord SolcOutputSelectionSpec
 
 instance decodeJsonSolcOutputSelectionSpec :: DecodeJson SolcOutputSelectionSpec where
-  decodeJson j = (SolcFileLevelSelectionSpec <$> ST.decodeJsonSelection j) <|> (SolcContractLevelSelectionSpec <$> ST.decodeJsonSelection j)
+  decodeJson j = lmap (\e -> Named e $ UnexpectedValue j) $
+    (SolcFileLevelSelectionSpec <$> ST.decodeJsonSelection j) <|> 
+    (SolcContractLevelSelectionSpec <$> ST.decodeJsonSelection j)
 
 instance encodeJsonSolcOutputSelectionSpec :: EncodeJson SolcOutputSelectionSpec where
   encodeJson (SolcFileLevelSelectionSpec f) = ST.encodeJsonSelection f

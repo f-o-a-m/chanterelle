@@ -17,6 +17,6 @@ exports.version_ = function search(searchPaths) {
   function tryPackageJson() { try { var p = require('../../package.json'); if (p.name === 'chanterelle') { return p.version; } } catch (e) { } }
   const path = searchPaths.shift();
   return (path && (tryPath(path) || search(searchPaths))) || tryPackageJson() || "<version unknown>";
-}(["../../bower_components/purescript-chanterelle/package.json", "../../node_modules/chanterelle/package.json"]);
+}(["../../node_modules/chanterelle/package.json"]);
 
 exports.is_global_ = process.env['CHNTRL_IS_GLOBAL'] === 'yes'
