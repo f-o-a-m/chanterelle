@@ -32,9 +32,9 @@ global_postinstall() {
     cd "$CHNTRL_DIR"
     if [ "$EUID" == "0" ]
     then
-        npm install && npm run global-postinstall-bower-root && npm run build
+        npm install && npm run global-postinstall-root && npm run build
     else
-        npm install && npm run global-postinstall-bower-non-root && npm run build
+        npm install && npm run global-postinstall-non-root && npm run build
     fi
 
     if ! global_install_available
