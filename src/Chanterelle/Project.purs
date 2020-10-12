@@ -7,9 +7,11 @@ import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleMod
 import Chanterelle.Internal.Utils.FS (assertDirectory, fileModTime, readTextFile, writeTextFile)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Except (ExceptT(..), runExceptT)
+import Data.Argonaut (printJsonDecodeError)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
 import Data.Array (last)
+import Data.Bifunctor (lmap)
 import Data.Either (Either(..), either)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (Pattern(..), Replacement(..), replaceAll, split)
@@ -67,7 +69,7 @@ loadProject root = do
   spec@(ChanterelleProjectSpec project) <- do
     -- previous line would have errored if the file doesn't exist, so just need to check parsing.
     specJson <- liftAff $ FS.readTextFile UTF8 fullChanterelleJsonPath
-    case AP.jsonParser specJson >>= A.decodeJson of
+    case AP.jsonParser specJson >>= lmap printJsonDecodeError <<< A.decodeJson of
       Left err -> throwError $ error $ "Error parsing chanterelle.json: " <> err
       Right a -> pure a
   let (Libraries libs) = project.libraries

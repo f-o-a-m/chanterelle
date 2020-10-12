@@ -4,7 +4,8 @@
   "description": "A more functional truffle",
   "license": "ISC",
   "scripts": {
-    "global-postinstall-spago": "spago install",
+    "global-postinstall-bower-root": "spago install",
+    "global-postinstall-bower-non-root": "spago install",
     "build": "spago build",
     "docs": "cd docs; make html;",
     "postinstall": "echo 'If you are installing chanterelle to use globally, you likely want to run `chanterelle global-postinstall`.'"

@@ -4,7 +4,8 @@ import Prelude
 
 import Chanterelle.Internal.Types.Bytecode (Bytecode, emptyBytecode, fromSolidityBytecodeOutput)
 import Control.Alt ((<|>))
-import Data.Argonaut (class DecodeJson, class EncodeJson, Json, decodeJson, encodeJson)
+import Data.Argonaut (class DecodeJson, class EncodeJson, Json, decodeJson, encodeJson, printJsonDecodeError)
+import Data.Bifunctor (lmap)
 import Data.Either (Either, note)
 import Data.Lens (Lens', Getter', lens', to)
 import Data.Lens.At (at)
@@ -65,7 +66,7 @@ emptyArtifactBytecode = ArtifactBytecode { bytecode: emptyBytecode, deployedByte
 
 fromSolidityContractLevelOutput :: ST.ContractLevelOutput -> Either String Artifact
 fromSolidityContractLevelOutput (ST.ContractLevelOutput clo) = do
-  abi <- decodeJson =<< note "Solidity contract output did not have an \"abi\" field" clo.abi
+  abi <- lmap printJsonDecodeError <<< decodeJson =<< note "Solidity contract output did not have an \"abi\" field" clo.abi
   (ST.EvmOutput evm) <- note "Solidity contract output did not have an \"evm\" field" clo.evm
   bytecode' <- note "Solidity contract output did not have an \"evm.bytecode\" field" evm.bytecode
   bytecode <- fromSolidityBytecodeOutput bytecode'

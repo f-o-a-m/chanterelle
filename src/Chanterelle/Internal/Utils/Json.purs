@@ -5,7 +5,8 @@ import Prelude
 import Chanterelle.Internal.Utils.Error (except')
 import Control.Alt ((<|>))
 import Control.Monad.Error.Class (class MonadThrow)
-import Data.Argonaut (class DecodeJson, Json, decodeJson, encodeJson, jsonParser, (.:), (.:!))
+import Data.Argonaut (class DecodeJson, Json, decodeJson, encodeJson, jsonParser, printJsonDecodeError, (.:), (.:!))
+import Data.Bifunctor (lmap)
 import Data.Either (Either(..), note)
 import Data.Maybe (Maybe(..), maybe)
 import Foreign.Object (Object)
@@ -22,8 +23,8 @@ encodeJsonBlockNumber (BlockNumber n) = encodeJsonBigNumber n
 
 decodeJsonBigNumber :: Json -> Either String BigNumber
 decodeJsonBigNumber j = decodeFromString <|> decodeFromNumber <|> (Left "Value is neither a String nor Number")
-    where decodeFromString = decodeJson j >>= (note "BigNumber is not a Hex String" <<< (parseBigNumber hexadecimal =<< _))
-          decodeFromNumber = embed <$> (decodeJson j :: Either String Int)
+    where decodeFromString = lmap printJsonDecodeError (decodeJson j) >>= (note "BigNumber is not a Hex String" <<< (parseBigNumber hexadecimal =<< _))
+          decodeFromNumber = embed <$> (lmap printJsonDecodeError (decodeJson j) :: Either String Int)
 
 encodeJsonBigNumber :: BigNumber -> Json
 encodeJsonBigNumber n = encodeJson ("0x" <> toString hexadecimal n)
@@ -35,7 +36,7 @@ encodeJsonConfigBlockNumber :: BlockNumber -> Json
 encodeJsonConfigBlockNumber (BlockNumber n) = encodeJsonConfigBigNumber (n)
 
 decodeJsonHexString :: Json -> Either String HexString
-decodeJsonHexString j = decodeJson j >>= note "HexString is not a valid Hex String" <<< mkHexString
+decodeJsonHexString j = lmap printJsonDecodeError (decodeJson j) >>= note "HexString is not a valid Hex String" <<< mkHexString
 
 encodeJsonHexString :: HexString -> Json
 encodeJsonHexString = encodeJson <<< show
@@ -45,17 +46,17 @@ encodeJsonAddress = encodeJson <<< show <<< unAddress
 
 decodeJsonAddress :: Json -> Either String Address
 decodeJsonAddress j = do
-    s <- decodeJson j
+    s <- lmap printJsonDecodeError $ decodeJson j
     h <- note "Address is not a valid HexString" $ mkHexString s
     note "Address is malformed" $ mkAddress h
 
 -- getField (aka .?) with a manual decoder
 gfWithDecoder :: forall a. (Json -> Either String a) -> Object Json -> String -> Either String a
-gfWithDecoder decode obj k = (obj .: k) >>= decode
+gfWithDecoder decode obj k = lmap printJsonDecodeError (obj .: k) >>= decode
 
 -- getFieldOptional (aka .??) with a manual decoder
 gfoWithDecoder :: forall a. (Json -> Either String a) -> Object Json -> String -> Either String (Maybe a)
-gfoWithDecoder decode obj key = (obj .:! key) >>= maybe (pure Nothing) (map Just <<< decode)
+gfoWithDecoder decode obj key = lmap printJsonDecodeError (obj .:! key) >>= maybe (pure Nothing) (map Just <<< decode)
 
 parseDecodeM
   :: forall m j
@@ -64,4 +65,4 @@ parseDecodeM
   => MonadThrow String m
   => String
   -> m j
-parseDecodeM = except' <<< (decodeJson <=< jsonParser)
+parseDecodeM = except' <<< (lmap printJsonDecodeError <<< decodeJson <=< jsonParser)
