@@ -5,6 +5,5 @@ sudo: required
 node_js: stable
 install:
 - npm install
-- bower install --production
 script:
-- pulp build -- --strict
+- npm run build
