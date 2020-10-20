@@ -192,7 +192,13 @@ decodeModuleOutput moduleName (ST.CompilerOutput output) = do
         isSolcWarning (ST.FullCompilationError se) = se.severity == ST.SeverityWarning
         isSolcWarning _ = false
         ({ yes: warnings, no: errors }) = partition isSolcWarning output.errors
-    for_ warnings (logSolcError moduleName)
+        isModuleError (ST.FullCompilationError se) = fromMaybe false ado
+            ST.SourceLocation fesl <- se.sourceLocation
+            in fesl.file == moduleFilename
+        isModuleError _ = false
+        ({ yes: moduleErrors, no: otherErrors }) = partition isModuleError errors
+    for_ (warnings <> otherErrors) (logSolcError moduleName)
+    unless (moduleErrors == mempty) $ throwError $ CompilationError { moduleName, errors: moduleErrors }
     case M.lookup moduleFilename output.contracts of
       Nothing -> throwError $ CompilationError { moduleName, errors }
       Just contractMap' -> pure contractMap'
