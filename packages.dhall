@@ -32,7 +32,7 @@ let additions =
           , "variant"
           ]
         , repo = "https://github.com/f-o-a-m/purescript-web3"
-        , version = "v3.0.0"
+        , version = "monorepo"
         }
       , web3-generator =
           { dependencies =
@@ -53,8 +53,8 @@ let additions =
             , "web3"
             , "yargs"
             ]
-          , repo = "https://github.com/f-o-a-m/purescript-web3-generator"
-          , version = "v3.0.0"
+          , repo = "https://github.com/f-o-a-m/purescript-web3"
+          , version = "monorepo"
           }
       , eth-core =
         { dependencies =
