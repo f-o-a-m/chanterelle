@@ -103,7 +103,7 @@ let additions =
         , repo =
             "https://github.com/f-o-a-m/purescript-solc"
         , version =
-            "v2.0.1"
+            "v2.0.2"
         }
       , mkdirp =
         { dependencies =
