@@ -13,11 +13,12 @@ import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (liftEffect)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
+import Node.FS.Sync as FSSync
 import Node.FS.Stats as Stats
 import Node.Path (FilePath)
 import Node.Path as Path
 
-unparsePath 
+unparsePath
   :: forall p
    . { dir  :: String
      , name :: String
@@ -79,7 +80,7 @@ readTextFile
   => MonadThrow String m
   => FilePath
   -> m String
-readTextFile filename = catchingAff (FS.readTextFile UTF8 filename)
+readTextFile filename = catchingAff (liftEffect $ FSSync.readTextFile UTF8 filename)
 
 writeTextFile
   :: forall m
