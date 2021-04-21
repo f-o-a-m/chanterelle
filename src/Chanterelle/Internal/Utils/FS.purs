@@ -89,7 +89,7 @@ writeTextFile
   => FilePath
   -> String
   -> m Unit
-writeTextFile filename contents = catchingAff (FS.writeTextFile UTF8 filename contents)
+writeTextFile filename contents = catchingAff (liftEffect $ FSSync.writeTextFile UTF8 filename contents)
 
 withTextFile
   :: forall m
