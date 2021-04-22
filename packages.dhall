@@ -89,7 +89,7 @@ let additions =
         , version =
             "v1.0.0"
         }
-      , solc = 
+      , solc =
         { dependencies =
           [ "aff"
           , "argonaut"
