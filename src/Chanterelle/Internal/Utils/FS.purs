@@ -7,13 +7,14 @@ import Chanterelle.Internal.Types.Compile (CompileError(..))
 import Chanterelle.Internal.Utils.Error (catchingAff, withExceptT')
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Data.DateTime.Instant (fromDateTime, unInstant)
+import Data.Function.Uncurried (runFn2, runFn3)
 import Effect (Effect)
 import Effect.Aff (Milliseconds)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (liftEffect)
-import Node.Encoding (Encoding(UTF8))
+import Node.Encoding (Encoding(..))
 import Node.FS.Aff as FS
-import Node.FS.Sync as FSSync
+import Node.FS.Internal as FSInternal
 import Node.FS.Stats as Stats
 import Node.Path (FilePath)
 import Node.Path as Path
@@ -80,7 +81,9 @@ readTextFile
   => MonadThrow String m
   => FilePath
   -> m String
-readTextFile filename = catchingAff (liftEffect $ FSSync.readTextFile UTF8 filename)
+readTextFile filename = catchingAff wrapInternalRead
+  where wrapInternalRead = liftEffect <<< FSInternal.mkEffect $ \_ -> runFn2
+          FSInternal.unsafeRequireFS.readFileSync filename { encoding: show UTF8, flag: "rs+" }
 
 writeTextFile
   :: forall m
@@ -89,7 +92,9 @@ writeTextFile
   => FilePath
   -> String
   -> m Unit
-writeTextFile filename contents = catchingAff (liftEffect $ FSSync.writeTextFile UTF8 filename contents)
+writeTextFile filename contents = catchingAff wrapInternalWrite
+  where wrapInternalWrite = liftEffect <<< FSInternal.mkEffect $ \_ -> runFn3
+          FSInternal.unsafeRequireFS.writeFileSync filename contents { encoding: show UTF8, flag: "rs+" }
 
 withTextFile
   :: forall m
