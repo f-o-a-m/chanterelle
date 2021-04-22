@@ -8,6 +8,7 @@ import Chanterelle.Internal.Utils.Error (catchingAff, withExceptT')
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Data.DateTime.Instant (fromDateTime, unInstant)
 import Data.Function.Uncurried (runFn2, runFn3)
+import Data.Int.Bits ((.|.))
 import Effect (Effect)
 import Effect.Aff (Milliseconds)
 import Effect.Aff.Class (class MonadAff, liftAff)
@@ -94,7 +95,12 @@ writeTextFile
   -> m Unit
 writeTextFile filename contents = catchingAff wrapInternalWrite
   where wrapInternalWrite = liftEffect <<< FSInternal.mkEffect $ \_ -> runFn3
-          FSInternal.unsafeRequireFS.writeFileSync filename contents { encoding: show UTF8, flag: "rs+" }
+          FSInternal.unsafeRequireFS.writeFileSync filename contents { encoding: show UTF8, flag: writeSyncFlag }
+
+        writeSyncFlag =     FSInternal.unsafeRequireFS."O_TRUNC"
+                        .|. FSInternal.unsafeRequireFS."O_CREAT"
+                        .|. FSInternal.unsafeRequireFS."O_RDWR"
+                        .|. FSInternal.unsafeRequireFS."O_SYNC"
 
 withTextFile
   :: forall m
