@@ -1,6 +1,6 @@
 # chanterelle
 
-[![Build Status](https://travis-ci.org/f-o-a-m/chanterelle.svg?branch=master)](https://travis-ci.org/f-o-a-m/chanterelle)
+[![Build Status](https://travis-ci.com/f-o-a-m/chanterelle.svg?branch=master)](https://travis-ci.com/f-o-a-m/chanterelle)
 
 <img src=https://github.com/f-o-a-m/chanterelle/blob/master/chanterelle-logo.svg width="150">
 

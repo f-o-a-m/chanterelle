@@ -53,8 +53,6 @@ compile
   => MonadAsk ChanterelleProject m
   => m (M.Object (Tuple ChanterelleModule ST.CompilerOutput))
 compile = do
-  p@(ChanterelleProject project) <- ask
-  let (ChanterelleProjectSpec spec) = project.spec
   dirtyModules <- modulesToCompile
   solcInputs <- for dirtyModules $ \m@(ChanterelleModule mod) -> do
       input <- makeSolcInput mod.solContractName mod.solPath
@@ -82,7 +80,7 @@ modulesToCompile = do
         Just compiledAt -> do
           eIsDirty <- liftAff <<< attempt $ fileIsDirty mod.solPath (Milliseconds compiledAt) project.specModTime
           case eIsDirty of
-            Left err -> throwError $ MissingArtifactError {fileName: mod.solPath, objectName: mod.solContractName}
+            Left _ -> throwError $ MissingArtifactError {fileName: mod.solPath, objectName: mod.solContractName}
             Right isDirty ->
               if not isDirty
                 then log Debug ("File is clean: " <> mod.solPath) *> pure Nothing
@@ -128,7 +126,7 @@ loadSolcCallback
   -> ChanterelleProjectSpec
   -> String
   -> Effect (Either String String)
-loadSolcCallback (ChanterelleModule mod) root (ChanterelleProjectSpec project) filePath = do
+loadSolcCallback (ChanterelleModule mod) root (ChanterelleProjectSpec _) filePath = do
   let modRoot = Path.dirname mod.solPath
       isAbs = Path.isAbsolute filePath
       modRootWithoutRoot = fromMaybe modRoot $ stripPrefix (Pattern root) modRoot

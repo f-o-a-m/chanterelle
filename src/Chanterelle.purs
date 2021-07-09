@@ -13,15 +13,19 @@ import Chanterelle.Project (loadProject)
 import Control.Monad.Error.Class (try)
 import Data.Either (Either(..))
 import Data.Generic.Rep (class Generic)
-import Data.Generic.Rep.Show (genericShow)
+import Data.Show.Generic (genericShow)
 import Effect.Aff (Aff)
 import Effect.Class (liftEffect)
 import Node.Path (resolve)
 import Node.Process (cwd, exit)
 
 
-data SelectCLI a b = SelectCLI a 
+data SelectCLI :: forall k. Type -> k -> Type
+data SelectCLI a b = SelectCLI a
+
+data SelectPS :: forall k. k -> Type -> Type
 data SelectPS a b = SelectPS b
+
 instance showSelectDeployM :: Show (SelectPS a (DeployM Unit)) where show (SelectPS _ ) = "<DeployM Unit>"
 instance showSelectDeployPath :: Show a => Show (SelectCLI a b) where show (SelectCLI a ) = show a
 

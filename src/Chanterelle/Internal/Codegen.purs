@@ -82,8 +82,7 @@ loadAbi :: forall m
         => ChanterelleProject
         -> FilePath
         -> m PSWeb3Gen.AbiWithErrors
-loadAbi (ChanterelleProject project) abiFile = do
-    let (ChanterelleProjectSpec spec) = project.spec
+loadAbi _ abiFile = do
     ejson <- liftAff (jsonParser <$> FS.readTextFile UTF8 abiFile)
     json <- either (throwError <<< CompileParseError <<< {objectName: "Json File " <> abiFile, parseError:_}) pure ejson
     either (throwError <<< CompileParseError <<< {objectName: "ABI " <> abiFile, parseError:_}) pure $ parseAbi json

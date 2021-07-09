@@ -46,7 +46,7 @@ mkProjectSolc version artifactPath = runExceptT $
               log Info $ "Using cached solc " <> v <> " at " <> compilerCacheFile
               let compiler = Solc.useCompiler src
               pure { compilerOrigin: "Cached", compiler }
-            Left err -> do
+            Left _ -> do
               log Info $ "Downloading solc " <> v <> " to " <> compilerCacheFile
               assertDirectory compilerCacheDirectory
               source <- ExceptT $ SolcReleases.getReleaseSource SolcReleases.defaultReleaseRepo v
