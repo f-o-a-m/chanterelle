@@ -122,8 +122,6 @@ getContractBytecode
 getContractBytecode lc@{ filepath } = do
   DeployConfig { networkID } <- ask
   let fullError err = ConfigurationError $ "Couldn't find contract bytecode in artifact " <> filepath <> ": " <> err
-      -- compiledBytecodeError err = "Couldn't get compiled artifact bytecode: " <> err
-      -- networkBytecodeError  err = " Couldn't get bytecode for network " <> show networkID <> ": " <> err
   withExceptT' fullError $ do
     artifact <- readArtifact' lc
     let networkBytecode  = artifact ^? _network networkID <<< _Just <<< _NetworkBytecode

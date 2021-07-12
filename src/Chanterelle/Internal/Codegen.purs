@@ -38,7 +38,7 @@ generatePS = do
   p@(ChanterelleProject project) <- ask
   let psArgs = projectPSArgs p
   void <<< for project.modules $ \(ChanterelleModule mod) -> do
-      (PSWeb3Gen.Abi abiWithErrors) <- loadAbi p mod.jsonPath
+      (PSWeb3Gen.Abi abiWithErrors) <- loadAbi mod.jsonPath
       log Debug $ "generating purescript for " <> mod.moduleName
       abi <- for abiWithErrors case _ of
         Left (PSWeb3Gen.AbiDecodeError err) -> do
@@ -79,10 +79,9 @@ projectPSArgs (ChanterelleProject project) =
 loadAbi :: forall m
          . MonadAff m
         => MonadThrow CompileError m
-        => ChanterelleProject
-        -> FilePath
+        => FilePath
         -> m PSWeb3Gen.AbiWithErrors
-loadAbi _ abiFile = do
+loadAbi abiFile = do
     ejson <- liftAff (jsonParser <$> FS.readTextFile UTF8 abiFile)
     json <- either (throwError <<< CompileParseError <<< {objectName: "Json File " <> abiFile, parseError:_}) pure ejson
     either (throwError <<< CompileParseError <<< {objectName: "ABI " <> abiFile, parseError:_}) pure $ parseAbi json

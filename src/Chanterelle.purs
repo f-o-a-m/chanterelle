@@ -19,12 +19,9 @@ import Effect.Class (liftEffect)
 import Node.Path (resolve)
 import Node.Process (cwd, exit)
 
+data SelectCLI (a :: Type) (b :: Type) = SelectCLI a
 
-data SelectCLI :: forall k. Type -> k -> Type
-data SelectCLI a b = SelectCLI a
-
-data SelectPS :: forall k. k -> Type -> Type
-data SelectPS a b = SelectPS b
+data SelectPS (a :: Type) (b :: Type) = SelectPS b
 
 instance showSelectDeployM :: Show (SelectPS a (DeployM Unit)) where show (SelectPS _ ) = "<DeployM Unit>"
 instance showSelectDeployPath :: Show a => Show (SelectCLI a b) where show (SelectCLI a ) = show a
