@@ -4,7 +4,6 @@
 
 <img src=https://github.com/f-o-a-m/chanterelle/blob/master/chanterelle-logo.svg width="150">
 
-
 _a more functional truffle_
 
 ## Overview
