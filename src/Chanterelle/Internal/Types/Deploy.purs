@@ -147,6 +147,7 @@ newtype DeployConfig =
 type Constructor args = TransactionOptions NoPay -> HexString -> Record args -> Web3 HexString
 
 -- | Type alias for the empty args
+type NoArgs :: forall k. Row k
 type NoArgs = ()
 
 -- | Value representing empty args

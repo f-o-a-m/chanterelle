@@ -23,7 +23,7 @@ import Control.Parallel (parOneOf)
 import Data.Either (Either)
 import Data.Int (toNumber)
 import Data.Map as Map
-import Data.Validation.Semigroup (unV)
+import Data.Validation.Semigroup (validation)
 import Effect.Aff (Aff, Milliseconds(..), attempt, delay)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Ref as Ref
@@ -83,4 +83,4 @@ validateDeployArgs
 validateDeployArgs cfg =
   let onErr msg = throwError $ ConfigurationError ("Couldn't validate args for contract deployment " <> cfg.name <> ": " <> show msg)
       onSucc = pure
-  in unV onErr onSucc cfg.unvalidatedArgs
+  in validation onErr onSucc cfg.unvalidatedArgs

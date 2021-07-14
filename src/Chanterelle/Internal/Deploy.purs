@@ -122,8 +122,6 @@ getContractBytecode
 getContractBytecode lc@{ filepath } = do
   DeployConfig { networkID } <- ask
   let fullError err = ConfigurationError $ "Couldn't find contract bytecode in artifact " <> filepath <> ": " <> err
-      compiledBytecodeError err = "Couldn't get compiled artifact bytecode: " <> err
-      networkBytecodeError  err = " Couldn't get bytecode for network " <> show networkID <> ": " <> err
   withExceptT' fullError $ do
     artifact <- readArtifact' lc
     let networkBytecode  = artifact ^? _network networkID <<< _Just <<< _NetworkBytecode
@@ -148,8 +146,7 @@ deployLibrary
   => TransactionOptions NoPay
   -> LibraryConfig ()
   -> m (DeployReceipt LibraryMeta)
-deployLibrary txo ccfg@{filepath, name} = do
-  DeployConfig { provider } <- ask
+deployLibrary txo ccfg@{ name } = do
   nbc@(ArtifactBytecode { bytecode: bc }) <- getContractBytecode ccfg
   case bc of
     BCUnlinked _ -> throwError $ DeployingUnlinkedBytecodeError { name, libs: CBC.unlinkedLibraryNames bc }
@@ -169,7 +166,7 @@ linkLibrary
   -> Record LibraryMeta
   -> m ArtifactBytecode
 linkLibrary ccfg@{ filepath, name } { libraryName, libraryAddress } = do
-    (DeployConfig { provider, networkID, writeArtifacts }) <- ask
+    (DeployConfig { networkID }) <- ask
     ArtifactBytecode { bytecode: originalBytecode, deployedBytecode: originalDeployedBytecode } <- getContractBytecode ccfg
     bytecode <- link' "construction bytecode" originalBytecode
     deployedBytecode <- link' "on-chain bytecode" originalDeployedBytecode
@@ -194,7 +191,6 @@ deployContract
   -> ContractConfig args
   -> m (DeployReceipt args)
 deployContract txOptions ccfg@{name, constructor} = do
-  DeployConfig { provider } <- ask
   nbc@(ArtifactBytecode { bytecode: bc }) <- getContractBytecode ccfg
   case bc of
     BCUnlinked _ -> throwError $ DeployingUnlinkedBytecodeError { name, libs: CBC.unlinkedLibraryNames bc }
@@ -217,7 +213,7 @@ deployContractAndWriteToArtifact
   -- ^ ArtifactBytecode being deployed
   -> m { deployAddress :: Address, deployHash :: HexString }
 deployContractAndWriteToArtifact lc@{ filepath, name } deployAction nbc = do
-    (DeployConfig { provider, networkID, primaryAccount, writeArtifacts }) <- ask
+    (DeployConfig { provider, networkID }) <- ask
     log Info $ "Deploying contract " <> name
     deployHash <- withExceptM' onDeploymentError <<< liftAff $ runWeb3 provider deployAction
     networkInfo <- getPublishedContractDeployInfo deployHash name nbc
@@ -266,7 +262,7 @@ writeArtifact'
   => LibraryConfig a
   -> Artifact
   -> m Unit
-writeArtifact' lc@{ name, filepath } artifact = do
+writeArtifact' { name, filepath } artifact = do
   DeployConfig { artifactCache, writeArtifacts } <- ask
   cacheVar <- liftEffect $ Ref.read artifactCache
   let newCache = Map.insert { name, filepath } artifact cacheVar

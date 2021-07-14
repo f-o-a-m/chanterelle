@@ -55,10 +55,10 @@ readLogLevel level =
   let normalized = toUpper level
   in case normalized of
        "DEBUG" -> Debug
-       "INFO" -> Info
-       "WARN" -> Warn
+       "INFO"  -> Info
+       "WARN"  -> Warn
        "ERROR" -> Error
-       otherwise -> Info
+       _       -> Info
 
 class Loggable a where
   logify :: a -> String
