@@ -8,7 +8,7 @@ _a more functional truffle_
 
 ## Overview
 
-This project is meant to be a replacement to `truffle`. You can use it for development, deployment and testing of solidity smart contracts in purescript. For an example project, see the [parking-dao](https://github.com/f-o-a-m/parking-dao). We also recommend [cliquebait](https://github.com/f-o-a-m/cliquebait) as a replacement for `testrpc`.
+This project is meant to be a replacement to `truffle`. You can use it for development, deployment and testing of solidity smart contracts in purescript. For an example project, see the [chanterelle-halogen-template](https://github.com/f-o-a-m/chanterelle-halogen-template). We also recommend [cliquebait](https://github.com/f-o-a-m/cliquebait) as a replacement for `testrpc`.
 
 ## Docs
 
