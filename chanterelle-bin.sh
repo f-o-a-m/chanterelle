@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Borrowed with love from https://stackoverflow.com/a/246128/1763937
 get_script_dir() {
