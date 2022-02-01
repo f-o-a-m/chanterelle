@@ -1,5 +1,5 @@
 let upstream =
-      https://github.com/purescript/package-sets/releases/download/psc-0.14.2-20210629/packages.dhall sha256:534c490bb73cae75adb5a39871142fd8db5c2d74c90509797a80b8bb0d5c3f7b
+      https://github.com/purescript/package-sets/releases/download/psc-0.14.5-20220127/packages.dhall sha256:8ccbd53dbc7dbfd92a9cba9cca7a8bf36cb120a0a3e21106bf19a16d3ad6863e
 
 let overrides = {=}
 
@@ -34,59 +34,51 @@ let additions =
         , version = "v4.0.0"
         }
       , web3-generator =
-          { dependencies =
-            [ "ansi"
-            , "argonaut"
-            , "console"
-            , "effect"
-            , "errors"
-            , "eth-core"
-            , "fixed-points"
-            , "mkdirp"
-            , "node-fs-aff"
-            , "ordered-collections"
-            , "prelude"
-            , "psci-support"
-            , "record-extra"
-            , "string-parsers"
-            , "web3"
-            , "yargs"
-            ]
-          , repo = "https://github.com/f-o-a-m/purescript-web3-generator"
-          , version = "v4.0.0"
-          }
+        { dependencies =
+          [ "ansi"
+          , "argonaut"
+          , "console"
+          , "effect"
+          , "errors"
+          , "eth-core"
+          , "fixed-points"
+          , "mkdirp"
+          , "node-fs-aff"
+          , "ordered-collections"
+          , "prelude"
+          , "psci-support"
+          , "record-extra"
+          , "string-parsers"
+          , "web3"
+          , "yargs"
+          ]
+        , repo = "https://github.com/f-o-a-m/purescript-web3-generator"
+        , version = "v4.0.0"
+        }
       , eth-core =
         { dependencies =
-            [ "argonaut"
-            , "bytestrings"
-            , "console"
-            , "debug"
-            , "effect"
-            , "foreign-generic"
-            , "ordered-collections"
-            , "parsing"
-            , "prelude"
-            , "psci-support"
-            , "ring-modules"
-            , "simple-json"
-            ]
-        , repo =
-            "https://github.com/f-o-a-m/purescript-eth-core.git"
-        , version =
-            "v7.0.0"
+          [ "argonaut"
+          , "bytestrings"
+          , "console"
+          , "debug"
+          , "effect"
+          , "foreign-generic"
+          , "ordered-collections"
+          , "parsing"
+          , "prelude"
+          , "psci-support"
+          , "ring-modules"
+          , "simple-json"
+          ]
+        , repo = "https://github.com/f-o-a-m/purescript-eth-core.git"
+        , version = "v7.0.0"
         }
       , coroutine-transducers =
         { dependencies =
-            [ "aff"
-            , "coroutines"
-            , "effect"
-            , "maybe"
-            , "psci-support"
-            ]
+          [ "aff", "coroutines", "effect", "maybe", "psci-support" ]
         , repo =
             "https://github.com/blinky3713/purescript-coroutine-transducers"
-        , version =
-            "v1.0.0"
+        , version = "v1.0.0"
         }
       , solc =
         { dependencies =
@@ -99,37 +91,28 @@ let additions =
           , "psci-support"
           , "web3"
           ]
-        , repo =
-            "https://github.com/f-o-a-m/purescript-solc"
-        , version =
-            "v3.0.0"
+        , repo = "https://github.com/f-o-a-m/purescript-solc"
+        , version = "v3.0.0"
         }
       , mkdirp =
         { dependencies =
-            [ "console"
-            , "effect"
-            , "either"
-            , "exceptions"
-            , "functions"
-            , "node-fs"
-            , "nullable"
-            , "prelude"
-            , "psci-support"
-            ]
-        , repo =
-            "https://github.com/f-o-a-m/purescript-mkdirp"
-        , version =
-            "v1.0.0"
+          [ "console"
+          , "effect"
+          , "either"
+          , "exceptions"
+          , "functions"
+          , "node-fs"
+          , "nullable"
+          , "prelude"
+          , "psci-support"
+          ]
+        , repo = "https://github.com/f-o-a-m/purescript-mkdirp"
+        , version = "v1.0.0"
         }
       , tagged =
-        { dependencies =
-            [ "identity"
-            , "profunctor"
-            ]
-        , repo =
-            "https://github.com/kejace/purescript-tagged"
-        , version =
-            "v0.14"
+        { dependencies = [ "identity", "profunctor" ]
+        , repo = "https://github.com/kejace/purescript-tagged"
+        , version = "v0.14"
         }
       }
 
