@@ -10,13 +10,13 @@ import Chanterelle.Internal.Types.Project (ChanterelleProject(..), ChanterellePr
 import Chanterelle.Internal.Utils.FS (assertDirectory')
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Reader (class MonadAsk, ask)
-import Data.AbiParser (Abi(Abi), AbiDecodeError(..), AbiWithErrors) as PSWeb3Gen
+import Web3Generator.AbiParser (Abi(Abi), AbiDecodeError(..), AbiWithErrors) as PSWeb3Gen
 import Data.Argonaut (decodeJson, printJsonDecodeError)
 import Data.Argonaut.Parser (jsonParser)
 import Data.Argonaut.Prisms (_Object)
 import Data.Array (mapMaybe)
 import Data.Bifunctor (lmap)
-import Data.CodeGen (GeneratorOptions, generateCodeFromAbi, generatePS, ABIError(..)) as PSWeb3Gen
+import Web3Generator.CodeGen (GeneratorOptions, generateCodeFromAbi, generatePS, ABIError(..)) as PSWeb3Gen
 import Data.Either (Either(..), either, note)
 import Data.Identity (Identity(..))
 import Data.Lens ((^?))
