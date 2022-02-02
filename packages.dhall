@@ -1,5 +1,5 @@
 let upstream =
-      https://github.com/purescript/package-sets/releases/download/psc-0.14.5-20220127/packages.dhall sha256:8ccbd53dbc7dbfd92a9cba9cca7a8bf36cb120a0a3e21106bf19a16d3ad6863e
+      https://github.com/purescript/package-sets/releases/download/psc-0.14.5-20220201/packages.dhall sha256:cea7c15d7cae3c323e940c40f656f3083616ad7cf68bb83d39241863c976348a
 
 let overrides = {=}
 
@@ -35,20 +35,45 @@ let additions =
         }
       , web3-generator =
         { dependencies =
-          [ "ansi"
+          [ "aff"
+          , "ansi"
           , "argonaut"
+          , "argonaut-codecs"
+          , "argonaut-core"
+          , "argonaut-traversals"
+          , "arrays"
+          , "bifunctors"
           , "console"
+          , "control"
           , "effect"
+          , "either"
           , "errors"
           , "eth-core"
+          , "exceptions"
           , "fixed-points"
-          , "mkdirp"
+          , "foldable-traversable"
+          , "identity"
+          , "integers"
+          , "lists"
+          , "maybe"
+          , "language-cst-parser"
+          , "language-cst-codegen"
+          , "open-mkdirp-aff"
+          , "newtype"
+          , "node-buffer"
+          , "node-fs"
           , "node-fs-aff"
+          , "node-path"
+          , "nonempty"
           , "ordered-collections"
+          , "partial"
           , "prelude"
+          , "profunctor-lenses"
           , "psci-support"
-          , "record-extra"
           , "string-parsers"
+          , "strings"
+          , "transformers"
+          , "tuples"
           , "web3"
           , "yargs"
           ]
@@ -113,6 +138,99 @@ let additions =
         { dependencies = [ "identity", "profunctor" ]
         , repo = "https://github.com/kejace/purescript-tagged"
         , version = "v0.14"
+        }
+      , dodo-printer =
+        { dependencies =
+          [ "ansi", "foldable-traversable", "lists", "maybe", "strings" ]
+        , repo = "https://github.com/natefaubion/purescript-dodo-printer.git"
+        , version = "v2.1.0"
+        }
+      , language-cst-parser =
+        { dependencies =
+          [ "arrays"
+          , "const"
+          , "effect"
+          , "either"
+          , "foldable-traversable"
+          , "free"
+          , "functors"
+          , "maybe"
+          , "numbers"
+          , "ordered-collections"
+          , "strings"
+          , "transformers"
+          , "tuples"
+          , "typelevel-prelude"
+          ]
+        , repo =
+            "https://github.com/natefaubion/purescript-language-cst-parser.git"
+        , version = "v0.9.1"
+        }
+      , tidy =
+        { dependencies =
+          [ "arrays"
+          , "dodo-printer"
+          , "foldable-traversable"
+          , "lists"
+          , "maybe"
+          , "ordered-collections"
+          , "partial"
+          , "prelude"
+          , "language-cst-parser"
+          , "strings"
+          , "tuples"
+          ]
+        , repo =
+            "https://github.com/natefaubion/purescript-tidy.git"
+        , version = "v0.5.3"
+        }
+      , language-cst-codegen =
+        { dependencies =
+          [ "aff"
+          , "ansi"
+          , "arrays"
+          , "avar"
+          , "bifunctors"
+          , "console"
+          , "control"
+          , "dodo-printer"
+          , "effect"
+          , "either"
+          , "enums"
+          , "exceptions"
+          , "filterable"
+          , "foldable-traversable"
+          , "free"
+          , "identity"
+          , "integers"
+          , "language-cst-parser"
+          , "lazy"
+          , "lists"
+          , "maybe"
+          , "newtype"
+          , "node-buffer"
+          , "node-child-process"
+          , "node-fs-aff"
+          , "node-path"
+          , "node-process"
+          , "node-streams"
+          , "ordered-collections"
+          , "parallel"
+          , "partial"
+          , "posix-types"
+          , "prelude"
+          , "record"
+          , "safe-coerce"
+          , "strings"
+          , "tidy"
+          , "transformers"
+          , "tuples"
+          , "type-equality"
+          , "unicode"
+          ]
+        , repo =
+            "https://github.com/natefaubion/purescript-tidy-codegen.git"
+        , version = "v1.1.1"
         }
       }
 
