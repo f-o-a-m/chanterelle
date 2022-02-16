@@ -10,15 +10,12 @@ import Chanterelle.Internal.Types.Project (ChanterelleProject(..), ChanterellePr
 import Chanterelle.Internal.Utils.FS (assertDirectory')
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Reader (class MonadAsk, ask)
-import Web3Generator.AbiParser (Abi(Abi), AbiDecodeError(..), AbiWithErrors) as PSWeb3Gen
-import Data.Argonaut (decodeJson, printJsonDecodeError)
+import Data.Argonaut (printJsonDecodeError)
 import Data.Argonaut.Parser (jsonParser)
 import Data.Argonaut.Prisms (_Object)
-import Data.Array (mapMaybe)
+import Data.Array (catMaybes)
 import Data.Bifunctor (lmap)
-import Web3Generator.CodeGen (GeneratorOptions, generateCodeFromAbi, generatePS, ABIError(..)) as PSWeb3Gen
 import Data.Either (Either(..), either, note)
-import Data.Identity (Identity(..))
 import Data.Lens ((^?))
 import Data.Lens.Index (ix)
 import Data.Maybe (Maybe(..))
@@ -28,6 +25,8 @@ import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
 import Node.Path (FilePath)
 import Node.Path as Path
+import Web3Generator.AbiParser (AbiDecodeError(..), AbiType, decodeArrayOfAbiTipes) as PSWeb3Gen
+import Web3Generator.CodeGen (GeneratorOptions, generateCodeFromAbi, generatePS, ABIError(..)) as PSWeb3Gen
 
 generatePS :: forall m
             . MonadAff m
@@ -38,14 +37,14 @@ generatePS = do
   p@(ChanterelleProject project) <- ask
   let psArgs = projectPSArgs p
   void <<< for project.modules $ \(ChanterelleModule mod) -> do
-      (PSWeb3Gen.Abi abiWithErrors) <- loadAbi mod.jsonPath
+      abiWithErrors <- loadAbi mod.jsonPath
       log Debug $ "generating purescript for " <> mod.moduleName
       abi <- for abiWithErrors case _ of
         Left (PSWeb3Gen.AbiDecodeError err) -> do
-          log Error $ "while parsing abi type of object at index: " <> show err.idx <> " from: " <> mod.jsonPath <> " got error: " <> err.error
+          log Error $ "while parsing abi type of object at index: " <> show err.idx <> " from: " <> mod.jsonPath <> " got error: " <> printJsonDecodeError err.error
           pure Nothing
         Right x -> pure $ Just x
-      let psModule = PSWeb3Gen.generateCodeFromAbi (projectPSArgs p) (PSWeb3Gen.Abi $ mapMaybe (map Identity) abi) mod.moduleName
+      let psModule = PSWeb3Gen.generateCodeFromAbi (projectPSArgs p) (catMaybes abi) mod.moduleName
       assertDirectory' (Path.dirname mod.pursPath)
       log Info $ "writing PureScript bindings for " <> mod.moduleName
       liftAff $ FS.writeTextFile UTF8 mod.pursPath psModule
@@ -62,7 +61,7 @@ generatePS = do
                                    )
       for_ errs \(PSWeb3Gen.ABIError err) ->
         log Error $ "while parsing abi type of object at index: "
-          <> show err.idx <> " from: " <> err.abiPath <> " got error: " <> err.error
+          <> show err.idx <> " from: " <> err.abiPath <> " got error: " <> printJsonDecodeError err.error
 
 projectPSArgs
   :: ChanterelleProject
@@ -80,11 +79,11 @@ loadAbi :: forall m
          . MonadAff m
         => MonadThrow CompileError m
         => FilePath
-        -> m PSWeb3Gen.AbiWithErrors
+        -> m (Array (Either PSWeb3Gen.AbiDecodeError PSWeb3Gen.AbiType))
 loadAbi abiFile = do
     ejson <- liftAff (jsonParser <$> FS.readTextFile UTF8 abiFile)
     json <- either (throwError <<< CompileParseError <<< {objectName: "Json File " <> abiFile, parseError:_}) pure ejson
     either (throwError <<< CompileParseError <<< {objectName: "ABI " <> abiFile, parseError:_}) pure $ parseAbi json
   where
     parseAbi json = let mabi = json ^? _Object <<< ix "abi"
-                    in note ("ABI field missing in " <> abiFile) mabi >>= lmap printJsonDecodeError <<< decodeJson
+                    in note ("ABI field missing in " <> abiFile) mabi >>= lmap printJsonDecodeError <<< PSWeb3Gen.decodeArrayOfAbiTipes

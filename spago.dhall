@@ -19,7 +19,6 @@
   , "foreign-object"
   , "functions"
   , "functors"
-  , "identity"
   , "integers"
   , "logging"
   , "maybe"
