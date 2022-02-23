@@ -17,7 +17,7 @@ import Language.Solidity.Compiler.Types as ST
 import Network.Ethereum.Web3 (Address, HexString, BlockNumber)
 
 type ArtifactBytecodeR a = Record
-  ( bytecode :: Bytecode
+  ( bytecode :: Bytecode -- TODO: what is the difference?
   , deployedBytecode :: Bytecode
   | a
   )

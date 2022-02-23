@@ -38,25 +38,25 @@ makeDeployConfig
   => String
   -> Int
   -> m DeployConfig
-makeDeployConfig url tout = do
+makeDeployConfig url timeout = do
   provider <- Web3.makeProvider url
-  makeDeployConfigWithProvider provider tout
+  makeDeployConfigWithProvider provider timeout
 
-makeDeployConfigWithProvider 
+makeDeployConfigWithProvider
   :: forall m
    . MonadAff m
   => MonadThrow DeployError m
   => Provider
   -> Int
   -> m DeployConfig
-makeDeployConfigWithProvider provider tout =
-  let timeout = Milliseconds (toNumber tout)
+makeDeployConfigWithProvider provider timeout =
+  let timeout' = Milliseconds (toNumber timeout)
       toError = ConfigurationError <<< append "Couldn't create DeployConfig: " <<< show
    in catchingAff' toError $ runWeb3 provider do
         primaryAccount <- Web3.getPrimaryAccount
         networkID <- Web3.getNetworkID
         artifactCache <- liftEffect $ Ref.new Map.empty
-        pure $ DeployConfig {provider, primaryAccount, networkID, timeout, ignoreNetworksInArtifact: false, writeArtifacts: true, artifactCache }
+        pure $ DeployConfig {provider, primaryAccount, networkID, timeout: timeout', ignoreNetworksInArtifact: false, writeArtifacts: true, artifactCache }
 
 -- | try an aff action for the specified amount of time before giving up.
 withTimeout

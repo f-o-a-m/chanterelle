@@ -94,7 +94,7 @@ data DeployError = ConfigurationError String
                  | OnDeploymentError {name :: String, message :: String}
                  | PostDeploymentError {name :: String, message :: String}
                  | DeployingUnlinkedBytecodeError { name :: String, libs :: Array String }
-                 | LinkingLinkedBytecodeError { name :: String, libraryName :: String, bytecodeKind :: String } 
+                 | LinkingLinkedBytecodeError { name :: String, libraryName :: String, bytecodeKind :: String }
                  | LinkingError { contractName :: String, libraryName :: String, libraryAddress :: Address, bytecodeKind :: String, msg :: String }
                  | Impossibility String
 
@@ -151,7 +151,7 @@ type NoArgs :: forall k. Row k
 type NoArgs = ()
 
 -- | Value representing empty args
-noArgs :: V (Array String) {}
+noArgs :: V (Array String) {} -- TODO(srghma): rename to noArgsValidator?
 noArgs = pure {}
 
 -- | A constructor that deploys a contract with no constructor args.
