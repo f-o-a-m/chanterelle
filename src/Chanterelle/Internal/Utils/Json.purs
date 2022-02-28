@@ -5,11 +5,9 @@ import Prelude
 import Chanterelle.Internal.Utils.Error (except')
 import Control.Alt ((<|>))
 import Control.Monad.Error.Class (class MonadThrow)
-import Data.Argonaut (class DecodeJson, Json, decodeJson, encodeJson, jsonParser, printJsonDecodeError, (.:), (.:!))
+import Data.Argonaut (class DecodeJson, Json, decodeJson, encodeJson, jsonParser, printJsonDecodeError)
 import Data.Bifunctor (lmap)
 import Data.Either (Either(..), note)
-import Data.Maybe (Maybe(..), maybe)
-import Foreign.Object (Object)
 import Network.Ethereum.Core.BigNumber (hexadecimal, parseBigNumber, toString, unsafeToInt)
 import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber(..), HexString, embed, mkAddress, mkHexString, unAddress)
 
@@ -47,14 +45,6 @@ decodeJsonAddress j = do
     s <- lmap printJsonDecodeError $ decodeJson j
     h <- note "Address is not a valid HexString" $ mkHexString s
     note "Address is malformed" $ mkAddress h
-
--- getField (aka .?) with a manual decoder
-gfWithDecoder :: forall a. (Json -> Either String a) -> Object Json -> String -> Either String a
-gfWithDecoder decode obj k = lmap printJsonDecodeError (obj .: k) >>= decode
-
--- getFieldOptional (aka .??) with a manual decoder
-gfoWithDecoder :: forall a. (Json -> Either String a) -> Object Json -> String -> Either String (Maybe a)
-gfoWithDecoder decode obj key = lmap printJsonDecodeError (obj .:! key) >>= maybe (pure Nothing) (map Just <<< decode)
 
 parseDecodeM
   :: forall m j
