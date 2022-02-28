@@ -87,6 +87,9 @@ log :: forall m
     -> String
     -> m Unit
 log level msg = do
+  -- TODO(srghma):
+  -- duplication, the information that "Info" is default `currentLevel` is duplicated here AND in `commonOpts`
+  -- Expected: make an optparse parser for LogLevel, this info should be only in `commonOpts`
       currentLevel <- liftEffect $ getLogLevelWithDefault Info
       when (level >= currentLevel) $
         Logger.log fancyColorLogger { level, msg }

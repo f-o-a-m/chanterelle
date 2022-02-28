@@ -90,8 +90,8 @@ runCommand project = case _ of
   where
     doDeploy (DeployOptions {nodeURL, timeout, script: SelectPS s}) = deploy nodeURL timeout s
     doGlobalDeploy = do
-      log Error $ "deploy is unavailable as Chanterelle is running from a global installation"
-      log Error $ "Please ensure your project's Chanterelle instance has compiled"
+      log Error "deploy is unavailable as Chanterelle is running from a global installation"
+      log Error "Please ensure your project's Chanterelle instance has compiled"
     -- | doClassicBuild = doCompile *> doCodegen
     doCompile = eitherM_ terminateOnCompileError $ runCompileMExceptT Chanterelle.compile project
     doCodegen = eitherM_ terminateOnCompileError $ runCompileMExceptT Chanterelle.generatePS project
