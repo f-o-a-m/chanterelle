@@ -11,7 +11,9 @@ import Data.Either (Either(..), note)
 import Network.Ethereum.Core.BigNumber (hexadecimal, parseBigNumber, toString, unsafeToInt)
 import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber(..), HexString, embed, mkAddress, mkHexString, unAddress)
 
-decodeJsonBlockNumber :: Json -> Either String BlockNumber
+-- TODO(srghma): actually the decode and encode classes already exist for all these types (except of unsafe `encodeJsonConfigBigNumber` and `encodeJsonConfigBigNumber` of course)
+
+decodeJsonBlockNumber :: Json -> Either String BlockNumber -- TODO(srghma): return Either JsonDecodeError BlockNumber
 decodeJsonBlockNumber = map BlockNumber <<< decodeJsonBigNumber
 
 encodeJsonBlockNumber :: BlockNumber -> Json
@@ -29,7 +31,7 @@ encodeJsonConfigBigNumber :: BigNumber -> Json
 encodeJsonConfigBigNumber = encodeJson <<< unsafeToInt
 
 encodeJsonConfigBlockNumber :: BlockNumber -> Json
-encodeJsonConfigBlockNumber (BlockNumber n) = encodeJsonConfigBigNumber (n)
+encodeJsonConfigBlockNumber (BlockNumber n) = encodeJsonConfigBigNumber n
 
 decodeJsonHexString :: Json -> Either String HexString
 decodeJsonHexString j = lmap printJsonDecodeError (decodeJson j) >>= note "HexString is not a valid Hex String" <<< mkHexString

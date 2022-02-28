@@ -7,11 +7,18 @@ import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 
+-- runs single task at a time
 firstSuccess :: forall m a e b
               . MonadAff m
              => Array a
              -> (a -> m (Either e b))
-             -> m (Either { failures :: Array (Tuple a e) } { result :: b, input :: a,  failures :: Array (Tuple a e) })
+             -> m (Either
+             { failures :: Array (Tuple a e)
+             }
+             { result :: b
+             , input :: a
+             , failures :: Array (Tuple a e)
+             })
 firstSuccess arr runner = go arr []
   where go arr' failures = case uncons arr' of
           Nothing -> pure $ Left { failures }

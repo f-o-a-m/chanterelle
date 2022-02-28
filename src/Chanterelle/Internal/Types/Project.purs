@@ -43,6 +43,13 @@ derive instance newtypeLibrary :: Newtype Library _
 derive newtype instance eqLibrary :: Eq Library
 derive newtype instance ordLibrary :: Ord Library
 
+-- `Libraries` can be encoded to/decoded from:
+-- ```json
+-- {
+--   name1: "sourceFile",
+--   name2: { file: "sourceFile", root: "sourceRoot" }
+-- }
+-- ```
 newtype Libraries = Libraries (Array Library)
 
 derive instance eqLibraries                :: Eq Libraries
@@ -79,6 +86,9 @@ instance decodeJsonLibraries :: DecodeJson Libraries where
 
 ---------------------------------------------------------------------
 
+-- `ChainSpec` can be encoded to/decoded from:
+-- `*` or `1,2`
+
 data ChainSpec = AllChains
                | SpecificChains (Array String)
 derive instance eqChainSpec :: Eq ChainSpec
@@ -111,6 +121,13 @@ instance encodeJsonNetwork :: EncodeJson Network where
   encodeJson (Network n)     =  "url"    := n.providerUrl
                              ~> "chains" := n.allowedChains
                              ~> jsonEmptyObject
+
+-- `Networks` can be encoded to/decoded from:
+-- ```json
+-- {
+--   name1: { url: "providerUrl", chains: "allowedChains" }
+-- }
+-- ```
 
 newtype Networks = Networks (Array Network)
 derive instance eqNetworks                :: Eq Networks
@@ -174,7 +191,12 @@ resolveNetworkRefs refs definedNets = case refs of
         (Networks definedNets') = definedNets
 
         -- todo: don't n^2 this shit
-        predefinedNetsWithoutOverrides = filter (\(Network predef) -> null (filter (\(Network def) -> predef.name == def.name) definedNets')) predefinedNets
+        predefinedNetsWithoutOverrides = filter
+          (\(Network predef) -> null
+            (filter (\(Network def) -> predef.name == def.name) definedNets')
+          )
+          predefinedNets
+        -- TODO(srghma): just use `Map String { providerUrl: ..., allowedChains: ... }`
         mergedNetworks = definedNets' <> predefinedNetsWithoutOverrides
 
 ---------------------------------------------------------------------
