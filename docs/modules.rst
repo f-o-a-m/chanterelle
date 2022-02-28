@@ -4,7 +4,7 @@
 Modules
 =======
 
-Chanterelle uses a notion of modules to determine which units of Solidity code to compile and create PureScript bindings for. 
+Chanterelle uses a notion of modules to determine which units of Solidity code to compile and create PureScript bindings for.
 Those coming from a Haskell background may notice the parallel to Cabal's ``exposed-modules``.
 Simply adding a contract file within the source-dir does not mean it will be compiled, nor will there be a generated PureScript file.
 Instead, one must explicitly specify it in the project's :ref:`chanterelle-json`.

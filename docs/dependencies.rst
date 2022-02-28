@@ -5,7 +5,7 @@ Dependencies
 ============
 
 As the Ethereum ecosystem has not conclusively settled on a Solidity package management structure yet,
-we support referencing any modules installed in ``node_modules`` as additional include paths for use 
+we support referencing any modules installed in ``node_modules`` as additional include paths for use
 in your Solidity imports. We see the potential for future EthPM 1.0 and 2.0 support as it appears to be the
 direction many new Solidity developments are looking towards.
 

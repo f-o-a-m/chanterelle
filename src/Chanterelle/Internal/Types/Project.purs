@@ -90,11 +90,11 @@ networkIDFitsChainSpec (SpecificChains chains) id = id `elem` chains
 instance decodeJsonChainSpec :: DecodeJson ChainSpec where
   decodeJson j = decodeAllChains <|> decodeSpecificChains <|> Left (Named "Invalid chain specifier" $ UnexpectedValue j)
     where decodeStr = decodeJson j
-          decodeAllChains = decodeStr >>= \s -> 
-            if s == "*" 
-              then Right AllChains 
+          decodeAllChains = decodeStr >>= \s ->
+            if s == "*"
+              then Right AllChains
               else Left $ Named "Not * for AllChains" $ UnexpectedValue j
-          decodeSpecificChains = decodeStr >>= \s -> 
+          decodeSpecificChains = decodeStr >>= \s ->
             SpecificChains <$> for (split (Pattern ",") s) pure
 
 instance encodeJsonChainSpec :: EncodeJson ChainSpec where
@@ -145,9 +145,9 @@ data NetworkRefs = AllNetworks        -- "**"
 derive instance eqNetworkRefs :: Eq NetworkRefs
 
 instance decodeJsonNetworkRefs :: DecodeJson NetworkRefs where
-  decodeJson j = 
-    (SpecificRefs <$> decodeJson j) <|> 
-      (decodeStringy =<< decodeJson j) <|> 
+  decodeJson j =
+    (SpecificRefs <$> decodeJson j) <|>
+      (decodeStringy =<< decodeJson j) <|>
       (Left $ Named "Invalid NetworkRef" $ UnexpectedValue j)
     where decodeStringy = case _ of
             "*" -> Right AllDefinedNetworks
@@ -186,7 +186,7 @@ derive instance ordSolcOutputSelectionSpec :: Ord SolcOutputSelectionSpec
 
 instance decodeJsonSolcOutputSelectionSpec :: DecodeJson SolcOutputSelectionSpec where
   decodeJson j = lmap (\e -> Named e $ UnexpectedValue j) $
-    (SolcFileLevelSelectionSpec <$> ST.decodeJsonSelection j) <|> 
+    (SolcFileLevelSelectionSpec <$> ST.decodeJsonSelection j) <|>
     (SolcContractLevelSelectionSpec <$> ST.decodeJsonSelection j)
 
 instance encodeJsonSolcOutputSelectionSpec :: EncodeJson SolcOutputSelectionSpec where
@@ -325,7 +325,7 @@ data ChanterelleProject =
                         , psOut       :: FilePath -- ^ hydrated/absolute path of psGen (root + spec.psGen.outputPath)
                         , spec        :: ChanterelleProjectSpec -- ^ the contents of the chanterelle.json
                         , modules     :: Array ChanterelleModule
-                        , libModules  :: Array ChanterelleModule 
+                        , libModules  :: Array ChanterelleModule
                         , specModTime :: Milliseconds -- ^ timestamp of the last time the chanterelle project spec (chanterelle.)json was modified
                         , solc        :: ChanterelleSolc
                         }
