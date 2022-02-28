@@ -1,6 +1,5 @@
 module Chanterelle.Internal.Utils
-  ( module Utils.Json
-  , module Utils.Web3
+  ( module Utils.Web3
   , module Utils.Error
   , module Utils.FS
   , makeDeployConfig
@@ -16,7 +15,6 @@ import Chanterelle.Internal.Types (ContractConfig, DeployConfig(..), DeployError
 import Chanterelle.Internal.Utils.Error (catchingAff')
 import Chanterelle.Internal.Utils.Error (catchingAff, catchingAff', eitherM, eitherM_, except', exceptM', exceptNoteA', exceptNoteM', withExceptM', withExceptT', (!?), (??)) as Utils.Error
 import Chanterelle.Internal.Utils.FS (assertDirectory, fileIsDirty, fileModTime, readTextFile, unparsePath, withTextFile, writeTextFile) as Utils.FS
-import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces) as Utils.Json
 import Chanterelle.Internal.Utils.Web3 (getCodeForContract, getPrimaryAccount, getNetworkID, logAndThrow, logAndThrow', makeProvider, pollTransactionReceipt, providerForNetwork, resolveCodeForContract, resolveProvider, web3WithTimeout) as Utils.Web3
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Parallel (parOneOf)

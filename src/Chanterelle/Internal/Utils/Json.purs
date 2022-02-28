@@ -13,8 +13,6 @@ import Foreign.Object (Object)
 import Network.Ethereum.Core.BigNumber (hexadecimal, parseBigNumber, toString, unsafeToInt)
 import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber(..), HexString, embed, mkAddress, mkHexString, unAddress)
 
-foreign import jsonStringifyWithSpaces :: Int -> Json -> String
-
 decodeJsonBlockNumber :: Json -> Either String BlockNumber
 decodeJsonBlockNumber = map BlockNumber <<< decodeJsonBigNumber
 

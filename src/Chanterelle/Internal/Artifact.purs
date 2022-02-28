@@ -10,10 +10,10 @@ import Prelude
 import Chanterelle.Internal.Types.Artifact (Artifact(..))
 import Chanterelle.Internal.Types.Artifact (Artifact(..), ArtifactBytecode(..), _Deployed, _NetworkBytecode, _abi, _address, _blockHash, _blockNumber, _bytecode, _code, _deployedBytecode, _lastModified, _network, _networks, _transactionHash, emptyArtifactBytecode, fromSolidityContractLevelOutput) as ArtifactExports
 import Chanterelle.Internal.Utils.FS (readTextFile, withTextFile, writeTextFile)
-import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces, parseDecodeM)
+import Chanterelle.Internal.Utils.Json (parseDecodeM)
 import Chanterelle.Internal.Utils.Time (now, toEpoch)
 import Control.Monad.Error.Class (class MonadThrow)
-import Data.Argonaut (encodeJson)
+import Data.Argonaut (encodeJson, stringifyWithIndent)
 import Data.Time.Duration (Milliseconds(..))
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect, liftEffect)
@@ -27,7 +27,7 @@ setModTimeAndStringify
 setModTimeAndStringify (Artifact a) = do
   Milliseconds newLastModified <- toEpoch <$> liftEffect now
   let newArtifact = Artifact (a { lastModified = newLastModified })
-  pure $ jsonStringifyWithSpaces 4 $ encodeJson newArtifact
+  pure $ stringifyWithIndent 4 $ encodeJson newArtifact
 
 readArtifact
   :: forall m
