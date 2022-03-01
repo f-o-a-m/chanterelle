@@ -32,11 +32,11 @@ import Network.Ethereum.Web3.Types (NoPay, Web3, Address, HexString, Transaction
 -- | Write updated "networks" object in the solc artifact with a (NetworkId, Address) pair corresponding
 -- | to a deployment.
 writeNetworkInfo
-  :: forall m a
+  :: forall m r
    . MonadAff m
   => MonadThrow String m
   => MonadAsk DeployConfig m
-  => LibraryConfig a
+  => LibraryConfig r
   -- contract name/filepath of artifact
   -> NetworkID
   -- network id
@@ -47,11 +47,11 @@ writeNetworkInfo lc nid ni = updateArtifact' lc $
   pure <<< (_network nid ?~ ni)
 
 writeNewBytecode
-  :: forall m a
+  :: forall m r
    . MonadAff m
   => MonadThrow String m
   => MonadAsk DeployConfig m
-  => LibraryConfig a
+  => LibraryConfig r
   -> NetworkID
   -> ArtifactBytecode
   -> m Unit
@@ -60,11 +60,11 @@ writeNewBytecode lc nid (ArtifactBytecode u) =
 
 -- | Read the deployment address for a given network id from the solc artifact.
 readDeployAddress
-  :: forall m a
+  :: forall m r
    . MonadThrow DeployError m
   => MonadAsk DeployConfig m
   => MonadAff m
-  => LibraryConfig a
+  => LibraryConfig r
   -- ^ contract filepath/name
   -> NetworkID
   -- ^ network id
@@ -113,11 +113,11 @@ getPublishedContractDeployInfo txHash name (ArtifactBytecode { bytecode, deploye
 -- | First it will attempt to check for any network-specific bytecode under the corresponding network
 -- | before falling back to the "raw" solc bytecode.
 getContractBytecode
-  :: forall m args
+  :: forall m r
    . MonadThrow DeployError m
   => MonadAsk DeployConfig m
   => MonadAff m
-  => LibraryConfig args
+  => LibraryConfig r
   -> m ArtifactBytecode
 getContractBytecode lc@{ filepath } = do
   DeployConfig { networkID } <- ask
@@ -129,9 +129,9 @@ getContractBytecode lc@{ filepath } = do
     pure $ fromMaybe compiledBytecode networkBytecode
 
 
-type DeployReceipt args =
+type DeployReceipt r =
   { deployAddress :: Address
-  , deployArgs :: Record args
+  , deployArgs :: Record r
   , deployHash :: HexString
   }
 
@@ -202,11 +202,11 @@ deployContract txOptions ccfg@{name, constructor} = do
 
 -- | Helper function which deploys a contract and writes the new contract address to the solc artifact.
 deployContractAndWriteToArtifact
-  :: forall m a
+  :: forall m r
    . MonadThrow DeployError m
   => MonadAsk DeployConfig m
   => MonadAff m
-  => LibraryConfig a
+  => LibraryConfig r
   -> Web3 HexString
   -- ^ deploy action returning txHash
   -> ArtifactBytecode
@@ -225,11 +225,11 @@ deployContractAndWriteToArtifact lc@{ filepath, name } deployAction nbc = do
     postDeploymentError err = PostDeploymentError { name, message: "Failed to update deployed address in artifact at " <> filepath <> ": " <> show err }
 
 readArtifact'
-  :: forall m a
+  :: forall m r
    . MonadAsk DeployConfig m
   => MonadThrow String m
   => MonadAff m
-  => LibraryConfig a
+  => LibraryConfig r
   -> m Artifact
 readArtifact' lc@{ name, filepath } = do
   DeployConfig { artifactCache } <- ask
@@ -237,11 +237,11 @@ readArtifact' lc@{ name, filepath } = do
   maybe (loadArtifact' lc) pure $ Map.lookup { name, filepath } cacheVar
 
 loadArtifact'
-  :: forall m a
+  :: forall m r
    . MonadAsk DeployConfig m
   => MonadThrow String m
   => MonadAff m
-  => LibraryConfig a
+  => LibraryConfig r
   -> m Artifact
 loadArtifact' { name, filepath } = do
   DeployConfig { artifactCache, ignoreNetworksInArtifact } <- ask
@@ -255,11 +255,11 @@ loadArtifact' { name, filepath } = do
   pure usedArtifact
 
 writeArtifact'
-  :: forall m a
+  :: forall m r
    . MonadAsk DeployConfig m
   => MonadThrow String m
   => MonadAff m
-  => LibraryConfig a
+  => LibraryConfig r
   -> Artifact
   -> m Unit
 writeArtifact' { name, filepath } artifact = do
@@ -270,11 +270,11 @@ writeArtifact' { name, filepath } artifact = do
   when writeArtifacts $ Artifact.writeArtifact filepath artifact
 
 updateArtifact'
-  :: forall m a
+  :: forall m r
    . MonadAsk DeployConfig m
   => MonadThrow String m
   => MonadAff m
-  => LibraryConfig a
+  => LibraryConfig r
   -> (Artifact -> m Artifact)
   -> m Unit
 updateArtifact' lc action = readArtifact' lc >>= action >>= writeArtifact' lc

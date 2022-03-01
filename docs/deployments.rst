@@ -162,10 +162,10 @@ As such, library contracts do not have constructors nor do they take any argumen
 
 .. code-block:: haskell
 
-   type LibraryConfig args =
+   type LibraryConfig r =
        { filepath :: String
        , name :: String
-       | args
+       | r
        }
 
 You may find that this looks strangely similar to the type definition for ``ContractConfig``, and are also probably curious as to what purpose the ``args`` serves. Well, to keep Chanterelle internals and
