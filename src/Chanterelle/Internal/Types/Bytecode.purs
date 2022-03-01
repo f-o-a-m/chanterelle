@@ -94,7 +94,7 @@ spliceLinkRefs addr refs = ST.mkBytecodeObject <<< go <<< ST.unBytecodeObject
               { after: jokers }               = splitAt (length * 2) rest      -- ditto for *2
            in (clowns <> addressHex <> jokers)
 
--- solc returns linkReferences as { "sourceFileName": "libraryContractName": [ { linkRef }., ..] } }
+-- solc returns linkReferences as { "libraryFile.sol": { "LibraryContractName": [ { "start": 0, "length": 20 }, ...] } }
 -- the case that there are different library contracts with the same name residing in different source files
 -- is currently unsupported, and ideally never should be...
 flattenLinkReferences :: ST.FileMapped LibraryLinkReferences -> LibraryLinkReferences

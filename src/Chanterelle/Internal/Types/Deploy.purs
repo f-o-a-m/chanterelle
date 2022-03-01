@@ -67,6 +67,19 @@ joinDeployM
   -> DeployM (Either DeployError a)
 joinDeployM = liftAff <<< joinFiber
 
+-- Note:
+-- using `Compose` instead of `DeployMPar (ReaderT DeployConfig (ExceptT DeployError ParAff) a)`
+-- to prevent
+-- ```
+--   No type class instance was found for
+--     Data.Monoid.Monoid DeployError
+-- while solving type class constraint
+--   Control.Plus.Plus (ExceptT DeployError ParAff)
+-- ```
+-- because
+-- (Monoid e, Monad m) => Plus (ExceptT e m)
+-- but
+-- (Plus f, Functor g) => Plus (Compose f g)
 newtype DeployMPar a =
   DeployMPar (ReaderT DeployConfig (Compose ParAff (Either DeployError)) a)
 

@@ -161,17 +161,28 @@ makeSolcInput moduleName sourcePath = do
   code <- liftAff $ FS.readTextFile UTF8 sourcePath
   let language = ST.Solidity
       sources = ST.Sources (M.singleton (moduleName <> ".sol") (makeSolcSource code))
-      { cls: requestedContractSelections, fls: requestedFileSelections } = partitionSelectionSpecs spec.solcOutputSelection
-      contractLevelSelections = [ST.ABI, ST.EvmOutputSelection (Just $ ST.BytecodeSelection Nothing), ST.EvmOutputSelection (Just $ ST.DeployedBytecodeSelection Nothing)] <> requestedContractSelections
-      outputSelection = Just $ ST.OutputSelections (M.singleton "*" (ST.OutputSelection { file: requestedFileSelections , contract: M.singleton "*" contractLevelSelections }))
-      depMappings = (\(Dependency dep) -> ST.Remapping { from: dep, to: (project.root <> "/node_modules/" <> dep) }) <$> spec.dependencies
-      sourceDirMapping = [ST.GlobalRemapping { to: (Path.concat [project.root, spec.sourceDir]) }]
+
+      { cls: requestedContractLevelSelections, fls: requestedFileLevelSelections } = partitionSelectionSpecs spec.solcOutputSelection
+      contractLevelSelections =
+        [ ST.ABI
+        , ST.EvmOutputSelection (Just $ ST.BytecodeSelection Nothing)
+        , ST.EvmOutputSelection (Just $ ST.DeployedBytecodeSelection Nothing)
+        ] <> requestedContractLevelSelections
+      outputSelection = Just $ ST.OutputSelections
+        (M.singleton "*"
+          (ST.OutputSelection
+          { file: requestedFileLevelSelections
+          , contract: M.singleton "*" contractLevelSelections
+          })
+        )
+      depMappings = (\(Dependency dep) -> ST.Remapping { from: dep, to: project.root <> "/node_modules/" <> dep }) <$> spec.dependencies
+      sourceDirMapping = [ST.GlobalRemapping { to: Path.concat [project.root, spec.sourceDir] }]
       remappings = sourceDirMapping <> depMappings
       optimizer = spec.solcOptimizerSettings
       evmVersion = spec.solcEvmVersion
       metadata = Nothing
       libraries = Nothing
-      settings = Just (ST.CompilerSettings { remappings, optimizer, evmVersion, metadata, libraries, outputSelection })
+      settings = Just $ ST.CompilerSettings { remappings, optimizer, evmVersion, metadata, libraries, outputSelection }
   pure $ ST.CompilerInput { language, sources, settings }
 
 --------------------------------------------------------------------------------

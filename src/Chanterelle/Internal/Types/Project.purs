@@ -201,6 +201,7 @@ resolveNetworkRefs refs definedNets = case refs of
 
 ---------------------------------------------------------------------
 
+-- NOTE: not used, have no effect, but
 data SolcOutputSelectionSpec = SolcFileLevelSelectionSpec ST.FileLevelSelection
                              | SolcContractLevelSelectionSpec ST.ContractLevelSelection
 derive instance eqSolcOutputSelectionSpec :: Eq SolcOutputSelectionSpec
@@ -254,7 +255,7 @@ instance showChanterelleModuleType :: Show ChanterelleModuleType where
   show LibraryModule = "libary module"
   show ContractModule = "contract module"
 
-data ChanterelleModule =
+newtype ChanterelleModule =
   ChanterelleModule { moduleName      :: String
                     , solContractName :: String
                     , solPath         :: FilePath
@@ -340,7 +341,7 @@ instance decodeJsonChanterelleProjectSpec :: DecodeJson ChanterelleProjectSpec w
             modulePrefix <- obj .:! "module-prefix"     .!= ""
             pure { exprPrefix, modulePrefix, outputPath }
 
-data ChanterelleProject =
+newtype ChanterelleProject =
      ChanterelleProject { root        :: FilePath -- ^ parent directory containing chanterelle.json
                         , srcIn       :: FilePath -- ^ hydrated/absolute path of src dir (root + spec.sourceDir)
                         , jsonOut     :: FilePath -- ^ hydrated/absolute path of jsons dir
@@ -352,7 +353,10 @@ data ChanterelleProject =
                         , solc        :: ChanterelleSolc
                         }
 
-newtype ChanterelleSolc = ChanterelleSolc { solc :: AVar.AVar (Either String SolidityCompiler), loadSolc :: Aff (Either String SolidityCompiler) }
+newtype ChanterelleSolc = ChanterelleSolc
+  { solc :: AVar.AVar (Either String SolidityCompiler)
+  , loadSolc :: Aff (Either String SolidityCompiler)
+  }
 
 getSolc
   :: forall m
