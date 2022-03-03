@@ -20,7 +20,7 @@ import Control.Monad.Reader.Class (class MonadAsk, ask)
 import Data.Bifunctor (lmap)
 import Data.Lens (_Just, (%~), (?~), (^.), (^?))
 import Data.Map as Map
-import Data.Maybe (fromMaybe, isNothing, maybe)
+import Data.Maybe (Maybe, fromMaybe, isNothing, maybe)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (liftEffect)
 import Effect.Ref as Ref
@@ -124,8 +124,8 @@ getContractBytecode lc@{ filepath } = do
   let fullError err = ConfigurationError $ "Couldn't find contract bytecode in artifact " <> filepath <> ": " <> err
   withExceptT' fullError $ do
     artifact <- readArtifact' lc
-    let networkBytecode  = artifact ^? _network networkID <<< _Just <<< _NetworkBytecode
-        compiledBytecode = artifact ^. _code
+    let (networkBytecode :: Maybe ArtifactBytecode)  = artifact ^? _network networkID <<< _Just <<< _NetworkBytecode
+        (compiledBytecode :: ArtifactBytecode) = artifact ^. _code
     pure $ fromMaybe compiledBytecode networkBytecode
 
 
@@ -224,6 +224,7 @@ deployContractAndWriteToArtifact lc@{ filepath, name } deployAction nbc = do
     onDeploymentError err = OnDeploymentError { name, message: "Web3 error while deploying contract: " <> show err }
     postDeploymentError err = PostDeploymentError { name, message: "Failed to update deployed address in artifact at " <> filepath <> ": " <> show err }
 
+-- | Read Artifact from cache OR `loadArtifact'`
 readArtifact'
   :: forall m r
    . MonadAsk DeployConfig m
@@ -236,6 +237,7 @@ readArtifact' lc@{ name, filepath } = do
   cacheVar <- liftEffect $ Ref.read artifactCache
   maybe (loadArtifact' lc) pure $ Map.lookup { name, filepath } cacheVar
 
+-- | Reads json file, parses it, and sets it to cache
 loadArtifact'
   :: forall m r
    . MonadAsk DeployConfig m
@@ -253,6 +255,7 @@ loadArtifact' { name, filepath } = do
   liftEffect $ flip Ref.modify_ artifactCache $ Map.insert { name, filepath } usedArtifact
   pure usedArtifact
 
+-- | Write Artifact to cache and json file
 writeArtifact'
   :: forall m r
    . MonadAsk DeployConfig m

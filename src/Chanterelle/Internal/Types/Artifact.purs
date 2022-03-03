@@ -16,11 +16,11 @@ import Foreign.Object as M
 import Language.Solidity.Compiler.Types as ST
 import Network.Ethereum.Web3 (Address, HexString, BlockNumber)
 
-type ArtifactBytecodeR a = Record
-  ( bytecode :: Bytecode -- type(ContractName).creationCode
+type ArtifactBytecodeR r =
+  { bytecode :: Bytecode -- type(ContractName).creationCode
   , deployedBytecode :: Bytecode -- type(ContractName).runtimeCode
-  | a
-  )
+  | r
+  }
 
 type UndeployedArtifact = ArtifactBytecodeR ()
 type DeployedArtifact = ArtifactBytecodeR
@@ -42,6 +42,9 @@ instance encodeJsonNetworkInfo :: EncodeJson NetworkInfo where
   encodeJson (Undeployed u) = encodeJson u
   encodeJson (Deployed d) = encodeJson d
 
+-- NOTE: `code` may be duplicated in `networks`,
+-- the reason they are separated is that usually they are different,
+-- for example in case ... TODO
 newtype Artifact = Artifact
   { abi :: Array Json
   , code :: ArtifactBytecodeR ()
