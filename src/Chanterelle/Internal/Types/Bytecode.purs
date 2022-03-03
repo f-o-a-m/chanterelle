@@ -22,10 +22,75 @@ import Language.Solidity.Compiler.Types as ST
 import Network.Ethereum.Core.HexString (HexString, fromAscii, mkHexString, unHex)
 import Network.Ethereum.Core.Signatures (Address, unAddress)
 
+-- | What unlinked code means:
+-- |
+-- | ```js
+-- | var solc = require('solc');
+-- |
+-- | input = {
+-- |   language: 'Solidity',
+-- |   settings: {
+-- |     libraries: {
+-- |       'lib.sol': {
+-- |         // Comment this out to make a bytecode with unlinked libraries
+-- |         // L: '0x4200000000000000000000000000000000000001'
+-- |       }
+-- |     },
+-- |     outputSelection: {
+-- |       '*': {
+-- |         '*': ['evm.bytecode']
+-- |       }
+-- |     }
+-- |   },
+-- |   sources: {
+-- |     'lib.sol': {
+-- |       content: 'library L { function f() public returns (uint) { return 7; } }'
+-- |     },
+-- |     'a.sol': {
+-- |       content: 'import "lib.sol"; contract A { function g() public { L.f(); } }'
+-- |     }
+-- |   }
+-- | };
+-- |
+-- | var output = JSON.parse(solc.compile(JSON.stringify(input)))
+-- |
+-- | console.log(output.contracts['a.sol']['A'].evm.bytecode)
+-- | ```
+-- |
+-- | When the line is commented out, it will output unlinked code
+-- |
+-- | ```json
+-- | {
+-- |   linkReferences: { 'lib.sol': { L: [ { length: 20, start: 86 } ] } },
+-- |   object: 'binary...__$7658e08c4e23aceed01ae97f6c6f1bccc3$__...',
+-- |   opcodes: '... PUSH1 0x0 ...',
+-- | }
+-- | ```
+-- |
+-- | When the line is NOT commented out, it will output linked code
+-- |
+-- | ```json
+-- | {
+-- |   linkReferences: {},
+-- |   object: 'binary...4200000000000000000000000000000000000001...',
+-- |   opcodes: '... PUSH20 0x4200000000000000000000000000000000000001 ...',
+-- | }
+-- | ```
+-- |
+-- | For more info check https://github.com/ethereum/solc-js/blob/master/test/linker.ts
+
 type LibraryLinkReferences = ST.ContractMapped (Array ST.LinkReference)
 
-data Bytecode = BCLinked { bytecode :: HexString, linkReferences :: LibraryLinkReferences }
-              | BCUnlinked { rawBytecode :: ST.BytecodeObject, remainingLinkReferences :: LibraryLinkReferences, linkReferences :: LibraryLinkReferences }
+data Bytecode
+  = BCLinked
+    { bytecode :: HexString
+    , linkReferences :: LibraryLinkReferences
+    }
+  | BCUnlinked
+    { rawBytecode :: ST.BytecodeObject
+    , remainingLinkReferences :: LibraryLinkReferences
+    , linkReferences :: LibraryLinkReferences
+    }
 derive instance eqBytecode  :: Eq Bytecode
 derive instance ordBytecode :: Ord Bytecode
 
