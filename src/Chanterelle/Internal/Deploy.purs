@@ -137,7 +137,7 @@ type DeployReceipt r =
 
 type LibraryMeta = (libraryName :: String, libraryAddress :: Address)
 
--- | Deploy a Library. Naturally, there's no contractConfig here...
+-- | Deploy a Library. Naturally, there's no ContractConfig here...
 deployLibrary
   :: forall m
    . MonadThrow DeployError m

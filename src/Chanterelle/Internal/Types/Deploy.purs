@@ -173,21 +173,21 @@ constructorNoArgs txOpts bytecode _ =
   eth_sendTransaction $ txOpts # _data ?~ bytecode
                                # _value ?~ fromMinorUnit zero
 
-type LibraryR r =
+type LibraryConfigR r =
   ( filepath :: FilePath
   , name :: String
   | r
   )
 
-type LibraryConfig r = Record (LibraryR r)
+type LibraryConfig r = Record (LibraryConfigR r)
 
-type ConfigR args = LibraryR
+type ContractConfigR args = LibraryConfigR
   ( constructor :: Constructor args
   , unvalidatedArgs :: V (Array String) (Record args)
   )
 
 -- | Configuration for deployment of a single contract
-type ContractConfig args = Record (ConfigR args)
+type ContractConfig args = Record (ContractConfigR args)
 
 -- | Validation helpers
 validateWithError :: forall a. Maybe a -> String -> V (Array String) a
