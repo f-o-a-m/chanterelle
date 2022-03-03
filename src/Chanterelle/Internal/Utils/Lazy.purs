@@ -7,7 +7,7 @@ import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 
--- runs single task at a time
+-- NOTE: runs single task at a time, returns Right on first success
 firstSuccess :: forall m a e b
               . MonadAff m
              => Array a

@@ -44,7 +44,7 @@ generatePS = do
           log Error $ "while parsing abi type of object at index: " <> show err.idx <> " from: " <> mod.jsonPath <> " got error: " <> printJsonDecodeError err.error
           pure Nothing
         Right x -> pure $ Just x
-      let psModule = PSWeb3Gen.generateCodeFromAbi (projectPSArgs p) (catMaybes abi) mod.moduleName
+      let psModule = PSWeb3Gen.generateCodeFromAbi psArgs (catMaybes abi) mod.moduleName
       assertDirectory' (Path.dirname mod.pursPath)
       log Info $ "writing PureScript bindings for " <> mod.moduleName
       liftAff $ FS.writeTextFile UTF8 mod.pursPath psModule

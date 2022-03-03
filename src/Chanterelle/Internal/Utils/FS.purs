@@ -94,7 +94,7 @@ writeTextFile
 writeTextFile filename contents = catchingAff wrapInternalWrite
   where wrapInternalWrite = liftEffect <<< FSInternal.mkEffect $ \_ -> runFn3
           FSInternal.unsafeRequireFS.writeFileSync filename contents { encoding: show UTF8, flag: writeSyncFlag }
-
+        -- Equal to "w+" + O_SYNC
         writeSyncFlag =     FSInternal.unsafeRequireFS."O_TRUNC"
                         .|. FSInternal.unsafeRequireFS."O_CREAT"
                         .|. FSInternal.unsafeRequireFS."O_RDWR"

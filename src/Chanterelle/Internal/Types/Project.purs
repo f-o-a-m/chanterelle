@@ -321,16 +321,16 @@ instance decodeJsonChanterelleProjectSpec :: DecodeJson ChanterelleProjectSpec w
     version               <- obj .:  "version"
     sourceDir             <- obj .:  "source-dir"
     artifactsDir          <- obj .:! "artifacts-dir" .!= "build"
-    libArtifactsDir       <- obj .:! "library-artifacts-dir" .!= (Path.concat [artifactsDir, "libraries"])
+    libArtifactsDir       <- obj .:! "library-artifacts-dir" .!= (Path.concat [artifactsDir, "libraries"]) -- TODO(srghma): document
     modules               <- obj .:  "modules"
     dependencies          <- obj .:! "dependencies" .!= mempty
-    extraAbis             <- obj .:! "extra-abis"
+    extraAbis             <- obj .:! "extra-abis" -- TODO(srghma): document
     libraries             <- obj .:! "libraries" .!= mempty
     networks              <- obj .:! "networks" .!= mempty
     solcVersion           <- obj .:! "solc-version"
     solcOptimizerSettings <- obj .:! "solc-optimizer"
     solcOutputSelection   <- obj .:! "solc-output-selection" .!= mempty
-    solcEvmVersion        <- obj .:! "solc-evm-version"
+    solcEvmVersion        <- obj .:! "solc-evm-version" -- TODO(srghma): document
     psGen                 <- psGenDecode =<< obj .: "purescript-generator"
     pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, libArtifactsDir, modules, dependencies, extraAbis, libraries, networks, psGen, solcVersion, solcEvmVersion, solcOptimizerSettings, solcOutputSelection }
 
