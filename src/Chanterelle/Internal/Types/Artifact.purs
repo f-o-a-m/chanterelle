@@ -7,7 +7,7 @@ import Control.Alt ((<|>))
 import Data.Argonaut (class DecodeJson, class EncodeJson, Json, decodeJson, encodeJson, printJsonDecodeError)
 import Data.Bifunctor (lmap)
 import Data.Either (Either, note)
-import Data.Lens (Lens', Getter', lens', to)
+import Data.Lens (Lens', Getter', lens', lens, to)
 import Data.Lens.At (at)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
@@ -94,15 +94,18 @@ _network :: Int -> Lens' Artifact (Maybe NetworkInfo)
 _network nid = _networks <<< at (show nid)
 
 -- Note that modifying bytecode with this Lens automatically makes your NetworkInfo undeployed...
+-- TODO: the toNI is not used, so Lens' can be replaced with Getter'
 _NetworkBytecode :: Lens' NetworkInfo ArtifactBytecode
-_NetworkBytecode = lens' $ \ni -> Tuple (fromNI ni) (toNI ni)
-  where fromNI (Deployed { bytecode, deployedBytecode }) = ArtifactBytecode { bytecode, deployedBytecode }
-        fromNI (Undeployed u) = ArtifactBytecode u
-        toNI d@(Deployed o) (ArtifactBytecode n)  =
-          if o.bytecode == n.bytecode && o.deployedBytecode == n.deployedBytecode
-          then d
-          else Undeployed n
-        toNI _ (ArtifactBytecode u) = Undeployed u
+_NetworkBytecode = lens fromNI toNI
+  where
+    fromNI (Deployed { bytecode, deployedBytecode }) = ArtifactBytecode { bytecode, deployedBytecode }
+    fromNI (Undeployed u) = ArtifactBytecode u
+
+    toNI d@(Deployed o) (ArtifactBytecode n)  =
+      if o.bytecode == n.bytecode && o.deployedBytecode == n.deployedBytecode
+      then d
+      else Undeployed n
+    toNI _ (ArtifactBytecode u) = Undeployed u
 
 _Deployed :: Getter' NetworkInfo (Maybe DeployedArtifact)
 _Deployed = to $

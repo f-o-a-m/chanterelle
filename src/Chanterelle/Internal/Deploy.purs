@@ -245,13 +245,12 @@ loadArtifact'
   -> m Artifact
 loadArtifact' { name, filepath } = do
   DeployConfig { artifactCache, ignoreNetworksInArtifact } <- ask
-  cacheVar <- liftEffect $ Ref.read artifactCache
   loadedArtifact@(Artifact la) <- Artifact.readArtifact filepath
   let usedArtifact =
         if ignoreNetworksInArtifact
         then Artifact $ la { networks = FO.empty }
         else loadedArtifact
-  liftEffect $ flip Ref.write artifactCache $ Map.insert { name, filepath } usedArtifact cacheVar
+  liftEffect $ flip Ref.modify_ artifactCache $ Map.insert { name, filepath } usedArtifact
   pure usedArtifact
 
 writeArtifact'
@@ -264,9 +263,7 @@ writeArtifact'
   -> m Unit
 writeArtifact' { name, filepath } artifact = do
   DeployConfig { artifactCache, writeArtifacts } <- ask
-  cacheVar <- liftEffect $ Ref.read artifactCache
-  let newCache = Map.insert { name, filepath } artifact cacheVar
-  liftEffect $ Ref.write newCache artifactCache
+  liftEffect $ flip Ref.modify_ artifactCache $ Map.insert { name, filepath } artifact
   when writeArtifacts $ Artifact.writeArtifact filepath artifact
 
 updateArtifact'
