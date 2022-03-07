@@ -19,12 +19,12 @@ import Effect.Class (liftEffect)
 import Node.Path (resolve)
 import Node.Process (cwd, exit)
 
-data SelectCLI (a :: Type) (b :: Type) = SelectCLI a
+data SelectCLI (a :: Type) (b :: Type) = SelectCLI a -- for CLI - String
 
-data SelectPS (a :: Type) (b :: Type) = SelectPS b
+data SelectPS (a :: Type) (b :: Type) = SelectPS b -- for PS - DeployM Unit
 
-instance showSelectDeployM :: Show (SelectPS a (DeployM Unit)) where show (SelectPS _ ) = "<DeployM Unit>"
-instance showSelectDeployPath :: Show a => Show (SelectCLI a b) where show (SelectCLI a ) = show a
+instance showSelectDeployM :: Show (SelectPS a (DeployM Unit)) where show (SelectPS _) = "<DeployM Unit>"
+instance showSelectDeployPath :: Show a => Show (SelectCLI a b) where show (SelectCLI a) = show a
 
 type ArgsCLI = Args' SelectCLI
 type Args = Args' SelectPS
@@ -33,7 +33,7 @@ derive instance genericArgs :: Generic (Args' s) _
 instance showArgs :: Show (DeployOptions s) => Show (Args' s) where show = genericShow
 
 type DirPath = String
-data CommonOpts = CommonOpts
+newtype CommonOpts = CommonOpts
   { optVerbosity :: String
   , rootPath :: DirPath
   }
