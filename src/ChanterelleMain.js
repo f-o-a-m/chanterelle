@@ -5,7 +5,7 @@ exports.loadDeployMFromScriptPath = function (filePath) {
   return function () {
     var scriptPath = path.isAbsolute(filePath) ? filePath : path.join (process.cwd(), filePath);
     var script = require(scriptPath).deploy
-    if (script == undefined) {
+    if (typeof script !== 'function') {
       throw "Deploy script is invalid or module does not export a \"deploy\" function: " + scriptPath
     }
     return script;
