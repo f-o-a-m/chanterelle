@@ -46,6 +46,7 @@
   , "validation"
   , "web3"
   , "web3-generator"
+  , "open-mkdirp-aff"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs" ]

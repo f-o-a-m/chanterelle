@@ -19,6 +19,7 @@ import Node.FS.Internal as FSInternal
 import Node.FS.Stats as Stats
 import Node.Path (FilePath)
 import Node.Path as Path
+import Node.FS.Aff.Mkdirp (mkdirp)
 
 unparsePath
   :: forall p
@@ -39,14 +40,12 @@ assertDirectory
 assertDirectory dn = do
   dnExists <- liftAff $ FS.exists dn
   if not dnExists
-    then log Debug ("creating directory " <> dn) *> (liftEffect $ mkdirp dn)
+    then log Debug ("creating directory " <> dn) *> (void $ liftAff $ mkdirp dn)
     else do
       isDir <- liftAff (Stats.isDirectory <$> FS.stat dn)
       if not isDir
         then throwError ("Path " <> dn <> " exists but is not a directory!")
         else log Debug ("path " <>  dn <> " exists and is a directory")
-
-foreign import mkdirp ::String -> Effect Unit
 
 assertDirectory'
   :: forall m
