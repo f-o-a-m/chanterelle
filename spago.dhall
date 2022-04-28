@@ -25,6 +25,7 @@ You can edit this file as you like.
   , "functors"
   , "identity"
   , "integers"
+  , "language-cst-codegen"
   , "logging"
   , "maybe"
   , "newtype"
