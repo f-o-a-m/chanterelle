@@ -1,7 +1,8 @@
 "use strict";
 
-var path = require('path')
-exports.loadDeployMFromScriptPath = function (filePath) {
+import path from "path";
+
+export const loadDeployMFromScriptPath = function (filePath) {
   return function () {
     var scriptPath = path.isAbsolute(filePath) ? filePath : path.join (process.cwd(), filePath);
     var script = require(scriptPath).deploy
@@ -12,11 +13,11 @@ exports.loadDeployMFromScriptPath = function (filePath) {
   };
 };
 
-exports.version_ = function search(searchPaths) {
+export const version_ = function search(searchPaths) {
   function tryPath(path) { try { return require(path).version; } catch (e) { } }
   function tryPackageJson() { try { var p = require('../../package.json'); if (p.name === 'chanterelle') { return p.version; } } catch (e) { } }
   const path = searchPaths.shift();
   return (path && (tryPath(path) || search(searchPaths))) || tryPackageJson() || "<version unknown>";
 }(["../../node_modules/chanterelle/package.json"]);
 
-exports.is_global_ = process.env['CHNTRL_IS_GLOBAL'] === 'yes'
+export const is_global_ = process.env['CHNTRL_IS_GLOBAL'] === 'yes'

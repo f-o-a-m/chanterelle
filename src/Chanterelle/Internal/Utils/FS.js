@@ -1,9 +1,10 @@
 "use strict";
 
-var mkdirp = require("mkdirp");
-
-exports.mkdirp = function (dir) {
-  return function() {
-    return mkdirp.sync(dir);
-  };
-};
+export {
+  O_TRUNC as _O_TRUNC,
+  O_CREAT as _O_CREAT,
+  O_RDWR as _O_RDWR,
+  O_SYNC as _O_SYNC,
+  readFileSync,
+  writeFileSync
+} from "node:fs";

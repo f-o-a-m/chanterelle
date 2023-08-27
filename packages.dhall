@@ -164,13 +164,12 @@ let additions =
           , "effect"
           , "node-path"
           , "prelude"
-          , "psci-support"
           , "web3"
           ]
         , repo =
             "https://github.com/f-o-a-m/purescript-solc"
         , version =
-            "v3.0.0"
+            "bb838bd33c82238cb069cf19a6acec47b912007d"
         }
       , errors =
         { dependencies =
@@ -210,14 +209,9 @@ let additions =
         , version = "v3.0.0"
         }
       , tagged =
-        { dependencies =
-            [ "identity"
-            , "profunctor"
-            ]
-        , repo =
-            "https://github.com/kejace/purescript-tagged"
-        , version =
-            "v0.14"
+        { dependencies = [ "identity", "profunctor" ]
+        , repo = "https://github.com/LiamGoodacre/purescript-tagged"
+        , version = "v4.0.2"
         }
       , language-cst-parser =
         { dependencies =
