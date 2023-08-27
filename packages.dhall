@@ -202,7 +202,7 @@ let additions =
         , repo =
             "https://github.com/f-o-a-m/purescript-mkdirp"
         , version =
-            "v1.0.0"
+            "v2.0.0"
         }
       , quotient =
         { dependencies = [ "prelude", "quickcheck" ]
