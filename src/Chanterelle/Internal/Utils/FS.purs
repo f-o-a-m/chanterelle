@@ -29,13 +29,13 @@ foreign import _O_SYNC :: Int
 
 unparsePath
   :: forall p
-   . { dir  :: String
+   . { dir :: String
      , name :: String
-     , ext  :: String
+     , ext :: String
      | p
      }
   -> Path.FilePath
-unparsePath p = Path.concat [p.dir, p.name <> p.ext]
+unparsePath p = Path.concat [ p.dir, p.name <> p.ext ]
 
 assertDirectory
   :: forall m
@@ -51,9 +51,8 @@ assertDirectory dn = do
       log Debug ("creating directory " <> dn)
       liftEffect $ mkdirp dn
     Right stats ->
-      if not (Stats.isDirectory stats)
-        then throwError ("Path " <> dn <> " exists but is not a directory!")
-        else log Debug ("path " <>  dn <> " exists and is a directory")
+      if not (Stats.isDirectory stats) then throwError ("Path " <> dn <> " exists but is not a directory!")
+      else log Debug ("path " <> dn <> " exists and is a directory")
 
 assertDirectory'
   :: forall m
@@ -91,8 +90,8 @@ readTextFile
   -> m String
 readTextFile filename = catchingAff wrapInternalRead
   where
-    wrapInternalRead = liftEffect $ runEffectFn2 readFileSync filename opts
-    opts = { encoding: show UTF8, flag: "rs+" }
+  wrapInternalRead = liftEffect $ runEffectFn2 readFileSync filename opts
+  opts = { encoding: show UTF8, flag: "rs+" }
 
 writeTextFile
   :: forall m
@@ -102,9 +101,10 @@ writeTextFile
   -> String
   -> m Unit
 writeTextFile filename contents = catchingAff wrapInternalWrite
-  where wrapInternalWrite = liftEffect $ runEffectFn3 writeFileSync filename contents opts
-        opts = { encoding: show UTF8, flag: writeSyncFlag }
-        writeSyncFlag = _O_TRUNC .|. _O_CREAT .|. _O_RDWR .|. _O_SYNC
+  where
+  wrapInternalWrite = liftEffect $ runEffectFn3 writeFileSync filename contents opts
+  opts = { encoding: show UTF8, flag: writeSyncFlag }
+  writeSyncFlag = _O_TRUNC .|. _O_CREAT .|. _O_RDWR .|. _O_SYNC
 
 withTextFile
   :: forall m
@@ -114,8 +114,9 @@ withTextFile
   -> (String -> m String)
   -> m Unit
 withTextFile filename action = withTextFile' filename wrapper
-  where wrapper = map toResult <<< action
-        toResult contents = { contents, result: unit }
+  where
+  wrapper = map toResult <<< action
+  toResult contents = { contents, result: unit }
 
 withTextFile'
   :: forall m a
@@ -125,6 +126,6 @@ withTextFile'
   -> (String -> m { contents :: String, result :: a })
   -> m a
 withTextFile' filename action = do
-  oldContents <-  readTextFile filename
-  {contents, result} <- action oldContents
+  oldContents <- readTextFile filename
+  { contents, result } <- action oldContents
   writeTextFile filename contents *> pure result

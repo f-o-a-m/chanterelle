@@ -42,7 +42,7 @@ makeDeployConfig url tout = do
   provider <- Web3.makeProvider url
   makeDeployConfigWithProvider provider tout
 
-makeDeployConfigWithProvider 
+makeDeployConfigWithProvider
   :: forall m
    . MonadAff m
   => MonadThrow DeployError m
@@ -50,13 +50,15 @@ makeDeployConfigWithProvider
   -> Int
   -> m DeployConfig
 makeDeployConfigWithProvider provider tout =
-  let timeout = Milliseconds (toNumber tout)
-      toError = ConfigurationError <<< append "Couldn't create DeployConfig: " <<< show
-   in catchingAff' toError $ runWeb3 provider do
-        primaryAccount <- Web3.getPrimaryAccount
-        networkID <- Web3.getNetworkID
-        artifactCache <- liftEffect $ Ref.new Map.empty
-        pure $ DeployConfig {provider, primaryAccount, networkID, timeout, ignoreNetworksInArtifact: false, writeArtifacts: true, artifactCache }
+  let
+    timeout = Milliseconds (toNumber tout)
+    toError = ConfigurationError <<< append "Couldn't create DeployConfig: " <<< show
+  in
+    catchingAff' toError $ runWeb3 provider do
+      primaryAccount <- Web3.getPrimaryAccount
+      networkID <- Web3.getNetworkID
+      artifactCache <- liftEffect $ Ref.new Map.empty
+      pure $ DeployConfig { provider, primaryAccount, networkID, timeout, ignoreNetworksInArtifact: false, writeArtifacts: true, artifactCache }
 
 -- | try an aff action for the specified amount of time before giving up.
 withTimeout
@@ -65,8 +67,10 @@ withTimeout
   -> Aff a
   -> Aff a
 withTimeout maxTimeout action =
-  let timeout = delay maxTimeout *> throwError (error "timed out")
-   in parOneOf [action, timeout]
+  let
+    timeout = delay maxTimeout *> throwError (error "timed out")
+  in
+    parOneOf [ action, timeout ]
 
 attemptWithTimeout
   :: forall a
@@ -81,6 +85,8 @@ validateDeployArgs
   => ContractConfig args
   -> m (Record args)
 validateDeployArgs cfg =
-  let onErr msg = throwError $ ConfigurationError ("Couldn't validate args for contract deployment " <> cfg.name <> ": " <> show msg)
-      onSucc = pure
-  in validation onErr onSucc cfg.unvalidatedArgs
+  let
+    onErr msg = throwError $ ConfigurationError ("Couldn't validate args for contract deployment " <> cfg.name <> ": " <> show msg)
+    onSucc = pure
+  in
+    validation onErr onSucc cfg.unvalidatedArgs

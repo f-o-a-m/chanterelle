@@ -31,8 +31,8 @@ import Type.Proxy (Proxy)
 -- | Run a `Web3` action which will dispatch a single event, wait for the event,
 -- | then return the action's result and the event.
 takeEvent
-  :: forall a ev i ni.
-     DecodeEvent i ni ev
+  :: forall a ev i ni
+   . DecodeEvent i ni ev
   => Show ev
   => EventFilter ev
   => Proxy ev
@@ -51,8 +51,8 @@ takeEvent prx addrs web3Action = do
 
 -- | Assert the `Web3` action's result, crash the program if it doesn't succeed.
 assertWeb3
-  :: forall a.
-     Provider
+  :: forall a
+   . Provider
   -> Web3 a
   -> Aff a
 assertWeb3 provider a = runWeb3 provider a <#> case _ of
@@ -72,10 +72,10 @@ type TestConfigR r =
 -- | on a node. Note, deploy results must lack keys "accounts" and "provider".
 buildTestConfig
   :: forall r
-  . Row.Union
-      r
-      (TestConfigR ())
-      (TestConfigR r)
+   . Row.Union
+       r
+       (TestConfigR ())
+       (TestConfigR r)
   => Row.Nub (TestConfigR r) (TestConfigR r)
   => String
   -> Int
@@ -86,8 +86,9 @@ buildTestConfig url timeout deployScript = do
   case edeployConfig of
     Left err -> logDeployError err *> (liftEffect $ throw "Couldn't make deploy config for tests!")
     Right (DeployConfig baseDeployConfig) -> do
-      let provider = baseDeployConfig.provider
-          deployConfig = DeployConfig $ baseDeployConfig { writeArtifacts = false, ignoreNetworksInArtifact = true }
+      let
+        provider = baseDeployConfig.provider
+        deployConfig = DeployConfig $ baseDeployConfig { writeArtifacts = false, ignoreNetworksInArtifact = true }
       eDeployResults <- flip runDeployM deployConfig $ do
         eaccounts <- liftAff $ runWeb3 provider eth_getAccounts
         accounts <- either (\err -> throwError <<< ConfigurationError $ "Couldn't find accounts for tests " <> show err) pure eaccounts
@@ -96,5 +97,7 @@ buildTestConfig url timeout deployScript = do
       case eDeployResults of
         Left err -> logDeployError err *> (liftEffect $ throw "Error during deployment!")
         Right (Tuple accounts results) ->
-          let base = {accounts, provider}
-          in pure $ build (merge base) results
+          let
+            base = { accounts, provider }
+          in
+            pure $ build (merge base) results

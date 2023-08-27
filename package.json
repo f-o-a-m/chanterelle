@@ -8,7 +8,9 @@
     "global-postinstall-non-root": "spago install",
     "build": "spago build",
     "docs": "cd docs; make html;",
-    "postinstall": "echo 'If you are installing chanterelle to use globally, you likely want to run `chanterelle global-postinstall`.'"
+    "postinstall": "echo 'If you are installing chanterelle to use globally, you likely want to run `chanterelle global-postinstall`.'",
+    "tidy": "purs-tidy format-in-place \"src/**/*.purs\" \"test/**/*.purs\"",
+    "tidy-check": "purs-tidy check \"src/**/*.purs\" \"test/**/*.purs\""
   },
   "dependencies": {
     "purescript": "^0.15.8",

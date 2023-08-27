@@ -24,15 +24,17 @@ type ArtifactBytecodeR a = Record
 
 type UndeployedArtifact = ArtifactBytecodeR ()
 type DeployedArtifact = ArtifactBytecodeR
-  ( address         :: Address
-  , blockHash       :: HexString
-  , blockNumber     :: BlockNumber
+  ( address :: Address
+  , blockHash :: HexString
+  , blockNumber :: BlockNumber
   , transactionHash :: HexString
   )
 
-data NetworkInfo = Undeployed UndeployedArtifact
-                 | Deployed DeployedArtifact
-derive instance eqNetworkInfo  :: Eq NetworkInfo
+data NetworkInfo
+  = Undeployed UndeployedArtifact
+  | Deployed DeployedArtifact
+
+derive instance eqNetworkInfo :: Eq NetworkInfo
 derive instance ordNetworkInfo :: Ord NetworkInfo
 
 instance decodeJsonNetworkInfo :: DecodeJson NetworkInfo where
@@ -48,6 +50,7 @@ newtype Artifact = Artifact
   , lastModified :: Number
   , networks :: M.Object NetworkInfo
   }
+
 derive instance eqArtifact :: Eq Artifact
 derive instance ordArtifact :: Ord Artifact
 derive instance newtypeArtifact :: Newtype Artifact _
@@ -55,8 +58,9 @@ derive newtype instance decodeJsonArtifact :: DecodeJson Artifact
 derive newtype instance encodeJsonArtifact :: EncodeJson Artifact
 
 newtype ArtifactBytecode = ArtifactBytecode (ArtifactBytecodeR ())
+
 derive instance newtypeArtifactBytecode :: Newtype ArtifactBytecode _
-derive newtype instance eqArtifactBytecode  :: Eq ArtifactBytecode
+derive newtype instance eqArtifactBytecode :: Eq ArtifactBytecode
 derive newtype instance ordArtifactBytecode :: Ord ArtifactBytecode
 derive newtype instance decodeJsonArtifactBytecode :: DecodeJson ArtifactBytecode
 derive newtype instance encodeJsonArtifactBytecode :: EncodeJson ArtifactBytecode
@@ -96,13 +100,13 @@ _network nid = _networks <<< at (show nid)
 -- Note that modifying bytecode with this Lens automatically makes your NetworkInfo undeployed...
 _NetworkBytecode :: Lens' NetworkInfo ArtifactBytecode
 _NetworkBytecode = lens' $ \ni -> Tuple (fromNI ni) (toNI ni)
-  where fromNI (Deployed { bytecode, deployedBytecode }) = ArtifactBytecode { bytecode, deployedBytecode }
-        fromNI (Undeployed u) = ArtifactBytecode u
-        toNI d@(Deployed o) (ArtifactBytecode n)  =
-          if o.bytecode == n.bytecode && o.deployedBytecode == n.deployedBytecode
-          then d
-          else Undeployed n
-        toNI _ (ArtifactBytecode u) = Undeployed u
+  where
+  fromNI (Deployed { bytecode, deployedBytecode }) = ArtifactBytecode { bytecode, deployedBytecode }
+  fromNI (Undeployed u) = ArtifactBytecode u
+  toNI d@(Deployed o) (ArtifactBytecode n) =
+    if o.bytecode == n.bytecode && o.deployedBytecode == n.deployedBytecode then d
+    else Undeployed n
+  toNI _ (ArtifactBytecode u) = Undeployed u
 
 _Deployed :: Getter' NetworkInfo (Maybe DeployedArtifact)
 _Deployed = to $

@@ -26,85 +26,93 @@ versionString = "Chanterelle " <> version_ <> "\n" <> "Default Solc " <> Solc.ve
 
 version :: forall a. Parser (a -> a)
 version = infoOption versionString
-  (  long "version"
-  <> help "Print version information" )
+  ( long "version"
+      <> help "Print version information"
+  )
 
 parser :: Boolean -> DirPath -> Parser ArgsCLI
 parser isGlobal cwd' = ado
   opts <- commonOpts cwd'
   cmds <- hsubparser
-            ( command "build"
-              (info (pure Build)
-                    (progDesc "Build project (compile and codegen)"))
-           <> command "compile"
-              (info (pure Compile)
-                    (progDesc "Compile project"))
-           <> command "codegen"
-              (info (pure Codegen)
-                    (progDesc "Generate PureScript"))
-           <> ( if isGlobal
-                then command "deploy"
-                       (info (GlobalDeploy <$> deployParser)
-                        (progDesc "Run a deploy script -- disabled as chanterelle is running from a global installation"))
-                else command "deploy"
-                       (info (Deploy <$> deployParser)
-                        (progDesc "Run a deploy script"))
-             )
-           )
+    ( command "build"
+        ( info (pure Build)
+            (progDesc "Build project (compile and codegen)")
+        )
+        <> command "compile"
+          ( info (pure Compile)
+              (progDesc "Compile project")
+          )
+        <> command "codegen"
+          ( info (pure Codegen)
+              (progDesc "Generate PureScript")
+          )
+        <>
+          ( if isGlobal then command "deploy"
+              ( info (GlobalDeploy <$> deployParser)
+                  (progDesc "Run a deploy script -- disabled as chanterelle is running from a global installation")
+              )
+            else command "deploy"
+              ( info (Deploy <$> deployParser)
+                  (progDesc "Run a deploy script")
+              )
+          )
+    )
   in Args' opts cmds
 
 deployParser :: Parser (DeployOptions SelectCLI)
 deployParser = ado
   nodeURL <- strOption
-            ( long "node-url"
-           <> metavar "URL"
-           <> value "http://localhost:8545"
-           <> help "node URL" )
+    ( long "node-url"
+        <> metavar "URL"
+        <> value "http://localhost:8545"
+        <> help "node URL"
+    )
   timeout <- option int
-            ( long "timeout"
-           <> metavar "SECOND"
-           <> value 60
-           <> help "timeout in seconds")
+    ( long "timeout"
+        <> metavar "SECOND"
+        <> value 60
+        <> help "timeout in seconds"
+    )
   script <- SelectCLI <$> argument str
-            ( metavar "FILE"
-           <> helpDoc (Just $ text "path to compiled output of a module with signature: " </> indent 2 (text "{ deploy :: DeployM Unit }")))
-  in DeployOptions {nodeURL, timeout, script}
-
+    ( metavar "FILE"
+        <> helpDoc (Just $ text "path to compiled output of a module with signature: " </> indent 2 (text "{ deploy :: DeployM Unit }"))
+    )
+  in DeployOptions { nodeURL, timeout, script }
 
 commonOpts :: DirPath -> Parser CommonOpts
-commonOpts cwd' = map CommonOpts $ {optVerbosity:_, rootPath:_}
+commonOpts cwd' = map CommonOpts $ { optVerbosity: _, rootPath: _ }
   <$> strOption
-      ( short 'v'
-     <> long "verbosity"
-     <> metavar "LEVEL"
-     <> help "The level of logging"
-     <> value "info" )
+    ( short 'v'
+        <> long "verbosity"
+        <> metavar "LEVEL"
+        <> help "The level of logging"
+        <> value "info"
+    )
   <*> strOption
-      ( short 'r'
-     <> long "project-root"
-     <> metavar "ROOT"
-     <> help "Override the default project root"
-     <> value cwd' )
-
+    ( short 'r'
+        <> long "project-root"
+        <> metavar "ROOT"
+        <> help "Override the default project root"
+        <> value cwd'
+    )
 
 pinfo :: DirPath -> ParserInfo ArgsCLI
 pinfo cwd' = info ((parser is_global_ cwd') <**> (lift2 (>>>) version helper))
-  ( progDesc $ "A more functional truffle" <> (if is_global_ then " !! USING GLOBAL INSTALL -- `deploy` NOT AVAILABLE !!" else mempty) )
+  (progDesc $ "A more functional truffle" <> (if is_global_ then " !! USING GLOBAL INSTALL -- `deploy` NOT AVAILABLE !!" else mempty))
 
 main :: Effect Unit
 main = launchAff_ do
   ourCwd <- liftEffect $ cwd
   args <- liftEffect $ customExecParser (prefs showHelpOnEmpty) (pinfo ourCwd)
-  res <- runExceptT $ flip traverseDeployOptions args \(DeployOptions {nodeURL, timeout, script: SelectCLI scriptPath}) -> do
-    script <- if is_global_
-              then pure (pure unit)
-              else ExceptT $ try (liftEffect $ loadDeployMFromScriptPath scriptPath)
-    pure $ DeployOptions {nodeURL, timeout, script: SelectPS script}
+  res <- runExceptT $ flip traverseDeployOptions args \(DeployOptions { nodeURL, timeout, script: SelectCLI scriptPath }) -> do
+    script <-
+      if is_global_ then pure (pure unit)
+      else ExceptT $ try (liftEffect $ loadDeployMFromScriptPath scriptPath)
+    pure $ DeployOptions { nodeURL, timeout, script: SelectPS script }
   case res of
     Left err -> do
       log Error $ "Couldn't load deploy script. " <> show err
     Right args' -> chanterelle args'
 
 foreign import loadDeployMFromScriptPath :: String -> Effect (DeployM Unit)
-
 

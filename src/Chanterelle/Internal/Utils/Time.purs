@@ -11,4 +11,3 @@ foreign import toEpoch :: Time -> Milliseconds
 
 foreign import toISOString :: Time -> String
 
-

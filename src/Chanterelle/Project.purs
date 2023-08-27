@@ -33,27 +33,29 @@ mkProjectSolc
 mkProjectSolc version artifactPath = runExceptT $
   case version of
     Nothing -> useCompiler { compilerOrigin: "Default", compiler: Solc.defaultCompiler }
-    Just v  -> fetchOrCacheCompiler v >>= useCompiler
-  where useCompiler { compilerOrigin, compiler } = do
-          log Info $ compilerOrigin <> " compiler's reported version is " <> Solc.version compiler
-          pure compiler
-        fetchOrCacheCompiler v = do
-          let compilerCacheDirectory = Path.concat [ artifactPath, "__compiler"]
-              compilerCacheFile = Path.concat [ compilerCacheDirectory, v]
-          cacheAttempt <- runExceptT (readTextFile compilerCacheFile)
-          case cacheAttempt of
-            Right src -> do
-              log Info $ "Using cached solc " <> v <> " at " <> compilerCacheFile
-              let compiler = Solc.useCompiler src
-              pure { compilerOrigin: "Cached", compiler }
-            Left _ -> do
-              log Info $ "Downloading solc " <> v <> " to " <> compilerCacheFile
-              assertDirectory compilerCacheDirectory
-              source <- ExceptT $ SolcReleases.getReleaseSource SolcReleases.defaultReleaseRepo v
-              writeTextFile compilerCacheFile source
-              log Info $ "solc " <> v <> " download completed..."
-              let compiler = Solc.useCompiler source
-              pure { compilerOrigin: "Downloaded", compiler }
+    Just v -> fetchOrCacheCompiler v >>= useCompiler
+  where
+  useCompiler { compilerOrigin, compiler } = do
+    log Info $ compilerOrigin <> " compiler's reported version is " <> Solc.version compiler
+    pure compiler
+  fetchOrCacheCompiler v = do
+    let
+      compilerCacheDirectory = Path.concat [ artifactPath, "__compiler" ]
+      compilerCacheFile = Path.concat [ compilerCacheDirectory, v ]
+    cacheAttempt <- runExceptT (readTextFile compilerCacheFile)
+    case cacheAttempt of
+      Right src -> do
+        log Info $ "Using cached solc " <> v <> " at " <> compilerCacheFile
+        let compiler = Solc.useCompiler src
+        pure { compilerOrigin: "Cached", compiler }
+      Left _ -> do
+        log Info $ "Downloading solc " <> v <> " to " <> compilerCacheFile
+        assertDirectory compilerCacheDirectory
+        source <- ExceptT $ SolcReleases.getReleaseSource SolcReleases.defaultReleaseRepo v
+        writeTextFile compilerCacheFile source
+        log Info $ "solc " <> v <> " download completed..."
+        let compiler = Solc.useCompiler source
+        pure { compilerOrigin: "Downloaded", compiler }
 
 loadProject
   :: forall m
@@ -62,7 +64,7 @@ loadProject
   => FilePath
   -> m ChanterelleProject
 loadProject root = do
-  let fullChanterelleJsonPath = (Path.concat [root, "chanterelle.json"])
+  let fullChanterelleJsonPath = (Path.concat [ root, "chanterelle.json" ])
   specModTime <- do
     especModTime <- liftAff <<< attempt $ fileModTime fullChanterelleJsonPath
     either (const $ throwError $ error "Error reading chanterelle.json, make sure this file exists.") pure especModTime
@@ -72,29 +74,34 @@ loadProject root = do
     case AP.jsonParser specJson >>= lmap printJsonDecodeError <<< A.decodeJson of
       Left err -> throwError $ error $ "Error parsing chanterelle.json: " <> err
       Right a -> pure a
-  let (Libraries libs) = project.libraries
-      jsonOut    = Path.concat [root, project.artifactsDir]
-      libJsonOut = Path.concat [root, project.libArtifactsDir]
-      psOut      = Path.concat [root, project.psGen.outputPath]
-      srcIn      = Path.concat [root, project.sourceDir]
-      modules    = mkModule <$> project.modules
-      libModules = mkLibModule <$> libs
-      mkModule moduleName =
-        let solPath      = Path.concat [srcIn, pathModName <> ".sol"]
-            jsonPath     = Path.concat [jsonOut, pathModName <> ".json"]
-            pursPath     = Path.concat [psOut, psModBase, pathModName <> ".purs"]
-            solContractName = fromMaybe moduleName <<< last $ split (Pattern ".") moduleName
-            pathModName = replaceAll (Pattern ".") (Replacement Path.sep) moduleName
-            psModBase = replaceAll (Pattern ".") (Replacement Path.sep) project.psGen.modulePrefix
-            moduleType = ContractModule
-         in ChanterelleModule { moduleName, solContractName, moduleType, solPath, jsonPath, pursPath }
-      mkLibModule (Library lib) =
-        let solPath  = Path.concat [fromMaybe "" lib.sourceRoot, lib.sourceFile]
-            jsonPath = Path.concat [libJsonOut, lib.name <> ".json"]
-            pursPath = ""
-            moduleName = lib.name
-            solContractName = moduleName
-            moduleType = LibraryModule
-        in ChanterelleModule { moduleName, solContractName, moduleType, solPath, jsonPath, pursPath }
+  let
+    (Libraries libs) = project.libraries
+    jsonOut = Path.concat [ root, project.artifactsDir ]
+    libJsonOut = Path.concat [ root, project.libArtifactsDir ]
+    psOut = Path.concat [ root, project.psGen.outputPath ]
+    srcIn = Path.concat [ root, project.sourceDir ]
+    modules = mkModule <$> project.modules
+    libModules = mkLibModule <$> libs
+    mkModule moduleName =
+      let
+        solPath = Path.concat [ srcIn, pathModName <> ".sol" ]
+        jsonPath = Path.concat [ jsonOut, pathModName <> ".json" ]
+        pursPath = Path.concat [ psOut, psModBase, pathModName <> ".purs" ]
+        solContractName = fromMaybe moduleName <<< last $ split (Pattern ".") moduleName
+        pathModName = replaceAll (Pattern ".") (Replacement Path.sep) moduleName
+        psModBase = replaceAll (Pattern ".") (Replacement Path.sep) project.psGen.modulePrefix
+        moduleType = ContractModule
+      in
+        ChanterelleModule { moduleName, solContractName, moduleType, solPath, jsonPath, pursPath }
+    mkLibModule (Library lib) =
+      let
+        solPath = Path.concat [ fromMaybe "" lib.sourceRoot, lib.sourceFile ]
+        jsonPath = Path.concat [ libJsonOut, lib.name <> ".json" ]
+        pursPath = ""
+        moduleName = lib.name
+        solContractName = moduleName
+        moduleType = LibraryModule
+      in
+        ChanterelleModule { moduleName, solContractName, moduleType, solPath, jsonPath, pursPath }
   solc <- mkChanterelleSolc $ mkProjectSolc project.solcVersion project.artifactsDir
   pure $ ChanterelleProject { root, srcIn, jsonOut, psOut, spec, modules, libModules, specModTime, solc }

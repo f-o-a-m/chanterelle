@@ -23,23 +23,29 @@ data SelectCLI (a :: Type) (b :: Type) = SelectCLI a
 
 data SelectPS (a :: Type) (b :: Type) = SelectPS b
 
-instance showSelectDeployM :: Show (SelectPS a (DeployM Unit)) where show (SelectPS _ ) = "<DeployM Unit>"
-instance showSelectDeployPath :: Show a => Show (SelectCLI a b) where show (SelectCLI a ) = show a
+instance showSelectDeployM :: Show (SelectPS a (DeployM Unit)) where
+  show (SelectPS _) = "<DeployM Unit>"
+
+instance showSelectDeployPath :: Show a => Show (SelectCLI a b) where
+  show (SelectCLI a) = show a
 
 type ArgsCLI = Args' SelectCLI
 type Args = Args' SelectPS
 data Args' s = Args' CommonOpts (Command s)
+
 derive instance genericArgs :: Generic (Args' s) _
-instance showArgs :: Show (DeployOptions s) => Show (Args' s) where show = genericShow
+instance showArgs :: Show (DeployOptions s) => Show (Args' s) where
+  show = genericShow
 
 type DirPath = String
 data CommonOpts = CommonOpts
   { optVerbosity :: String
   , rootPath :: DirPath
   }
-derive instance genericCommonOpts :: Generic CommonOpts _
-instance showCommonOpts :: Show CommonOpts where show = genericShow
 
+derive instance genericCommonOpts :: Generic CommonOpts _
+instance showCommonOpts :: Show CommonOpts where
+  show = genericShow
 
 data Command s
   = Build
@@ -47,8 +53,10 @@ data Command s
   | Codegen
   | Deploy (DeployOptions s)
   | GlobalDeploy (DeployOptions s)
+
 derive instance genericCommand :: Generic (Command s) _
-instance showCommand :: Show (DeployOptions s) => Show (Command s) where show = genericShow
+instance showCommand :: Show (DeployOptions s) => Show (Command s) where
+  show = genericShow
 
 traverseDeployOptions :: forall a b f. Applicative f => (DeployOptions a -> f (DeployOptions b)) -> Args' a -> f (Args' b)
 traverseDeployOptions f (Args' o cmd) = Args' o <$> case cmd of
@@ -65,14 +73,16 @@ data DeployOptions s = DeployOptions
   , timeout :: Int
   , script :: s String (DeployM Unit)
   }
+
 derive instance genericDeployOptions :: Generic (DeployOptions s) _
-instance showDeployOptions :: Show (DeployOptions SelectPS)  where show = genericShow
+instance showDeployOptions :: Show (DeployOptions SelectPS) where
+  show = genericShow
 
 chanterelle :: Args -> Aff Unit
-chanterelle (Args' (CommonOpts{ optVerbosity, rootPath }) cmd) = do
+chanterelle (Args' (CommonOpts { optVerbosity, rootPath }) cmd) = do
   ourCwd <- liftEffect cwd
   liftEffect $ setLogLevel (readLogLevel optVerbosity)
-  resolvedRoot <- liftEffect $ resolve [ourCwd] rootPath
+  resolvedRoot <- liftEffect $ resolve [ ourCwd ] rootPath
   projE <- try $ loadProject resolvedRoot
   case projE of
     Left err -> log Error ("Couldn't parse chanterelle.json: " <> show err)
@@ -82,18 +92,18 @@ chanterelle (Args' (CommonOpts{ optVerbosity, rootPath }) cmd) = do
 
 runCommand :: ChanterelleProject -> Command SelectPS -> Aff Unit
 runCommand project = case _ of
-    Build -> doCompile *> doCodegen
-    Compile -> doCompile
-    Codegen -> doCodegen
-    Deploy opts -> doDeploy opts
-    GlobalDeploy _ -> doGlobalDeploy
+  Build -> doCompile *> doCodegen
+  Compile -> doCompile
+  Codegen -> doCodegen
+  Deploy opts -> doDeploy opts
+  GlobalDeploy _ -> doGlobalDeploy
   where
-    doDeploy (DeployOptions {nodeURL, timeout, script: SelectPS s}) = deploy nodeURL timeout s
-    doGlobalDeploy = do
-      log Error $ "deploy is unavailable as Chanterelle is running from a global installation"
-      log Error $ "Please ensure your project's Chanterelle instance has compiled"
-    -- doClassicBuild = doCompile *> doCodegen
-    doCompile = eitherM_ terminateOnCompileError $ runCompileMExceptT Chanterelle.compile project
-    doCodegen = eitherM_ terminateOnCompileError $ runCompileMExceptT Chanterelle.generatePS project
+  doDeploy (DeployOptions { nodeURL, timeout, script: SelectPS s }) = deploy nodeURL timeout s
+  doGlobalDeploy = do
+    log Error $ "deploy is unavailable as Chanterelle is running from a global installation"
+    log Error $ "Please ensure your project's Chanterelle instance has compiled"
+  -- doClassicBuild = doCompile *> doCodegen
+  doCompile = eitherM_ terminateOnCompileError $ runCompileMExceptT Chanterelle.compile project
+  doCodegen = eitherM_ terminateOnCompileError $ runCompileMExceptT Chanterelle.generatePS project
 
-    terminateOnCompileError e = logCompileError e *> liftEffect (exit 1)
+  terminateOnCompileError e = logCompileError e *> liftEffect (exit 1)
