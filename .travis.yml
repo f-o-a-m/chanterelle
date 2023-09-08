@@ -1,9 +1,0 @@
-language: node_js
-node_js: stable
-dist: jammy
-sudo: required
-install:
-- npm install
-script:
-- npm run build
-- npm run tidy-check
