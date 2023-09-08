@@ -1,16 +1,30 @@
 "use strict";
 
 import path from "path";
+import process from "process";
 
 export const loadDeployMFromScriptPath = function (filePath) {
-  return function () {
+  let go = async function() {
     var scriptPath = path.isAbsolute(filePath) ? filePath : path.join (process.cwd(), filePath);
-    var script = require(scriptPath).deploy
-    if (script == undefined) {
-      throw "Deploy script is invalid or module does not export a \"deploy\" function: " + scriptPath
+    try {
+      var { deploy } = await import(scriptPath)
+      return deploy;
+    } catch {
+      throw new Error("Deploy script is invalid or module does not export a \"deploy\" function: " + scriptPath + "\n  => caught: " + e);
     }
-    return script;
   };
+  return function(onError, onSuccess) {
+    go().then((success, error) => {
+      if (error) {
+        onError(error);
+      } else {
+        onSuccess(success);
+      }
+    });
+    return function (cancelError, onCancelerError, onCancelerSuccess) {
+      onCancelerSuccess();
+    }
+  }
 };
 
 export const version_ = function search(searchPaths) {

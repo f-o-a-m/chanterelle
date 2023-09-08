@@ -13,6 +13,7 @@ import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Class (liftEffect)
+import Effect.Aff.Compat (EffectFnAff, fromEffectFnAff)
 import Language.Solidity.Compiler as Solc
 import Node.Process (cwd)
 import Options.Applicative (Parser, ParserInfo, argument, command, customExecParser, help, helpDoc, helper, hsubparser, info, infoOption, int, long, metavar, option, prefs, progDesc, short, showHelpOnEmpty, str, strOption, value, (<**>))
@@ -107,12 +108,12 @@ main = launchAff_ do
   res <- runExceptT $ flip traverseDeployOptions args \(DeployOptions { nodeURL, timeout, script: SelectCLI scriptPath }) -> do
     script <-
       if is_global_ then pure (pure unit)
-      else ExceptT $ try (liftEffect $ loadDeployMFromScriptPath scriptPath)
+      else ExceptT $ try (fromEffectFnAff $ loadDeployMFromScriptPath scriptPath)
     pure $ DeployOptions { nodeURL, timeout, script: SelectPS script }
   case res of
     Left err -> do
       log Error $ "Couldn't load deploy script. " <> show err
     Right args' -> chanterelle args'
 
-foreign import loadDeployMFromScriptPath :: String -> Effect (DeployM Unit)
+foreign import loadDeployMFromScriptPath :: String -> EffectFnAff (DeployM Unit)
 
