@@ -1,10 +1,10 @@
 "use strict";
 
-export {
-  O_TRUNC as _O_TRUNC,
-  O_CREAT as _O_CREAT,
-  O_RDWR as _O_RDWR,
-  O_SYNC as _O_SYNC,
-  readFileSync,
-  writeFileSync
-} from "node:fs";
+import fs from "fs";
+
+export const _O_TRUNC = fs.constants ? fs.constants.O_TRUNC : fs.O_TRUNC;
+export const _O_CREAT = fs.constants ? fs.constants.O_CREAT : fs.O_CREAT;
+export const _O_RDWR = fs.constants ? fs.constants.O_RDWR : fs.O_RWDR;
+export const _O_SYNC = fs.constants ? fs.constants.O_SYNC : fs.O_SYNC;
+export const readFileSync = fs.readFileSync;
+export const writeFileSync = fs.writeFileSync;
