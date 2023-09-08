@@ -46,7 +46,7 @@ mkProjectSolc version artifactPath = runExceptT $
     case cacheAttempt of
       Right src -> do
         log Info $ "Using cached solc " <> v <> " at " <> compilerCacheFile
-        let compiler = Solc.useCompiler src
+        compiler <- Solc.useCompiler src
         pure { compilerOrigin: "Cached", compiler }
       Left _ -> do
         log Info $ "Downloading solc " <> v <> " to " <> compilerCacheFile
@@ -54,7 +54,7 @@ mkProjectSolc version artifactPath = runExceptT $
         source <- ExceptT $ SolcReleases.getReleaseSource SolcReleases.defaultReleaseRepo v
         writeTextFile compilerCacheFile source
         log Info $ "solc " <> v <> " download completed..."
-        let compiler = Solc.useCompiler source
+        compiler <- Solc.useCompiler source
         pure { compilerOrigin: "Downloaded", compiler }
 
 loadProject
