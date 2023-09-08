@@ -15,14 +15,13 @@
   "dependencies": {
     "purescript": "^0.15.8",
     "purescript-psa": "^0.8.2",
-    "spago": "^0.20.9",
-    "bn.js": "^4.11.0",
+    "spago": "^0.21.0",
     "ethjs-provider-http": "^0.1.6",
     "mkdirp": "^0.5.1",
     "keccak": "^1.0.2",
     "secp256k1": "^3.0.1",
     "rlp": "^2.0.0",
-    "solc": "^0.6"
+    "solc": "^0.8"
   },
   "devDependencies": {
     "purs-tidy": "^0.10.0"
