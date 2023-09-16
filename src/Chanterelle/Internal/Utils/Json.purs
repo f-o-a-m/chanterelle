@@ -23,8 +23,9 @@ encodeJsonBlockNumber (BlockNumber n) = encodeJsonBigNumber n
 
 decodeJsonBigNumber :: Json -> Either String BigNumber
 decodeJsonBigNumber j = decodeFromString <|> decodeFromNumber <|> (Left "Value is neither a String nor Number")
-    where decodeFromString = lmap printJsonDecodeError (decodeJson j) >>= (note "BigNumber is not a Hex String" <<< (parseBigNumber hexadecimal =<< _))
-          decodeFromNumber = embed <$> (lmap printJsonDecodeError (decodeJson j) :: Either String Int)
+  where
+  decodeFromString = lmap printJsonDecodeError (decodeJson j) >>= (note "BigNumber is not a Hex String" <<< (parseBigNumber hexadecimal =<< _))
+  decodeFromNumber = embed <$> (lmap printJsonDecodeError (decodeJson j) :: Either String Int)
 
 encodeJsonBigNumber :: BigNumber -> Json
 encodeJsonBigNumber n = encodeJson ("0x" <> toString hexadecimal n)
@@ -46,9 +47,9 @@ encodeJsonAddress = encodeJson <<< show <<< unAddress
 
 decodeJsonAddress :: Json -> Either String Address
 decodeJsonAddress j = do
-    s <- lmap printJsonDecodeError $ decodeJson j
-    h <- note "Address is not a valid HexString" $ mkHexString s
-    note "Address is malformed" $ mkAddress h
+  s <- lmap printJsonDecodeError $ decodeJson j
+  h <- note "Address is not a valid HexString" $ mkHexString s
+  note "Address is malformed" $ mkAddress h
 
 -- getField (aka .?) with a manual decoder
 gfWithDecoder :: forall a. (Json -> Either String a) -> Object Json -> String -> Either String a

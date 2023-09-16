@@ -23,7 +23,7 @@ deploy
   :: String
   -> Int
   -> DeployM ~> Aff
-deploy url tout deployScript = 
+deploy url tout deployScript =
   runExceptT (makeProvider url) >>= case _ of
     Left err -> do
       logDeployError err

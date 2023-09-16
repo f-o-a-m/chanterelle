@@ -47,25 +47,25 @@ import Node.Path as Path
 
 -- | compile and write the artifact
 compile
-  :: forall m.
-     MonadAff m
+  :: forall m
+   . MonadAff m
   => MonadThrow CompileError m
   => MonadAsk ChanterelleProject m
   => m (M.Object (Tuple ChanterelleModule ST.CompilerOutput))
 compile = do
   dirtyModules <- modulesToCompile
   solcInputs <- for dirtyModules $ \m@(ChanterelleModule mod) -> do
-      input <- makeSolcInput mod.solContractName mod.solPath
-      pure $ Tuple m input
-  solcOutputs <-  for solcInputs compileModule
+    input <- makeSolcInput mod.solContractName mod.solPath
+    pure $ Tuple m input
+  solcOutputs <- for solcInputs compileModule
   pure $ M.fromFoldable solcOutputs
 
 -- | Get all of the dirty modules that need to be recompiled
 -- NOTE: This is pretty ugly because there are many things that could go wrong,
 -- should probably fix.
 modulesToCompile
-  :: forall m.
-     MonadAff m
+  :: forall m
+   . MonadAff m
   => MonadThrow CompileError m
   => MonadAsk ChanterelleProject m
   => m (Array ChanterelleModule)
@@ -80,16 +80,15 @@ modulesToCompile = do
         Just compiledAt -> do
           eIsDirty <- liftAff <<< attempt $ fileIsDirty mod.solPath (Milliseconds compiledAt) project.specModTime
           case eIsDirty of
-            Left _ -> throwError $ MissingArtifactError {fileName: mod.solPath, objectName: mod.solContractName}
+            Left _ -> throwError $ MissingArtifactError { fileName: mod.solPath, objectName: mod.solContractName }
             Right isDirty ->
-              if not isDirty
-                then log Debug ("File is clean: " <> mod.solPath) *> pure Nothing
-                else pure (Just m)
+              if not isDirty then log Debug ("File is clean: " <> mod.solPath) *> pure Nothing
+              else pure (Just m)
   pure $ catMaybes mModules
 
 compileModule
-  :: forall m.
-     MonadAff m
+  :: forall m
+   . MonadAff m
   => MonadThrow CompileError m
   => MonadAsk ChanterelleProject m
   => Tuple ChanterelleModule ST.CompilerInput
@@ -100,8 +99,8 @@ compileModule (Tuple m@(ChanterelleModule mod) solcInput) = do
   pure $ Tuple mod.moduleName (Tuple m output)
 
 compileModuleWithoutWriting
-  :: forall m.
-     MonadAff m
+  :: forall m
+   . MonadAff m
   => MonadThrow CompileError m
   => MonadAsk ChanterelleProject m
   => ChanterelleModule
@@ -113,7 +112,7 @@ compileModuleWithoutWriting m@(ChanterelleModule mod) solcInput = do
   log Info ("compiling " <> show mod.moduleType <> " " <> mod.moduleName)
   output <- Solc.compile solc solcInput (loadSolcCallback m project.root project.spec) --liftEffect $ runFn2 _compile (A.stringify $ encodeJson solcInput) (loadSolcCallback m project.root project.spec)
   case output of
-    Left err -> throwError $ CompileParseError {objectName: "Solidity Compiler", parseError: err}
+    Left err -> throwError $ CompileParseError { objectName: "Solidity Compiler", parseError: err }
     Right output' -> pure output'
 
 -- | load a file when solc requests it
@@ -127,12 +126,13 @@ loadSolcCallback
   -> String
   -> Effect (Either String String)
 loadSolcCallback (ChanterelleModule mod) root (ChanterelleProjectSpec _) filePath = do
-  let modRoot = Path.dirname mod.solPath
-      isAbs = Path.isAbsolute filePath
-      modRootWithoutRoot = fromMaybe modRoot $ stripPrefix (Pattern root) modRoot
-      fullPath = if isAbs
-                   then filePath
-                   else Path.normalize (Path.concat [root, modRootWithoutRoot, filePath])
+  let
+    modRoot = Path.dirname mod.solPath
+    isAbs = Path.isAbsolute filePath
+    modRootWithoutRoot = fromMaybe modRoot $ stripPrefix (Pattern root) modRoot
+    fullPath =
+      if isAbs then filePath
+      else Path.normalize (Path.concat [ root, modRootWithoutRoot, filePath ])
   log Debug ("Root: " <> root <> " :: modRoot: " <> modRoot <> " :: Solc load: " <> filePath <> " -> " <> fullPath)
   catchException (pure <<< Left <<< show) (Right <$> (FSS.readTextFile UTF8 fullPath))
 
@@ -140,17 +140,18 @@ makeSolcSource
   :: String
   -> ST.Source
 makeSolcSource sourceCode =
-  ST.FromContent { content: sourceCode
-                 , keccak256: Just $ fromByteString $ keccak256 sourceCode
-                 }
+  ST.FromContent
+    { content: sourceCode
+    , keccak256: Just $ fromByteString $ keccak256 sourceCode
+    }
 
 --------------------------------------------------------------------------------
 -- | SolcInput
 --------------------------------------------------------------------------------
 
 makeSolcInput
-  :: forall m.
-     MonadAff m
+  :: forall m
+   . MonadAff m
   => MonadAsk ChanterelleProject m
   => String
   -> FilePath
@@ -159,19 +160,20 @@ makeSolcInput moduleName sourcePath = do
   (ChanterelleProject project) <- ask
   let (ChanterelleProjectSpec spec) = project.spec
   code <- liftAff $ FS.readTextFile UTF8 sourcePath
-  let language = ST.Solidity
-      sources = ST.Sources (M.singleton (moduleName <> ".sol") (makeSolcSource code))
-      { cls: requestedContractSelections, fls: requestedFileSelections } = partitionSelectionSpecs spec.solcOutputSelection
-      contractLevelSelections = [ST.ABI, ST.EvmOutputSelection (Just $ ST.BytecodeSelection Nothing), ST.EvmOutputSelection (Just $ ST.DeployedBytecodeSelection Nothing)] <> requestedContractSelections
-      outputSelection = Just $ ST.OutputSelections (M.singleton "*" (ST.OutputSelection { file: requestedFileSelections , contract: M.singleton "*" contractLevelSelections }))
-      depMappings = (\(Dependency dep) -> ST.Remapping { from: dep, to: (project.root <> "/node_modules/" <> dep) }) <$> spec.dependencies
-      sourceDirMapping = [ST.GlobalRemapping { to: (Path.concat [project.root, spec.sourceDir]) }]
-      remappings = sourceDirMapping <> depMappings
-      optimizer = spec.solcOptimizerSettings
-      evmVersion = spec.solcEvmVersion
-      metadata = Nothing
-      libraries = Nothing
-      settings = Just (ST.CompilerSettings { remappings, optimizer, evmVersion, metadata, libraries, outputSelection })
+  let
+    language = ST.Solidity
+    sources = ST.Sources (M.singleton (moduleName <> ".sol") (makeSolcSource code))
+    { cls: requestedContractSelections, fls: requestedFileSelections } = partitionSelectionSpecs spec.solcOutputSelection
+    contractLevelSelections = [ ST.ABI, ST.EvmOutputSelection (Just $ ST.BytecodeSelection Nothing), ST.EvmOutputSelection (Just $ ST.DeployedBytecodeSelection Nothing) ] <> requestedContractSelections
+    outputSelection = Just $ ST.OutputSelections (M.singleton "*" (ST.OutputSelection { file: requestedFileSelections, contract: M.singleton "*" contractLevelSelections }))
+    depMappings = (\(Dependency dep) -> ST.Remapping { from: dep, to: (project.root <> "/node_modules/" <> dep) }) <$> spec.dependencies
+    sourceDirMapping = [ ST.GlobalRemapping { to: (Path.concat [ project.root, spec.sourceDir ]) } ]
+    remappings = sourceDirMapping <> depMappings
+    optimizer = spec.solcOptimizerSettings
+    evmVersion = spec.solcEvmVersion
+    metadata = Nothing
+    libraries = Nothing
+    settings = Just (ST.CompilerSettings { remappings, optimizer, evmVersion, metadata, libraries, outputSelection })
   pure $ ST.CompilerInput { language, sources, settings }
 
 --------------------------------------------------------------------------------
@@ -179,31 +181,32 @@ makeSolcInput moduleName sourcePath = do
 --------------------------------------------------------------------------------
 
 decodeModuleOutput
-  :: forall m.
-     MonadEffect m
+  :: forall m
+   . MonadEffect m
   => MonadThrow CompileError m
   => String
   -> ST.CompilerOutput
   -> m (ST.ContractMapped ST.ContractLevelOutput)
 decodeModuleOutput moduleName (ST.CompilerOutput output) = do
-    let moduleFilename = moduleName <> ".sol"
-        isSolcWarning (ST.FullCompilationError se) = se.severity == ST.SeverityWarning
-        isSolcWarning _ = false
-        ({ yes: warnings, no: errors }) = partition isSolcWarning output.errors
-        isModuleError (ST.FullCompilationError se) = fromMaybe false ado
-            ST.SourceLocation fesl <- se.sourceLocation
-            in fesl.file == moduleFilename
-        isModuleError _ = false
-        ({ yes: moduleErrors, no: otherErrors }) = partition isModuleError errors
-    for_ (warnings <> otherErrors) (logSolcError moduleName)
-    unless (moduleErrors == mempty) $ throwError $ CompilationError { moduleName, errors: moduleErrors }
-    case M.lookup moduleFilename output.contracts of
-      Nothing -> throwError $ CompilationError { moduleName, errors }
-      Just contractMap' -> pure contractMap'
+  let
+    moduleFilename = moduleName <> ".sol"
+    isSolcWarning (ST.FullCompilationError se) = se.severity == ST.SeverityWarning
+    isSolcWarning _ = false
+    ({ yes: warnings, no: errors }) = partition isSolcWarning output.errors
+    isModuleError (ST.FullCompilationError se) = fromMaybe false ado
+      ST.SourceLocation fesl <- se.sourceLocation
+      in fesl.file == moduleFilename
+    isModuleError _ = false
+    ({ yes: moduleErrors, no: otherErrors }) = partition isModuleError errors
+  for_ (warnings <> otherErrors) (logSolcError moduleName)
+  unless (moduleErrors == mempty) $ throwError $ CompilationError { moduleName, errors: moduleErrors }
+  case M.lookup moduleFilename output.contracts of
+    Nothing -> throwError $ CompilationError { moduleName, errors }
+    Just contractMap' -> pure contractMap'
 
 resolveModuleContract
-  :: forall m.
-     MonadAff m
+  :: forall m
+   . MonadAff m
   => MonadThrow CompileError m
   => FilePath
   -> String
@@ -215,8 +218,8 @@ resolveModuleContract fileName objectName decodedOutputs =
     Just co' -> pure co'
 
 writeBuildArtifact
-  :: forall m.
-     MonadAff m
+  :: forall m
+   . MonadAff m
   => MonadThrow CompileError m
   => String
   -> FilePath

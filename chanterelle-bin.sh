@@ -21,7 +21,7 @@ CHNTRL_LOCAL_MAIN="$PURS_OUTPUT/$CHNTRL_MAIN_MODULE";
 
 run_chanterelle() {
     CHANTERELLEMAIN_INDEX_JS="$1"; shift
-    exec node -e "require('$CHANTERELLEMAIN_INDEX_JS').main();" -- "chanterelle" $@
+    exec node -e "import('$CHANTERELLEMAIN_INDEX_JS').then(chanterelle => chanterelle.main());" -- "chanterelle" $@
 }
 
 global_install_available() {

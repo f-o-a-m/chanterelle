@@ -1,6 +1,6 @@
 {
   "name": "chanterelle",
-  "version": "5.1.3",
+  "version": "7.0.0",
   "description": "A more functional truffle",
   "license": "ISC",
   "scripts": {
@@ -8,19 +8,23 @@
     "global-postinstall-non-root": "spago install",
     "build": "spago build",
     "docs": "cd docs; make html;",
-    "postinstall": "echo 'If you are installing chanterelle to use globally, you likely want to run `chanterelle global-postinstall`.'"
+    "postinstall": "echo 'If you are installing chanterelle to use globally, you likely want to run `chanterelle global-postinstall`.'",
+    "tidy": "purs-tidy format-in-place \"src/**/*.purs\" \"test/**/*.purs\"",
+    "tidy-check": "purs-tidy check \"src/**/*.purs\" \"test/**/*.purs\""
   },
   "dependencies": {
-    "purescript": "^0.14.2",
+    "purescript": "^0.15.8",
     "purescript-psa": "^0.8.2",
-    "bn.js": "^4.11.0",
+    "spago": "^0.21.0",
     "ethjs-provider-http": "^0.1.6",
     "mkdirp": "^0.5.1",
     "keccak": "^1.0.2",
     "secp256k1": "^3.0.1",
     "rlp": "^2.0.0",
-    "solc": "^0.6",
-    "spago": "^0.20.3"
+    "solc": "^0.8"
+  },
+  "devDependencies": {
+    "purs-tidy": "^0.10.0"
   },
   "bin": {
     "chanterelle": "chanterelle-bin.sh"

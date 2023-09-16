@@ -1,13 +1,13 @@
 "use strict";
 
-exports.now = function () {
+export const now = function () {
     return new Date();
 };
 
-exports.toEpoch = function (time) {
+export const toEpoch = function (time) {
     return time.getTime();
 };
 
-exports.toISOString = function (time) {
+export const toISOString = function (time) {
     return time.toISOString();
 };

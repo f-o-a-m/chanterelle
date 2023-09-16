@@ -1,136 +1,86 @@
 let upstream =
-      https://github.com/purescript/package-sets/releases/download/psc-0.14.2-20210629/packages.dhall sha256:534c490bb73cae75adb5a39871142fd8db5c2d74c90509797a80b8bb0d5c3f7b
+      https://raw.githubusercontent.com/f-o-a-m/package-sets/b3ecf8e8e4e1a35ba97fcb7e9f2858d14ee6a912/purs-0.15.7-web3.dhall
+        sha256:ce57fd949b7cd331d7c61ff45283e35983dd5797b3f17616dd69f8bc06f54784
 
 let overrides = {=}
 
 let additions =
-      { web3 =
-        { dependencies =
-          [ "aff"
-          , "avar"
-          , "console"
-          , "coroutines"
-          , "coroutine-transducers"
-          , "debug"
-          , "effect"
-          , "errors"
-          , "eth-core"
-          , "foreign"
-          , "foreign-generic"
-          , "fork"
-          , "free"
-          , "heterogeneous"
-          , "identity"
-          , "parsing"
-          , "partial"
-          , "profunctor-lenses"
-          , "psci-support"
-          , "tagged"
-          , "transformers"
-          , "typelevel-prelude"
-          , "variant"
-          ]
-        , repo = "https://github.com/f-o-a-m/purescript-web3"
-        , version = "v4.0.0"
-        }
-      , web3-generator =
-          { dependencies =
-            [ "ansi"
-            , "argonaut"
-            , "console"
-            , "effect"
-            , "errors"
-            , "eth-core"
-            , "fixed-points"
-            , "mkdirp"
-            , "node-fs-aff"
-            , "ordered-collections"
-            , "prelude"
-            , "psci-support"
-            , "record-extra"
-            , "string-parsers"
-            , "web3"
-            , "yargs"
-            ]
-          , repo = "https://github.com/f-o-a-m/purescript-web3-generator"
-          , version = "v4.0.0"
-          }
-      , eth-core =
-        { dependencies =
-            [ "argonaut"
-            , "bytestrings"
-            , "console"
-            , "debug"
-            , "effect"
-            , "foreign-generic"
-            , "ordered-collections"
-            , "parsing"
-            , "prelude"
-            , "psci-support"
-            , "ring-modules"
-            , "simple-json"
-            ]
-        , repo =
-            "https://github.com/f-o-a-m/purescript-eth-core.git"
-        , version =
-            "v7.0.0"
-        }
-      , coroutine-transducers =
-        { dependencies =
-            [ "aff"
-            , "coroutines"
-            , "effect"
-            , "maybe"
-            , "psci-support"
-            ]
-        , repo =
-            "https://github.com/blinky3713/purescript-coroutine-transducers"
-        , version =
-            "v1.0.0"
-        }
-      , solc =
-        { dependencies =
-          [ "aff"
-          , "argonaut"
-          , "console"
-          , "effect"
-          , "node-path"
-          , "prelude"
-          , "psci-support"
-          , "web3"
-          ]
-        , repo =
-            "https://github.com/f-o-a-m/purescript-solc"
-        , version =
-            "v3.0.0"
-        }
-      , mkdirp =
-        { dependencies =
-            [ "console"
-            , "effect"
-            , "either"
-            , "exceptions"
-            , "functions"
-            , "node-fs"
-            , "nullable"
-            , "prelude"
-            , "psci-support"
-            ]
-        , repo =
-            "https://github.com/f-o-a-m/purescript-mkdirp"
-        , version =
-            "v1.0.0"
-        }
-      , tagged =
-        { dependencies =
-            [ "identity"
-            , "profunctor"
-            ]
-        , repo =
-            "https://github.com/kejace/purescript-tagged"
-        , version =
-            "v0.14"
-        }
-      }
+  { solc =
+    { dependencies =
+      [ "aff"
+      , "argonaut"
+      , "argonaut-codecs"
+      , "arrays"
+      , "bifunctors"
+      , "control"
+      , "effect"
+      , "either"
+      , "eth-core"
+      , "foldable-traversable"
+      , "foreign-object"
+      , "functions"
+      , "integers"
+      , "maybe"
+      , "newtype"
+      , "node-path"
+      , "prelude"
+      , "strings"
+      , "transformers"
+      , "tuples"
+      ]
+    , repo =
+        "https://github.com/f-o-a-m/purescript-solc.git"
+    , version =
+        "d6e4f3be2f249d9a464bf9bbb6ca247bc24a759e"
+    }
+  , web3-generator =
+    { dependencies =
+      [ "aff"
+      , "ansi"
+      , "argonaut"
+      , "argonaut-codecs"
+      , "argonaut-core"
+      , "argonaut-traversals"
+      , "arrays"
+      , "bifunctors"
+      , "console"
+      , "control"
+      , "effect"
+      , "either"
+      , "errors"
+      , "eth-core"
+      , "exceptions"
+      , "fixed-points"
+      , "foldable-traversable"
+      , "identity"
+      , "integers"
+      , "lists"
+      , "maybe"
+      , "language-cst-parser"
+      , "tidy-codegen"
+      , "mkdirp"
+      , "newtype"
+      , "node-buffer"
+      , "node-fs"
+      , "node-fs-aff"
+      , "node-path"
+      , "node-process"
+      , "ordered-collections"
+      , "optparse"
+      , "partial"
+      , "prelude"
+      , "profunctor-lenses"
+      , "string-parsers"
+      , "strings"
+      , "transformers"
+      , "tuples"
+      , "web3"
+      ]
+    , repo =
+      "https://github.com/f-o-a-m/purescript-web3-generator.git"
+    , version =
+      "2c96bbe2fd0a3af4236406e3c0b118ec21250027"
+    }
+  }
 
 in  upstream // overrides // additions

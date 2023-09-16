@@ -1,6 +1,7 @@
+"use strict";
 var theGlobalLevel = null;
 
-exports.getLogLevelWithDefault = function (defaultLogLevel) {
+export const getLogLevelWithDefault = function (defaultLogLevel) {
     return function () {
         if (theGlobalLevel == null) {
             return defaultLogLevel;
@@ -10,7 +11,7 @@ exports.getLogLevelWithDefault = function (defaultLogLevel) {
     };
 };
 
-exports.setLogLevel = function (newValue) {
+export const setLogLevel = function (newValue) {
     return function() {
         theGlobalLevel = newValue;
     };

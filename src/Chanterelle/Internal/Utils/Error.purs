@@ -37,9 +37,9 @@ except' = either throwError pure
 withExcept'
   :: forall m e e' a
    . MonadThrow e' m
-   => (e -> e')
-   -> Either e a
-   -> m a
+  => (e -> e')
+  -> Either e a
+  -> m a
 withExcept' f = except' <<< lmap f
 
 exceptM'

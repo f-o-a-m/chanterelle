@@ -37,8 +37,8 @@ newtype DeployM a =
   DeployM ((ReaderT DeployConfig (ExceptT DeployError Aff)) a)
 
 runDeployM
-  :: forall a.
-     DeployM a
+  :: forall a
+   . DeployM a
   -> DeployConfig
   -> Aff (Either DeployError a)
 runDeployM (DeployM deploy) = runExceptT <<< runReaderT deploy
@@ -55,15 +55,15 @@ derive newtype instance monadAffDeployM :: MonadAff DeployM
 
 -- | Fork a DeployM to run concurrently, returning the fiber that was created
 forkDeployM
-  :: forall a.
-     DeployM a
+  :: forall a
+   . DeployM a
   -> DeployM (Fiber (Either DeployError a))
 forkDeployM m =
   ask >>= (liftAff <<< forkAff <<< runDeployM m)
 
 joinDeployM
-  :: forall a.
-    Fiber (Either DeployError a)
+  :: forall a
+   . Fiber (Either DeployError a)
   -> DeployM (Either DeployError a)
 joinDeployM = liftAff <<< joinFiber
 
@@ -90,18 +90,20 @@ derive newtype instance alternativeParDeployM :: Alternative DeployMPar
 -- | Error Types
 --------------------------------------------------------------------------------
 
-data DeployError = ConfigurationError String
-                 | OnDeploymentError {name :: String, message :: String}
-                 | PostDeploymentError {name :: String, message :: String}
-                 | DeployingUnlinkedBytecodeError { name :: String, libs :: Array String }
-                 | LinkingLinkedBytecodeError { name :: String, libraryName :: String, bytecodeKind :: String } 
-                 | LinkingError { contractName :: String, libraryName :: String, libraryAddress :: Address, bytecodeKind :: String, msg :: String }
-                 | Impossibility String
+data DeployError
+  = ConfigurationError String
+  | OnDeploymentError { name :: String, message :: String }
+  | PostDeploymentError { name :: String, message :: String }
+  | DeployingUnlinkedBytecodeError { name :: String, libs :: Array String }
+  | LinkingLinkedBytecodeError { name :: String, libraryName :: String, bytecodeKind :: String }
+  | LinkingError { contractName :: String, libraryName :: String, libraryAddress :: Address, bytecodeKind :: String, msg :: String }
+  | Impossibility String
 
 -- | Throw an `Error` Exception inside DeployM.
-throwDeploy :: forall a
-             . Error
-            -> DeployM a
+throwDeploy
+  :: forall a
+   . Error
+  -> DeployM a
 throwDeploy = liftEffect <<< throwException
 
 getArtifactCache
@@ -132,14 +134,15 @@ type NetworkID = Int
 
 -- | primary deployment configuration
 newtype DeployConfig =
-  DeployConfig { networkID :: NetworkID
-               , primaryAccount :: Address
-               , provider :: Provider
-               , timeout :: Milliseconds
-               , writeArtifacts :: Boolean -- if true, artifacts will be persisted as deploy scripts modify them by linking or deploying. false is useful for testing
-               , ignoreNetworksInArtifact :: Boolean -- if true, artifacts that are loaded will not have networks fields populated, useful for testing.
-               , artifactCache :: Ref.Ref (Map.Map (LibraryConfig ()) Artifact)
-               }
+  DeployConfig
+    { networkID :: NetworkID
+    , primaryAccount :: Address
+    , provider :: Provider
+    , timeout :: Milliseconds
+    , writeArtifacts :: Boolean -- if true, artifacts will be persisted as deploy scripts modify them by linking or deploying. false is useful for testing
+    , ignoreNetworksInArtifact :: Boolean -- if true, artifacts that are loaded will not have networks fields populated, useful for testing.
+    , artifactCache :: Ref.Ref (Map.Map (LibraryConfig ()) Artifact)
+    }
 
 -- | Contract Config
 
@@ -158,7 +161,7 @@ noArgs = pure {}
 constructorNoArgs :: Constructor NoArgs
 constructorNoArgs txOpts bytecode _ =
   eth_sendTransaction $ txOpts # _data ?~ bytecode
-                               # _value ?~ fromMinorUnit zero
+    # _value ?~ fromMinorUnit zero
 
 type LibraryR args =
   ( filepath :: FilePath
@@ -179,7 +182,7 @@ type ContractConfig args = Record (ConfigR args)
 -- | Validation helpers
 validateWithError :: forall a. Maybe a -> String -> V (Array String) a
 validateWithError mres msg = case mres of
-  Nothing -> invalid [msg]
+  Nothing -> invalid [ msg ]
   Just res -> pure res
 
 infixl 9 validateWithError as ??
