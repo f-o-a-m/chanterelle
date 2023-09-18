@@ -8,10 +8,11 @@ import Control.Monad.Error.Class (class MonadThrow)
 import Data.Argonaut (class DecodeJson, Json, decodeJson, encodeJson, jsonParser, printJsonDecodeError, (.:), (.:!))
 import Data.Bifunctor (lmap)
 import Data.Either (Either(..), note)
-import Data.Maybe (Maybe(..), maybe)
+import Data.Maybe (Maybe(..), fromJust, maybe)
 import Foreign.Object (Object)
-import Network.Ethereum.Core.BigNumber (hexadecimal, parseBigNumber, toString, unsafeToInt)
-import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber(..), HexString, embed, mkAddress, mkHexString, unAddress)
+import Network.Ethereum.Core.BigNumber (fromInt, fromString, toString, unsafeToInt)
+import Network.Ethereum.Web3 (Address, BigNumber, BlockNumber(..), HexString, mkAddress, mkHexString, unAddress)
+import Partial.Unsafe (unsafePartial)
 
 foreign import jsonStringifyWithSpaces :: Int -> Json -> String
 
@@ -24,11 +25,11 @@ encodeJsonBlockNumber (BlockNumber n) = encodeJsonBigNumber n
 decodeJsonBigNumber :: Json -> Either String BigNumber
 decodeJsonBigNumber j = decodeFromString <|> decodeFromNumber <|> (Left "Value is neither a String nor Number")
   where
-  decodeFromString = lmap printJsonDecodeError (decodeJson j) >>= (note "BigNumber is not a Hex String" <<< (parseBigNumber hexadecimal =<< _))
-  decodeFromNumber = embed <$> (lmap printJsonDecodeError (decodeJson j) :: Either String Int)
+  decodeFromString = lmap printJsonDecodeError (decodeJson j) >>= (note "BigNumber is not a Hex String" <<< fromString =<< _)
+  decodeFromNumber = fromInt <$> (lmap printJsonDecodeError (decodeJson j) :: Either String Int)
 
 encodeJsonBigNumber :: BigNumber -> Json
-encodeJsonBigNumber n = encodeJson ("0x" <> toString hexadecimal n)
+encodeJsonBigNumber n = encodeJson (unsafePartial $ fromJust $ mkHexString $ toString n)
 
 encodeJsonConfigBigNumber :: BigNumber -> Json
 encodeJsonConfigBigNumber = encodeJson <<< unsafeToInt
