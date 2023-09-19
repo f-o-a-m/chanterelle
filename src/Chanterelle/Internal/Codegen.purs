@@ -4,9 +4,9 @@ module Chanterelle.Internal.Codegen
 
 import Prelude
 
-import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types.Compile (CompileError(..))
-import Chanterelle.Internal.Types.Project (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..))
+import Chanterelle.Logging (LogLevel(..), log)
+import Chanterelle.Types.Compile (CompileError(..))
+import Chanterelle.Types.Project (ChanterelleProject(..), ChanterelleProjectSpec(..), ChanterelleModule(..))
 import Chanterelle.Internal.Utils.FS (assertDirectory')
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Reader (class MonadAsk, ask)

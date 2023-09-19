@@ -1,4 +1,4 @@
-module Chanterelle.Internal.Logging
+module Chanterelle.Logging
   ( LogLevel(..)
   , log
   , setLogLevel
@@ -12,17 +12,17 @@ import Prelude
 
 import Ansi.Codes (Color(..))
 import Ansi.Output (withGraphics, foreground)
-import Chanterelle.Internal.Types.Compile as Compile
-import Chanterelle.Internal.Types.Deploy as Deploy
-import Chanterelle.Internal.Utils.Time (now, toISOString)
+import Chanterelle.Types.Compile as Compile
+import Chanterelle.Types.Deploy as Deploy
 import Control.Logger as Logger
 import Data.Array (intercalate)
+import Data.JSDate (now, toISOString)
 import Data.Maybe (fromMaybe)
 import Data.String (joinWith, toUpper)
 import Data.Traversable (for_)
 import Data.Unfoldable as Unfoldable
 import Effect (Effect)
-import Effect.Class (liftEffect, class MonadEffect)
+import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Console as Console
 import Language.Solidity.Compiler.Types as ST
 
@@ -74,7 +74,7 @@ fancyColorLogger
   => Loggable a
   => Logger.Logger m { level :: LogLevel, msg :: a }
 fancyColorLogger = Logger.Logger $ \{ level, msg } -> liftEffect do
-  iso <- toISOString <$> now
+  iso <- liftEffect $ toISOString =<< now
   Console.log $ colorize level (iso <> " [" <> show level <> "] " <> logify msg)
   where
   colorize level = withGraphics (foreground $ logLevelColor level)

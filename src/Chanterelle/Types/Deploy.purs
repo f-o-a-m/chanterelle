@@ -1,8 +1,8 @@
-module Chanterelle.Internal.Types.Deploy where
+module Chanterelle.Types.Deploy where
 
 import Prelude
 
-import Chanterelle.Internal.Types.Artifact (Artifact)
+import Chanterelle.Types.Artifact (Artifact)
 import Control.Alt (class Alt)
 import Control.Alternative (class Alternative)
 import Control.Monad.Error.Class (class MonadThrow)
@@ -43,15 +43,15 @@ runDeployM
   -> Aff (Either DeployError a)
 runDeployM (DeployM deploy) = runExceptT <<< runReaderT deploy
 
-derive newtype instance functorDeployM :: Functor DeployM
-derive newtype instance applyDeployM :: Apply DeployM
-derive newtype instance applicativeDeployM :: Applicative DeployM
-derive newtype instance bindDeployM :: Bind DeployM
-derive newtype instance monadDeployM :: Monad DeployM
-derive newtype instance monadAskDeployM :: MonadAsk DeployConfig DeployM
-derive newtype instance monadThrowDeployM :: MonadThrow DeployError DeployM
-derive newtype instance monadEffDeployM :: MonadEffect DeployM
-derive newtype instance monadAffDeployM :: MonadAff DeployM
+derive newtype instance Functor DeployM
+derive newtype instance Apply DeployM
+derive newtype instance Applicative DeployM
+derive newtype instance Bind DeployM
+derive newtype instance Monad DeployM
+derive newtype instance MonadAsk DeployConfig DeployM
+derive newtype instance MonadThrow DeployError DeployM
+derive newtype instance MonadEffect DeployM
+derive newtype instance MonadAff DeployM
 
 -- | Fork a DeployM to run concurrently, returning the fiber that was created
 forkDeployM
@@ -70,21 +70,16 @@ joinDeployM = liftAff <<< joinFiber
 newtype DeployMPar a =
   DeployMPar (ReaderT DeployConfig (Compose ParAff (Either DeployError)) a)
 
-derive newtype instance functorDeployMPar :: Functor DeployMPar
-
-derive newtype instance applyDeployMPar :: Apply DeployMPar
-
-derive newtype instance applicativeDeployMPar :: Applicative DeployMPar
+derive newtype instance Functor DeployMPar
+derive newtype instance Apply DeployMPar
+derive newtype instance Applicative DeployMPar
+derive newtype instance Alt DeployMPar
+derive newtype instance Plus DeployMPar
+derive newtype instance Alternative DeployMPar
 
 instance monadParDeployM :: Parallel DeployMPar DeployM where
   parallel (DeployM m) = DeployMPar (parallel m)
   sequential (DeployMPar m) = DeployM (sequential m)
-
-derive newtype instance altParDeployM :: Alt DeployMPar
-
-derive newtype instance plusParDeployM :: Plus DeployMPar
-
-derive newtype instance alternativeParDeployM :: Alternative DeployMPar
 
 --------------------------------------------------------------------------------
 -- | Error Types

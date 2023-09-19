@@ -4,27 +4,31 @@ module Chanterelle.Internal.Compile
   , compileModuleWithoutWriting
   , decodeModuleOutput
   , resolveModuleContract
-  , module CompileReexports
   ) where
 
 import Prelude
 
 import Chanterelle.Internal.Artifact (writeArtifact)
-import Chanterelle.Internal.Logging (LogLevel(..), log, logSolcError)
-import Chanterelle.Internal.Types.Compile (CompileError(..)) as CompileReexports
-import Chanterelle.Internal.Types.Compile (CompileError(..), resolveSolidityContractLevelOutput)
-import Chanterelle.Internal.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), Dependency(..), getSolc, partitionSelectionSpecs)
-import Chanterelle.Internal.Utils.Error (withExceptM', withExceptT')
+import Chanterelle.Internal.Utils.Error (withExcept', withExceptM', withExceptT')
 import Chanterelle.Internal.Utils.FS (assertDirectory', fileIsDirty)
+import Chanterelle.Logging (LogLevel(..), log, logSolcError)
+import Chanterelle.Types.Artifact (Artifact(..))
+import Chanterelle.Types.Bytecode (Bytecode(..), flattenLinkReferences)
+import Chanterelle.Types.Compile (CompileError(..))
+import Chanterelle.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), Dependency(..), getSolc, partitionSelectionSpecs)
+import Control.Error.Util (note)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Reader (class MonadAsk, ask)
+import Data.Argonaut (decodeJson, printJsonDecodeError)
 import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
 import Data.Array (catMaybes, partition)
+import Data.Bifunctor (lmap)
 import Data.Either (Either(..), hush)
 import Data.Lens ((^?))
 import Data.Lens.Index (ix)
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Newtype (un)
 import Data.String (Pattern(..), stripPrefix)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (for, for_)
@@ -34,6 +38,7 @@ import Effect.Aff (attempt)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (class MonadEffect)
 import Effect.Exception (catchException)
+import Foreign.Object as FO
 import Foreign.Object as M
 import Language.Solidity.Compiler (compile) as Solc
 import Language.Solidity.Compiler.Types as ST
@@ -232,3 +237,30 @@ writeBuildArtifact srcName filepath output solContractName = do
   outputArtifact <- resolveSolidityContractLevelOutput co'
   assertDirectory' (Path.dirname filepath)
   withExceptT' FSError $ writeArtifact filepath outputArtifact
+
+resolveSolidityContractLevelOutput
+  :: forall m
+   . MonadThrow CompileError m
+  => ST.ContractLevelOutput
+  -> m Artifact
+resolveSolidityContractLevelOutput = withExcept' UnexpectedSolcOutput <<< fromSolidityContractLevelOutput
+  where
+
+  fromSolidityBytecodeOutput :: ST.BytecodeOutput -> Either String Bytecode
+  fromSolidityBytecodeOutput (ST.BytecodeOutput o) = do
+    rawBytecode <- note "Solidity bytecode output lacked an \"object\" field" o.object
+    let linkReferences = maybe FO.empty (flattenLinkReferences <<< un ST.LinkReferences) o.linkReferences
+    pure $ case rawBytecode of
+      ST.BytecodeHexString bytecode -> BCLinked { bytecode, linkReferences }
+      _ -> BCUnlinked { rawBytecode, linkReferences, remainingLinkReferences: linkReferences }
+
+  fromSolidityContractLevelOutput :: ST.ContractLevelOutput -> Either String Artifact
+  fromSolidityContractLevelOutput (ST.ContractLevelOutput clo) = do
+    abi <- lmap printJsonDecodeError <<< decodeJson =<< note "Solidity contract output did not have an \"abi\" field" clo.abi
+    (ST.EvmOutput evm) <- note "Solidity contract output did not have an \"evm\" field" clo.evm
+    bytecode' <- note "Solidity contract output did not have an \"evm.bytecode\" field" evm.bytecode
+    bytecode <- fromSolidityBytecodeOutput bytecode'
+    deployedBytecode' <- note "Solidity contract output did not have an \"evm.deployedBytecode\" field" evm.deployedBytecode
+    deployedBytecode <- fromSolidityBytecodeOutput deployedBytecode'
+    let lastModified = top
+    pure $ Artifact { abi, code: { bytecode, deployedBytecode }, lastModified, networks: FO.empty }

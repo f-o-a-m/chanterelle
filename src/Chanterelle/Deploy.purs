@@ -1,15 +1,12 @@
 module Chanterelle.Deploy
   ( deploy
   , deployWithProvider
-  , module Exports
   ) where
 
 import Prelude
 
-import Chanterelle.Internal.Deploy (deployContract, deployLibrary, linkLibrary, readDeployAddress) as Exports
-import Chanterelle.Internal.Logging (logDeployError)
-import Chanterelle.Internal.Types (runDeployM) as Exports
-import Chanterelle.Internal.Types.Deploy (DeployM, runDeployM)
+import Chanterelle.Logging (logDeployError)
+import Chanterelle.Types.Deploy (DeployM, runDeployM)
 import Chanterelle.Internal.Utils (makeDeployConfigWithProvider, makeProvider)
 import Control.Monad.Except (runExceptT)
 import Data.Either (Either(..))

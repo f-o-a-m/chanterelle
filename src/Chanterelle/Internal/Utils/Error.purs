@@ -18,15 +18,6 @@ catchingAff
   -> m a
 catchingAff = withExceptM' show <<< liftAff <<< try
 
-catchingAff'
-  :: forall m e e' a
-   . MonadAff m
-  => MonadThrow e' m
-  => (e -> e')
-  -> Aff (Either e a)
-  -> m a
-catchingAff' f = withExceptM' f <<< liftAff
-
 except'
   :: forall m e a
    . MonadThrow e m

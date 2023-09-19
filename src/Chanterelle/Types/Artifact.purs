@@ -1,19 +1,36 @@
-module Chanterelle.Internal.Types.Artifact where
+module Chanterelle.Types.Artifact
+  ( ArtifactBytecode(..)
+  , ArtifactBytecodeR
+  , DeployedArtifact
+  , NetworkInfo(..)
+  , UndeployedArtifact
+  , Artifact(..)
+  , _abi
+  , _code
+  , _bytecode
+  , _deployedBytecode
+  , _network
+  , _networks
+  , _NetworkBytecode
+  , _Deployed
+  , _address
+  , _blockHash
+  , _blockNumber
+  , _transactionHash
+  , _lastModified
+  ) where
 
 import Prelude
 
-import Chanterelle.Internal.Types.Bytecode (Bytecode, emptyBytecode, fromSolidityBytecodeOutput)
+import Chanterelle.Types.Bytecode (Bytecode)
 import Control.Alt ((<|>))
-import Data.Argonaut (class DecodeJson, class EncodeJson, Json, decodeJson, encodeJson, printJsonDecodeError)
-import Data.Bifunctor (lmap)
-import Data.Either (Either, note)
+import Data.Argonaut (class DecodeJson, class EncodeJson, Json, decodeJson, encodeJson)
 import Data.Lens (Lens', Getter', lens', to)
 import Data.Lens.At (at)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
 import Data.Tuple (Tuple(..))
 import Foreign.Object as M
-import Language.Solidity.Compiler.Types as ST
 import Network.Ethereum.Web3 (Address, HexString, BlockNumber)
 
 type ArtifactBytecodeR a = Record
@@ -34,13 +51,13 @@ data NetworkInfo
   = Undeployed UndeployedArtifact
   | Deployed DeployedArtifact
 
-derive instance eqNetworkInfo :: Eq NetworkInfo
-derive instance ordNetworkInfo :: Ord NetworkInfo
+derive instance Eq NetworkInfo
+derive instance Ord NetworkInfo
 
-instance decodeJsonNetworkInfo :: DecodeJson NetworkInfo where
+instance DecodeJson NetworkInfo where
   decodeJson j = (Deployed <$> decodeJson j) <|> (Undeployed <$> decodeJson j)
 
-instance encodeJsonNetworkInfo :: EncodeJson NetworkInfo where
+instance EncodeJson NetworkInfo where
   encodeJson (Undeployed u) = encodeJson u
   encodeJson (Deployed d) = encodeJson d
 
@@ -51,33 +68,19 @@ newtype Artifact = Artifact
   , networks :: M.Object NetworkInfo
   }
 
-derive instance eqArtifact :: Eq Artifact
-derive instance ordArtifact :: Ord Artifact
-derive instance newtypeArtifact :: Newtype Artifact _
-derive newtype instance decodeJsonArtifact :: DecodeJson Artifact
-derive newtype instance encodeJsonArtifact :: EncodeJson Artifact
+derive instance Eq Artifact
+derive instance Ord Artifact
+derive instance Newtype Artifact _
+derive newtype instance DecodeJson Artifact
+derive newtype instance EncodeJson Artifact
 
 newtype ArtifactBytecode = ArtifactBytecode (ArtifactBytecodeR ())
 
-derive instance newtypeArtifactBytecode :: Newtype ArtifactBytecode _
-derive newtype instance eqArtifactBytecode :: Eq ArtifactBytecode
-derive newtype instance ordArtifactBytecode :: Ord ArtifactBytecode
-derive newtype instance decodeJsonArtifactBytecode :: DecodeJson ArtifactBytecode
-derive newtype instance encodeJsonArtifactBytecode :: EncodeJson ArtifactBytecode
-
-emptyArtifactBytecode :: ArtifactBytecode
-emptyArtifactBytecode = ArtifactBytecode { bytecode: emptyBytecode, deployedBytecode: emptyBytecode }
-
-fromSolidityContractLevelOutput :: ST.ContractLevelOutput -> Either String Artifact
-fromSolidityContractLevelOutput (ST.ContractLevelOutput clo) = do
-  abi <- lmap printJsonDecodeError <<< decodeJson =<< note "Solidity contract output did not have an \"abi\" field" clo.abi
-  (ST.EvmOutput evm) <- note "Solidity contract output did not have an \"evm\" field" clo.evm
-  bytecode' <- note "Solidity contract output did not have an \"evm.bytecode\" field" evm.bytecode
-  bytecode <- fromSolidityBytecodeOutput bytecode'
-  deployedBytecode' <- note "Solidity contract output did not have an \"evm.deployedBytecode\" field" evm.deployedBytecode
-  deployedBytecode <- fromSolidityBytecodeOutput deployedBytecode'
-  let lastModified = top
-  pure $ Artifact { abi, code: { bytecode, deployedBytecode }, lastModified, networks: M.empty }
+derive instance Newtype ArtifactBytecode _
+derive newtype instance Eq ArtifactBytecode
+derive newtype instance Ord ArtifactBytecode
+derive newtype instance DecodeJson ArtifactBytecode
+derive newtype instance EncodeJson ArtifactBytecode
 
 _abi :: Lens' Artifact (Array Json)
 _abi = lens' $ \(Artifact a) -> Tuple a.abi (\abi' -> Artifact (a { abi = abi' }))

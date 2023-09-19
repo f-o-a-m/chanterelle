@@ -12,23 +12,22 @@ module Chanterelle.Internal.Utils
 
 import Prelude
 
-import Chanterelle.Internal.Types (ContractConfig, DeployConfig(..), DeployError(..))
-import Chanterelle.Internal.Utils.Error (catchingAff')
-import Chanterelle.Internal.Utils.Error (catchingAff, catchingAff', eitherM, eitherM_, except', exceptM', exceptNoteA', exceptNoteM', withExceptM', withExceptT', (!?), (??)) as Utils.Error
+import Chanterelle.Internal.Utils.Error (catchingAff, eitherM, eitherM_, except', exceptM', exceptNoteA', exceptNoteM', withExceptM', withExceptT', (!?), (??)) as Utils.Error
 import Chanterelle.Internal.Utils.FS (assertDirectory, fileIsDirty, fileModTime, readTextFile, unparsePath, withTextFile, writeTextFile) as Utils.FS
 import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces) as Json
 import Chanterelle.Internal.Utils.Web3 (getCodeForContract, getPrimaryAccount, getNetworkID, logAndThrow, logAndThrow', makeProvider, pollTransactionReceipt, providerForNetwork, resolveCodeForContract, resolveProvider, web3WithTimeout) as Web3
+import Chanterelle.Types.Deploy (ContractConfig, DeployConfig(..), DeployError(..))
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Parallel (parOneOf)
-import Data.Either (Either)
+import Data.Either (Either, either)
 import Data.Int (toNumber)
 import Data.Map as Map
 import Data.Validation.Semigroup (validation)
 import Effect.Aff (Aff, Milliseconds(..), attempt, delay)
-import Effect.Aff.Class (class MonadAff)
-import Effect.Ref as Ref
+import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (liftEffect)
 import Effect.Exception (Error, error)
+import Effect.Ref as Ref
 import Network.Ethereum.Web3 (Provider, runWeb3)
 
 makeDeployConfig
@@ -54,11 +53,13 @@ makeDeployConfigWithProvider provider tout =
     timeout = Milliseconds (toNumber tout)
     toError = ConfigurationError <<< append "Couldn't create DeployConfig: " <<< show
   in
-    catchingAff' toError $ runWeb3 provider do
-      primaryAccount <- Web3.getPrimaryAccount
-      networkID <- Web3.getNetworkID
-      artifactCache <- liftEffect $ Ref.new Map.empty
-      pure $ DeployConfig { provider, primaryAccount, networkID, timeout, ignoreNetworksInArtifact: false, writeArtifacts: true, artifactCache }
+    do
+      eRes <- liftAff $ runWeb3 provider do
+        primaryAccount <- Web3.getPrimaryAccount
+        networkID <- Web3.getNetworkID
+        artifactCache <- liftEffect $ Ref.new Map.empty
+        pure $ DeployConfig { provider, primaryAccount, networkID, timeout, ignoreNetworksInArtifact: false, writeArtifacts: true, artifactCache }
+      either (throwError <<< toError) pure eRes
 
 -- | try an aff action for the specified amount of time before giving up.
 withTimeout

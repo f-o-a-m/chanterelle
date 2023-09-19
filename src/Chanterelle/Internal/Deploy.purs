@@ -3,21 +3,21 @@ module Chanterelle.Internal.Deploy
   , deployLibrary
   , linkLibrary
   , readDeployAddress
-  , DeployReceipt
   ) where
 
 import Prelude
 
 import Chanterelle.Internal.Artifact (readArtifact, writeArtifact) as Artifact
-import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types.Artifact (Artifact(..), ArtifactBytecode(..), NetworkInfo(..), _Deployed, _NetworkBytecode, _address, _code, _network)
-import Chanterelle.Internal.Types.Bytecode (Bytecode(..))
-import Chanterelle.Internal.Types.Bytecode as CBC
-import Chanterelle.Internal.Types.Deploy (ContractConfig, DeployConfig(..), DeployError(..), LibraryConfig, NetworkID)
-import Chanterelle.Internal.Utils (attemptWithTimeout, catchingAff', except', pollTransactionReceipt, validateDeployArgs, withExceptM', withExceptT', (??))
+import Chanterelle.Internal.Utils (attemptWithTimeout, except', pollTransactionReceipt, validateDeployArgs, withExceptM', withExceptT', (??))
+import Chanterelle.Logging (LogLevel(..), log)
+import Chanterelle.Types.Artifact (Artifact(..), ArtifactBytecode(..), NetworkInfo(..), _Deployed, _NetworkBytecode, _address, _code, _network)
+import Chanterelle.Types.Bytecode (Bytecode(..))
+import Chanterelle.Types.Bytecode as CBC
+import Chanterelle.Types.Deploy (ContractConfig, DeployConfig(..), DeployError(..), LibraryConfig, NetworkID)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Reader.Class (class MonadAsk, ask)
 import Data.Bifunctor (lmap)
+import Data.Either (either)
 import Data.Lens (_Just, (%~), (?~), (^.), (^?))
 import Data.Map as Map
 import Data.Maybe (fromMaybe, isNothing, maybe)
@@ -92,7 +92,9 @@ getPublishedContractDeployInfo txHash name (ArtifactBytecode { bytecode, deploye
   (DeployConfig { timeout, provider }) <- ask
   log Info $ "Polling for " <> name <> " transaction receipt: " <> show txHash
   let txReceiptError err = OnDeploymentError { name, message: "Failed to get transaction receipt: " <> show err }
-  TransactionReceipt txReceipt <- catchingAff' txReceiptError $ attemptWithTimeout timeout (pollTransactionReceipt txHash provider)
+  TransactionReceipt txReceipt <- do
+    eRes <- liftAff $ attemptWithTimeout timeout (pollTransactionReceipt txHash provider)
+    either (throwError <<< txReceiptError) pure eRes
   if txReceipt.status == Failed || isNothing (txReceipt.contractAddress) then
     let
       message = "Deployment failed to create contract, no address found or status 0x0 in receipt: " <> name

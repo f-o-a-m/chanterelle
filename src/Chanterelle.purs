@@ -5,9 +5,10 @@ import Prelude
 import Chanterelle.Deploy (deploy)
 import Chanterelle.Internal.Codegen (generatePS) as Chanterelle
 import Chanterelle.Internal.Compile (compile) as Chanterelle
-import Chanterelle.Internal.Logging (LogLevel(..), log, logCompileError, readLogLevel, setLogLevel)
-import Chanterelle.Internal.Types (DeployM, runCompileMExceptT)
-import Chanterelle.Internal.Types.Project (ChanterelleProject)
+import Chanterelle.Logging (LogLevel(..), log, logCompileError, readLogLevel, setLogLevel)
+import Chanterelle.Types.Deploy (DeployM)
+import Chanterelle.Types.Compile (runCompileMExceptT)
+import Chanterelle.Types.Project (ChanterelleProject)
 import Chanterelle.Internal.Utils (eitherM_)
 import Chanterelle.Project (loadProject)
 import Control.Monad.Error.Class (try)
@@ -23,18 +24,18 @@ data SelectCLI (a :: Type) (b :: Type) = SelectCLI a
 
 data SelectPS (a :: Type) (b :: Type) = SelectPS b
 
-instance showSelectDeployM :: Show (SelectPS a (DeployM Unit)) where
+instance Show (SelectPS a (DeployM Unit)) where
   show (SelectPS _) = "<DeployM Unit>"
 
-instance showSelectDeployPath :: Show a => Show (SelectCLI a b) where
+instance Show a => Show (SelectCLI a b) where
   show (SelectCLI a) = show a
 
 type ArgsCLI = Args' SelectCLI
 type Args = Args' SelectPS
 data Args' s = Args' CommonOpts (Command s)
 
-derive instance genericArgs :: Generic (Args' s) _
-instance showArgs :: Show (DeployOptions s) => Show (Args' s) where
+derive instance Generic (Args' s) _
+instance Show (DeployOptions s) => Show (Args' s) where
   show = genericShow
 
 type DirPath = String
@@ -43,7 +44,7 @@ data CommonOpts = CommonOpts
   , rootPath :: DirPath
   }
 
-derive instance genericCommonOpts :: Generic CommonOpts _
+derive instance Generic CommonOpts _
 instance showCommonOpts :: Show CommonOpts where
   show = genericShow
 
@@ -54,7 +55,7 @@ data Command s
   | Deploy (DeployOptions s)
   | GlobalDeploy (DeployOptions s)
 
-derive instance genericCommand :: Generic (Command s) _
+derive instance Generic (Command s) _
 instance showCommand :: Show (DeployOptions s) => Show (Command s) where
   show = genericShow
 
@@ -74,8 +75,8 @@ data DeployOptions s = DeployOptions
   , script :: s String (DeployM Unit)
   }
 
-derive instance genericDeployOptions :: Generic (DeployOptions s) _
-instance showDeployOptions :: Show (DeployOptions SelectPS) where
+derive instance Generic (DeployOptions s) _
+instance Show (DeployOptions SelectPS) where
   show = genericShow
 
 chanterelle :: Args -> Aff Unit

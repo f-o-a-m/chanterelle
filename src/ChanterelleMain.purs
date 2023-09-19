@@ -3,8 +3,8 @@ module ChanterelleMain where
 import Prelude
 
 import Chanterelle (Args'(..), ArgsCLI, Command(..), CommonOpts(..), DeployOptions(..), DirPath, SelectCLI(..), SelectPS(..), chanterelle, traverseDeployOptions)
-import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types (DeployM)
+import Chanterelle.Logging (LogLevel(..), log)
+import Chanterelle.Types.Deploy (DeployM)
 import Control.Apply (lift2)
 import Control.Monad.Error.Class (try)
 import Control.Monad.Except (ExceptT(..), runExceptT)

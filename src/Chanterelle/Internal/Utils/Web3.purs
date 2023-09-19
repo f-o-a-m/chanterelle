@@ -2,9 +2,9 @@ module Chanterelle.Internal.Utils.Web3 where
 
 import Prelude
 
-import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types.Deploy (DeployError(..), NetworkID)
-import Chanterelle.Internal.Types.Project (Network(..), networkIDFitsChainSpec)
+import Chanterelle.Logging (LogLevel(..), log)
+import Chanterelle.Types.Deploy (DeployError(..), NetworkID)
+import Chanterelle.Types.Project (Network(..), networkIDFitsChainSpec)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Except (ExceptT(..), except, runExceptT, withExceptT)
 import Control.Parallel (parOneOf)

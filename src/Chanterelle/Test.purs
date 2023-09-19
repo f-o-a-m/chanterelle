@@ -8,8 +8,8 @@ module Chanterelle.Test
 
 import Prelude
 
-import Chanterelle.Internal.Logging (logDeployError)
-import Chanterelle.Internal.Types.Deploy (DeployConfig(..), DeployError(..), DeployM, runDeployM)
+import Chanterelle.Logging (logDeployError)
+import Chanterelle.Types.Deploy (DeployConfig(..), DeployError(..), DeployM, runDeployM)
 import Chanterelle.Internal.Utils (makeDeployConfig)
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (runExceptT)

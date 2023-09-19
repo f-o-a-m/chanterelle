@@ -2,8 +2,8 @@ module Chanterelle.Internal.Utils.FS where
 
 import Prelude
 
-import Chanterelle.Internal.Logging (LogLevel(..), log)
-import Chanterelle.Internal.Types.Compile (CompileError(..))
+import Chanterelle.Logging (LogLevel(..), log)
+import Chanterelle.Types.Compile (CompileError(..))
 import Chanterelle.Internal.Utils.Error (catchingAff, withExceptT')
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Data.DateTime.Instant (fromDateTime, unInstant)
