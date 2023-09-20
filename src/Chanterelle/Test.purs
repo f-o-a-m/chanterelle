@@ -8,9 +8,9 @@ module Chanterelle.Test
 
 import Prelude
 
+import Chanterelle.Deploy (makeDeployConfig)
 import Chanterelle.Logging (logDeployError)
 import Chanterelle.Types.Deploy (DeployConfig(..), DeployError(..), DeployM, runDeployM)
-import Chanterelle.Internal.Utils (makeDeployConfig)
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (runExceptT)
 import Data.Either (Either(..), either)

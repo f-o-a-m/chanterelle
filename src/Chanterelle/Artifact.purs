@@ -1,4 +1,4 @@
-module Chanterelle.Internal.Artifact
+module Chanterelle.Artifact
   ( readArtifact
   , updateArtifact
   , writeArtifact
@@ -7,8 +7,7 @@ module Chanterelle.Internal.Artifact
 import Prelude
 
 import Chanterelle.Types.Artifact (Artifact(..))
-import Chanterelle.Internal.Utils.FS (readTextFile, withTextFile, writeTextFile)
-import Chanterelle.Internal.Utils.Json (jsonStringifyWithSpaces, parseDecodeM)
+import Chanterelle.Utils (jsonStringifyWithSpaces, parseDecodeM, readTextFile, withTextFile, writeTextFile)
 import Control.Monad.Error.Class (class MonadThrow)
 import Data.Argonaut (encodeJson)
 import Data.DateTime.Instant (unInstant)

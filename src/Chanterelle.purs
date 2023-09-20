@@ -2,17 +2,16 @@ module Chanterelle where
 
 import Prelude
 
+import Chanterelle.Compile (compile) as Chanterelle
 import Chanterelle.Deploy (deploy)
 import Chanterelle.Internal.Codegen (generatePS) as Chanterelle
-import Chanterelle.Internal.Compile (compile) as Chanterelle
 import Chanterelle.Logging (LogLevel(..), log, logCompileError, readLogLevel, setLogLevel)
-import Chanterelle.Types.Deploy (DeployM)
-import Chanterelle.Types.Compile (runCompileMExceptT)
-import Chanterelle.Types.Project (ChanterelleProject)
-import Chanterelle.Internal.Utils (eitherM_)
 import Chanterelle.Project (loadProject)
+import Chanterelle.Types.Compile (runCompileM)
+import Chanterelle.Types.Deploy (DeployM)
+import Chanterelle.Types.Project (ChanterelleProject)
 import Control.Monad.Error.Class (try)
-import Data.Either (Either(..))
+import Data.Either (Either(..), either)
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Effect.Aff (Aff)
@@ -45,7 +44,7 @@ data CommonOpts = CommonOpts
   }
 
 derive instance Generic CommonOpts _
-instance showCommonOpts :: Show CommonOpts where
+instance Show CommonOpts where
   show = genericShow
 
 data Command s
@@ -56,7 +55,7 @@ data Command s
   | GlobalDeploy (DeployOptions s)
 
 derive instance Generic (Command s) _
-instance showCommand :: Show (DeployOptions s) => Show (Command s) where
+instance Show (DeployOptions s) => Show (Command s) where
   show = genericShow
 
 traverseDeployOptions :: forall a b f. Applicative f => (DeployOptions a -> f (DeployOptions b)) -> Args' a -> f (Args' b)
@@ -104,7 +103,11 @@ runCommand project = case _ of
     log Error $ "deploy is unavailable as Chanterelle is running from a global installation"
     log Error $ "Please ensure your project's Chanterelle instance has compiled"
   -- doClassicBuild = doCompile *> doCodegen
-  doCompile = eitherM_ terminateOnCompileError $ runCompileMExceptT Chanterelle.compile project
-  doCodegen = eitherM_ terminateOnCompileError $ runCompileMExceptT Chanterelle.generatePS project
+  doCompile = do
+    eRes <- runCompileM Chanterelle.compile project
+    either terminateOnCompileError mempty eRes
+  doCodegen = do
+    eRes <- runCompileM Chanterelle.generatePS project
+    either terminateOnCompileError mempty eRes
 
   terminateOnCompileError e = logCompileError e *> liftEffect (exit 1)

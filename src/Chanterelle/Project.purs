@@ -4,7 +4,7 @@ import Prelude
 
 import Chanterelle.Logging (LogLevel(..), log)
 import Chanterelle.Types.Project (ChanterelleModule(..), ChanterelleModuleType(..), ChanterelleProject(..), ChanterelleProjectSpec(..), Libraries(..), Library(..), mkChanterelleSolc)
-import Chanterelle.Internal.Utils.FS (assertDirectory, fileModTime, readTextFile, writeTextFile)
+import Chanterelle.Utils (assertDirectory, fileModTime, readTextFile, writeTextFile)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Except (ExceptT(..), runExceptT)
 import Data.Argonaut (printJsonDecodeError)

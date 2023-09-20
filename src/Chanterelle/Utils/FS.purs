@@ -1,10 +1,10 @@
-module Chanterelle.Internal.Utils.FS where
+module Chanterelle.Utils.FS where
 
 import Prelude
 
 import Chanterelle.Logging (LogLevel(..), log)
 import Chanterelle.Types.Compile (CompileError(..))
-import Chanterelle.Internal.Utils.Error (catchingAff, withExceptT')
+import Chanterelle.Utils.Error (withExceptT')
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Data.DateTime.Instant (fromDateTime, unInstant)
 import Data.Either (Either(..))
@@ -88,7 +88,7 @@ readTextFile
   => MonadThrow String m
   => FilePath
   -> m String
-readTextFile filename = catchingAff wrapInternalRead
+readTextFile filename = wrapInternalRead
   where
   wrapInternalRead = liftEffect $ runEffectFn2 readFileSync filename opts
   opts = { encoding: show UTF8, flag: "rs+" }
@@ -100,7 +100,7 @@ writeTextFile
   => FilePath
   -> String
   -> m Unit
-writeTextFile filename contents = catchingAff wrapInternalWrite
+writeTextFile filename contents = wrapInternalWrite
   where
   wrapInternalWrite = liftEffect $ runEffectFn3 writeFileSync filename contents opts
   opts = { encoding: show UTF8, flag: writeSyncFlag }

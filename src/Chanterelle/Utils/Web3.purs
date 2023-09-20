@@ -1,4 +1,4 @@
-module Chanterelle.Internal.Utils.Web3 where
+module Chanterelle.Utils.Web3 where
 
 import Prelude
 
@@ -7,7 +7,6 @@ import Chanterelle.Types.Deploy (DeployError(..), NetworkID)
 import Chanterelle.Types.Project (Network(..), networkIDFitsChainSpec)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Except (ExceptT(..), except, runExceptT, withExceptT)
-import Control.Parallel (parOneOf)
 import Data.Array (head)
 import Data.Either (Either(..))
 import Data.Int (fromString)
@@ -129,15 +128,3 @@ pollTransactionReceipt txHash provider = do
       liftAff $ delay (Milliseconds 3000.0)
       pollTransactionReceipt txHash provider
     Right txRec -> pure txRec
-
-web3WithTimeout
-  :: forall a
-   . Milliseconds
-  -> Web3 a
-  -> Web3 a
-web3WithTimeout maxTimeout action = do
-  let
-    timeout = liftAff do
-      delay maxTimeout
-      logAndThrow "Web3 action timed out"
-  parOneOf [ action, timeout ]

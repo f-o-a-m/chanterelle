@@ -1,4 +1,4 @@
-module Chanterelle.Internal.Compile
+module Chanterelle.Compile
   ( compile
   , makeSolcInput
   , compileModuleWithoutWriting
@@ -8,14 +8,14 @@ module Chanterelle.Internal.Compile
 
 import Prelude
 
-import Chanterelle.Internal.Artifact (writeArtifact)
-import Chanterelle.Internal.Utils.Error (withExcept', withExceptM', withExceptT')
-import Chanterelle.Internal.Utils.FS (assertDirectory', fileIsDirty)
+import Chanterelle.Artifact (writeArtifact)
 import Chanterelle.Logging (LogLevel(..), log, logSolcError)
 import Chanterelle.Types.Artifact (Artifact(..))
 import Chanterelle.Types.Bytecode (Bytecode(..), flattenLinkReferences)
 import Chanterelle.Types.Compile (CompileError(..))
 import Chanterelle.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), Dependency(..), getSolc, partitionSelectionSpecs)
+import Chanterelle.Utils (assertDirectory', fileIsDirty)
+import Chanterelle.Utils.Error (withExceptT')
 import Control.Error.Util (note)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Reader (class MonadAsk, ask)
@@ -24,7 +24,7 @@ import Data.Argonaut as A
 import Data.Argonaut.Parser as AP
 import Data.Array (catMaybes, partition)
 import Data.Bifunctor (lmap)
-import Data.Either (Either(..), hush)
+import Data.Either (Either(..), either, hush)
 import Data.Lens ((^?))
 import Data.Lens.Index (ix)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
@@ -113,7 +113,9 @@ compileModuleWithoutWriting
   -> m ST.CompilerOutput
 compileModuleWithoutWriting m@(ChanterelleModule mod) solcInput = do
   (ChanterelleProject project) <- ask
-  solc <- withExceptM' CompilerUnavailable $ getSolc project.solc
+  solc <- do
+    eRes <- getSolc project.solc
+    either (throwError <<< CompilerUnavailable) pure eRes
   log Info ("compiling " <> show mod.moduleType <> " " <> mod.moduleName)
   output <- Solc.compile solc solcInput (loadSolcCallback m project.root project.spec) --liftEffect $ runFn2 _compile (A.stringify $ encodeJson solcInput) (loadSolcCallback m project.root project.spec)
   case output of
@@ -243,7 +245,8 @@ resolveSolidityContractLevelOutput
    . MonadThrow CompileError m
   => ST.ContractLevelOutput
   -> m Artifact
-resolveSolidityContractLevelOutput = withExcept' UnexpectedSolcOutput <<< fromSolidityContractLevelOutput
+resolveSolidityContractLevelOutput a =
+  either (throwError <<< UnexpectedSolcOutput) pure $ fromSolidityContractLevelOutput a
   where
 
   fromSolidityBytecodeOutput :: ST.BytecodeOutput -> Either String Bytecode

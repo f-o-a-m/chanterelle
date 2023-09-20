@@ -1,13 +1,12 @@
-module Chanterelle.Internal.Utils.Json where
+module Chanterelle.Utils.Json where
 
 import Prelude
 
-import Chanterelle.Internal.Utils.Error (except')
 import Control.Alt ((<|>))
-import Control.Monad.Error.Class (class MonadThrow)
+import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Data.Argonaut (class DecodeJson, Json, decodeJson, encodeJson, jsonParser, printJsonDecodeError, (.:), (.:!))
 import Data.Bifunctor (lmap)
-import Data.Either (Either(..), note)
+import Data.Either (Either(..), either, note)
 import Data.Maybe (Maybe(..), fromJust, maybe)
 import Foreign.Object (Object)
 import Network.Ethereum.Core.BigNumber (fromInt, fromString, toString, unsafeToInt)
@@ -67,4 +66,4 @@ parseDecodeM
   => MonadThrow String m
   => String
   -> m j
-parseDecodeM = except' <<< (lmap printJsonDecodeError <<< decodeJson <=< jsonParser)
+parseDecodeM = either throwError pure <<< (lmap printJsonDecodeError <<< decodeJson <=< jsonParser)
