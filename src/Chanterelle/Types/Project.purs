@@ -1,4 +1,4 @@
-module Chanterelle.Internal.Types.Project where
+module Chanterelle.Types.Project where
 
 import Prelude
 
@@ -95,7 +95,7 @@ networkIDFitsChainSpec :: ChainSpec -> String -> Boolean
 networkIDFitsChainSpec AllChains _ = true
 networkIDFitsChainSpec (SpecificChains chains) id = id `elem` chains
 
-instance decodeJsonChainSpec :: DecodeJson ChainSpec where
+instance DecodeJson ChainSpec where
   decodeJson j = decodeAllChains <|> decodeSpecificChains <|> Left (Named "Invalid chain specifier" $ UnexpectedValue j)
     where
     decodeStr = decodeJson j
@@ -105,7 +105,7 @@ instance decodeJsonChainSpec :: DecodeJson ChainSpec where
     decodeSpecificChains = decodeStr >>= \s ->
       SpecificChains <$> for (split (Pattern ",") s) pure
 
-instance encodeJsonChainSpec :: EncodeJson ChainSpec where
+instance EncodeJson ChainSpec where
   encodeJson AllChains = encodeJson "*"
   encodeJson (SpecificChains c) = encodeJson $ joinWith "," c
 
@@ -115,20 +115,20 @@ newtype Network = Network
   , allowedChains :: ChainSpec
   }
 
-derive instance eqNetwork :: Eq Network
+derive instance Eq Network
 
-instance encodeJsonNetwork :: EncodeJson Network where
+instance EncodeJson Network where
   encodeJson (Network n) = "url" := n.providerUrl
     ~> "chains" := n.allowedChains
     ~> jsonEmptyObject
 
 newtype Networks = Networks (Array Network)
 
-derive instance eqNetworks :: Eq Networks
-derive newtype instance monoidNetworks :: Monoid Networks
-derive newtype instance semigroupNetworks :: Semigroup Networks
+derive instance Eq Networks
+derive newtype instance Monoid Networks
+derive newtype instance Semigroup Networks
 
-instance decodeJsonNetworks :: DecodeJson Networks where
+instance DecodeJson Networks where
   decodeJson j = decodeJson j >>= (\o -> Networks <$> for (M.toUnfoldable o) decodeNetwork)
     where
     decodeNetwork (Tuple name net) = do
@@ -137,7 +137,7 @@ instance decodeJsonNetworks :: DecodeJson Networks where
       allowedChains <- o .: "chains"
       pure $ Network { name, providerUrl, allowedChains }
 
-instance encodeJsonNetworks :: EncodeJson Networks where
+instance EncodeJson Networks where
   encodeJson (Networks nets) = encodeJson $ M.fromFoldable (encodeNetwork <$> nets)
     where
     encodeNetwork (Network net) = Tuple net.name $
@@ -147,20 +147,20 @@ instance encodeJsonNetworks :: EncodeJson Networks where
 
 newtype NetworkRef = NetworkRef String
 
-derive instance eqNetworkRef :: Eq NetworkRef
-derive newtype instance decodeJsonNetworkRef :: DecodeJson NetworkRef
-derive newtype instance encodeJsonNetworkRef :: EncodeJson NetworkRef
-derive newtype instance monoidNetworkRef :: Monoid NetworkRef
-derive newtype instance semigroupNetworkRef :: Semigroup NetworkRef
+derive instance Eq NetworkRef
+derive newtype instance DecodeJson NetworkRef
+derive newtype instance EncodeJson NetworkRef
+derive newtype instance Monoid NetworkRef
+derive newtype instance Semigroup NetworkRef
 
 data NetworkRefs
   = AllNetworks -- "**"
   | AllDefinedNetworks -- "*"
   | SpecificRefs (Array String)
 
-derive instance eqNetworkRefs :: Eq NetworkRefs
+derive instance Eq NetworkRefs
 
-instance decodeJsonNetworkRefs :: DecodeJson NetworkRefs where
+instance DecodeJson NetworkRefs where
   decodeJson j =
     (SpecificRefs <$> decodeJson j)
       <|> (decodeStringy =<< decodeJson j)
@@ -172,7 +172,7 @@ instance decodeJsonNetworkRefs :: DecodeJson NetworkRefs where
       "**" -> Right AllNetworks
       _ -> Left $ Named "Not * or **" $ UnexpectedValue j
 
-instance encodeJsonNetworkRefs :: EncodeJson NetworkRefs where
+instance EncodeJson NetworkRefs where
   encodeJson AllNetworks = encodeJson "**"
   encodeJson AllDefinedNetworks = encodeJson "*"
   encodeJson (SpecificRefs nets) = encodeJson $ encodeJson <$> nets
@@ -203,15 +203,15 @@ data SolcOutputSelectionSpec
   = SolcFileLevelSelectionSpec ST.FileLevelSelection
   | SolcContractLevelSelectionSpec ST.ContractLevelSelection
 
-derive instance eqSolcOutputSelectionSpec :: Eq SolcOutputSelectionSpec
-derive instance ordSolcOutputSelectionSpec :: Ord SolcOutputSelectionSpec
+derive instance Eq SolcOutputSelectionSpec
+derive instance Ord SolcOutputSelectionSpec
 
-instance decodeJsonSolcOutputSelectionSpec :: DecodeJson SolcOutputSelectionSpec where
+instance DecodeJson SolcOutputSelectionSpec where
   decodeJson j = lmap (\e -> Named e $ UnexpectedValue j) $
     (SolcFileLevelSelectionSpec <$> ST.decodeJsonSelection j) <|>
       (SolcContractLevelSelectionSpec <$> ST.decodeJsonSelection j)
 
-instance encodeJsonSolcOutputSelectionSpec :: EncodeJson SolcOutputSelectionSpec where
+instance EncodeJson SolcOutputSelectionSpec where
   encodeJson (SolcFileLevelSelectionSpec f) = ST.encodeJsonSelection f
   encodeJson (SolcContractLevelSelectionSpec c) = ST.encodeJsonSelection c
 
@@ -226,15 +226,15 @@ partitionSelectionSpecs = foldl f init
 
 newtype SolcOptimizerSettings = SolcOptimizerSettings { enabled :: Boolean, runs :: Int }
 
-derive instance eqSolcOptimizerSettings :: Eq SolcOptimizerSettings
+derive instance Eq SolcOptimizerSettings
 
-instance encodeJsonSolcOptimizerSettings :: EncodeJson SolcOptimizerSettings where
+instance EncodeJson SolcOptimizerSettings where
   encodeJson (SolcOptimizerSettings sos) =
     "enabled" := encodeJson sos.enabled
       ~> "runs" := encodeJson sos.runs
       ~> jsonEmptyObject
 
-instance decodeJsonSolcOptimizerSettings :: DecodeJson SolcOptimizerSettings where
+instance DecodeJson SolcOptimizerSettings where
   decodeJson j = do
     obj <- decodeJson j
     enabled <- obj .:! "enabled" .!= default.enabled
@@ -289,9 +289,9 @@ newtype ChanterelleProjectSpec =
     , solcEvmVersion :: Maybe ST.EvmVersion
     }
 
-derive instance eqChanterelleProjectSpec :: Eq ChanterelleProjectSpec
+derive instance Eq ChanterelleProjectSpec
 
-instance encodeJsonChanterelleProjectSpec :: EncodeJson ChanterelleProjectSpec where
+instance EncodeJson ChanterelleProjectSpec where
   encodeJson (ChanterelleProjectSpec project) =
     "name" := project.name
       ~> "version" := project.version
@@ -319,7 +319,7 @@ instance encodeJsonChanterelleProjectSpec :: EncodeJson ChanterelleProjectSpec w
     omitEmpty :: forall a. Eq a => Monoid a => a -> Maybe a
     omitEmpty s = if s == mempty then Nothing else Just s
 
-instance decodeJsonChanterelleProjectSpec :: DecodeJson ChanterelleProjectSpec where
+instance DecodeJson ChanterelleProjectSpec where
   decodeJson j = do
     obj <- decodeJson j
     name <- obj .: "name"

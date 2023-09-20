@@ -1,10 +1,13 @@
-module Chanterelle.Internal.Types.Compile where
+module Chanterelle.Types.Compile
+  ( CompileError(..)
+  , CompileM(..)
+  , runCompileM
+  , runCompileMExceptT
+  ) where
 
 import Prelude
 
-import Chanterelle.Internal.Types.Artifact (Artifact, fromSolidityContractLevelOutput)
-import Chanterelle.Internal.Types.Project (ChanterelleProject)
-import Chanterelle.Internal.Utils.Error (withExcept')
+import Chanterelle.Types.Project (ChanterelleProject)
 import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Reader (ReaderT, runReaderT)
@@ -46,19 +49,12 @@ runCompileMExceptT
   -> ExceptT CompileError Aff a
 runCompileMExceptT (CompileM m) = runReaderT m
 
-derive newtype instance functorCompileM :: Functor CompileM
-derive newtype instance applyCompileM :: Apply CompileM
-derive newtype instance applicativeCompileM :: Applicative CompileM
-derive newtype instance bindCompileM :: Bind CompileM
-derive newtype instance monadCompileM :: Monad CompileM
-derive newtype instance monadThrowCompileM :: MonadThrow CompileError CompileM
-derive newtype instance monadAskCompileM :: MonadAsk ChanterelleProject CompileM
-derive newtype instance monadEffCompileM :: MonadEffect CompileM
-derive newtype instance monadAffCompileM :: MonadAff CompileM
-
-resolveSolidityContractLevelOutput
-  :: forall m
-   . MonadThrow CompileError m
-  => ST.ContractLevelOutput
-  -> m Artifact
-resolveSolidityContractLevelOutput = withExcept' UnexpectedSolcOutput <<< fromSolidityContractLevelOutput
+derive newtype instance Functor CompileM
+derive newtype instance Apply CompileM
+derive newtype instance Applicative CompileM
+derive newtype instance Bind CompileM
+derive newtype instance Monad CompileM
+derive newtype instance MonadThrow CompileError CompileM
+derive newtype instance MonadAsk ChanterelleProject CompileM
+derive newtype instance MonadEffect CompileM
+derive newtype instance MonadAff CompileM

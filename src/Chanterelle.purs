@@ -2,16 +2,16 @@ module Chanterelle where
 
 import Prelude
 
+import Chanterelle.Compile (compile) as Chanterelle
 import Chanterelle.Deploy (deploy)
 import Chanterelle.Internal.Codegen (generatePS) as Chanterelle
-import Chanterelle.Internal.Compile (compile) as Chanterelle
-import Chanterelle.Internal.Logging (LogLevel(..), log, logCompileError, readLogLevel, setLogLevel)
-import Chanterelle.Internal.Types (DeployM, runCompileMExceptT)
-import Chanterelle.Internal.Types.Project (ChanterelleProject)
-import Chanterelle.Internal.Utils (eitherM_)
+import Chanterelle.Logging (LogLevel(..), log, logCompileError, readLogLevel, setLogLevel)
 import Chanterelle.Project (loadProject)
+import Chanterelle.Types.Compile (runCompileM)
+import Chanterelle.Types.Deploy (DeployM)
+import Chanterelle.Types.Project (ChanterelleProject)
 import Control.Monad.Error.Class (try)
-import Data.Either (Either(..))
+import Data.Either (Either(..), either)
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Effect.Aff (Aff)
@@ -23,18 +23,18 @@ data SelectCLI (a :: Type) (b :: Type) = SelectCLI a
 
 data SelectPS (a :: Type) (b :: Type) = SelectPS b
 
-instance showSelectDeployM :: Show (SelectPS a (DeployM Unit)) where
+instance Show (SelectPS a (DeployM Unit)) where
   show (SelectPS _) = "<DeployM Unit>"
 
-instance showSelectDeployPath :: Show a => Show (SelectCLI a b) where
+instance Show a => Show (SelectCLI a b) where
   show (SelectCLI a) = show a
 
 type ArgsCLI = Args' SelectCLI
 type Args = Args' SelectPS
 data Args' s = Args' CommonOpts (Command s)
 
-derive instance genericArgs :: Generic (Args' s) _
-instance showArgs :: Show (DeployOptions s) => Show (Args' s) where
+derive instance Generic (Args' s) _
+instance Show (DeployOptions s) => Show (Args' s) where
   show = genericShow
 
 type DirPath = String
@@ -43,8 +43,8 @@ data CommonOpts = CommonOpts
   , rootPath :: DirPath
   }
 
-derive instance genericCommonOpts :: Generic CommonOpts _
-instance showCommonOpts :: Show CommonOpts where
+derive instance Generic CommonOpts _
+instance Show CommonOpts where
   show = genericShow
 
 data Command s
@@ -54,8 +54,8 @@ data Command s
   | Deploy (DeployOptions s)
   | GlobalDeploy (DeployOptions s)
 
-derive instance genericCommand :: Generic (Command s) _
-instance showCommand :: Show (DeployOptions s) => Show (Command s) where
+derive instance Generic (Command s) _
+instance Show (DeployOptions s) => Show (Command s) where
   show = genericShow
 
 traverseDeployOptions :: forall a b f. Applicative f => (DeployOptions a -> f (DeployOptions b)) -> Args' a -> f (Args' b)
@@ -74,8 +74,8 @@ data DeployOptions s = DeployOptions
   , script :: s String (DeployM Unit)
   }
 
-derive instance genericDeployOptions :: Generic (DeployOptions s) _
-instance showDeployOptions :: Show (DeployOptions SelectPS) where
+derive instance Generic (DeployOptions s) _
+instance Show (DeployOptions SelectPS) where
   show = genericShow
 
 chanterelle :: Args -> Aff Unit
@@ -103,7 +103,11 @@ runCommand project = case _ of
     log Error $ "deploy is unavailable as Chanterelle is running from a global installation"
     log Error $ "Please ensure your project's Chanterelle instance has compiled"
   -- doClassicBuild = doCompile *> doCodegen
-  doCompile = eitherM_ terminateOnCompileError $ runCompileMExceptT Chanterelle.compile project
-  doCodegen = eitherM_ terminateOnCompileError $ runCompileMExceptT Chanterelle.generatePS project
+  doCompile = do
+    eRes <- runCompileM Chanterelle.compile project
+    either terminateOnCompileError mempty eRes
+  doCodegen = do
+    eRes <- runCompileM Chanterelle.generatePS project
+    either terminateOnCompileError mempty eRes
 
   terminateOnCompileError e = logCompileError e *> liftEffect (exit 1)
