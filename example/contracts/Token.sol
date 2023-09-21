@@ -6,7 +6,6 @@ import "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/access/Ownable.sol";
 
 contract Token is ERC20, Ownable {
-    
     constructor(uint256 initialSupply) ERC20("MyTokenName", "MYT") {
         _mint(msg.sender, initialSupply);
     }

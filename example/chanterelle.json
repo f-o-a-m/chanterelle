@@ -11,5 +11,6 @@
     "purescript-generator": {
         "output-path": "src",
         "module-prefix": "Contract"
-    }
+    },
+    "solc-evm-version": "istanbul"
 }

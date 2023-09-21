@@ -1,5 +1,25 @@
 { name = "web3-tests"
-, dependencies = [ "chanterelle", "console", "effect", "prelude" ]
+, dependencies =
+  [ "aff"
+  , "arrays"
+  , "avar"
+  , "chanterelle"
+  , "effect"
+  , "either"
+  , "eth-core"
+  , "foldable-traversable"
+  , "maybe"
+  , "newtype"
+  , "parallel"
+  , "partial"
+  , "prelude"
+  , "profunctor-lenses"
+  , "spec"
+  , "tagged"
+  , "transformers"
+  , "tuples"
+  , "web3"
+  ]
 , packages = ./packages.dhall
-, sources = [ "src/**/*.purs" ]
+, sources = [ "src/**/*.purs", "test/**/*.purs" ]
 }
