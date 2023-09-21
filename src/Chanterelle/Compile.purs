@@ -1,9 +1,5 @@
 module Chanterelle.Compile
   ( compile
-  , makeSolcInput
-  , compileModuleWithoutWriting
-  , decodeModuleOutput
-  , resolveModuleContract
   ) where
 
 import Prelude
@@ -117,7 +113,7 @@ compileModuleWithoutWriting m@(ChanterelleModule mod) solcInput = do
     eRes <- getSolc project.solc
     either (throwError <<< CompilerUnavailable) pure eRes
   log Info ("compiling " <> show mod.moduleType <> " " <> mod.moduleName)
-  output <- Solc.compile solc solcInput (loadSolcCallback m project.root project.spec) --liftEffect $ runFn2 _compile (A.stringify $ encodeJson solcInput) (loadSolcCallback m project.root project.spec)
+  output <- Solc.compile solc solcInput (loadSolcCallback m project.root project.spec)
   case output of
     Left err -> throwError $ CompileParseError { objectName: "Solidity Compiler", parseError: err }
     Right output' -> pure output'
