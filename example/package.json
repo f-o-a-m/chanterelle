@@ -6,20 +6,22 @@
   "scripts": {
     "postinstall": "spago install",
     "build": "spago build",
+    "chanterelle-build": "spago run -m ChanterelleMain --node-args=\"build\"",
     "tidy": "purs-tidy format-in-place \"src/**/*.purs\" \"test/**/*.purs\""
   },
   "dependencies": {
     "ethjs-provider-http": "^0.1.6",
     "keccak": "^1.0.2",
-    "secp256k1": "^3.0.1",
-    "rlp": "^2.0.0"
+    "rlp": "^2.0.0",
+    "secp256k1": "^3.0.1"
   },
   "devDependencies": {
-    "purs-tidy": "^0.10.0",
-    "purescript": "^0.15.8",
-    "spago": "^0.21.0",
-    "purescript-psa": "^0.8.2",
     "mkdirp": "^0.5.1",
-    "solc": "^0.8"
+    "openzeppelin-contracts": "^4.0.0",
+    "purescript": "^0.15.8",
+    "purescript-psa": "^0.8.2",
+    "purs-tidy": "^0.10.0",
+    "solc": "^0.8",
+    "spago": "^0.21.0"
   }
 }

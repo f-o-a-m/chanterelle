@@ -1,0 +1,15 @@
+{
+    "name": "chanterelle-example",
+    "version": "0.0.1",
+    "artifacts-dir": "build/contracts",
+    "source-dir": "contracts",
+    "modules": [ "Token"
+               , "SimplePaidStorage"
+               ],
+    "dependencies": [ "openzeppelin-contracts" ],
+    "solc-output-selection": [],
+    "purescript-generator": {
+        "output-path": "src",
+        "module-prefix": "Contract"
+    }
+}
