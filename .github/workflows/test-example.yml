@@ -27,5 +27,3 @@ jobs:
         docker run --rm -d -it -p 8545:8545 foamspace/cliquebait:latest
         npm run test
       working-directory: example
-
-~                      
