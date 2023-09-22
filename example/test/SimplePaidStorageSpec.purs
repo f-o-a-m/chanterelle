@@ -6,16 +6,13 @@ import Chanterelle.Test (assertWeb3, takeEvent)
 import Contract.SimplePaidStorage as SPS
 import Contract.Token as Token
 import Control.Monad.Except (ExceptT(..), runExceptT)
-import Control.Monad.Reader (ask)
 import Control.Parallel (parTraverse_)
 import Data.Array (length, zip, (..))
 import Data.Either (Either(..))
 import Data.Lens ((?~))
 import Data.Tuple (Tuple(..))
-import Effect.Aff (Aff, joinFiber)
-import Effect.Aff.AVar (empty, put, take)
-import Effect.Aff.Class (liftAff)
-import Network.Ethereum.Web3 (Address, ChainCursor(..), Change(..), EventAction(..), Web3Error, _from, _to, defaultTransactionOptions, event, eventFilter, forkWeb3, fromInt, runWeb3, unUIntN)
+import Effect.Aff (Aff)
+import Network.Ethereum.Web3 (Address, ChainCursor(..), Web3Error, _from, _to, defaultTransactionOptions, fromInt, runWeb3, unUIntN)
 import Partial.Unsafe (unsafeCrashWith)
 import Test.Common (DeploySpecConfig, unsafeToUInt)
 import Test.Spec (SpecT, beforeAll_, describe, it)
@@ -39,23 +36,14 @@ spec testCfg =
       it "Each user can approve the token contract for transfering"
         $ flip parTraverse_ testCfg.accounts
         $ \account -> do
-            let filter = eventFilter (Proxy @Token.Approval) testCfg.token
-            var <- empty
-            -- When the owner of the tokens is our curent account, return the event
-            f <- forkWeb3 testCfg.provider $ event filter $ \e@(Token.Approval { owner }) ->
-              if owner == account then do
-                liftAff $ put e var
-                pure TerminateEvent
-              else pure ContinueEvent
             let
               v = unsafeToUInt (Proxy @256) one
               txOpts = defaultTransactionOptions
                 # _from ?~ account
                 # _to ?~ testCfg.token
-            _ <- assertWeb3 testCfg.provider $
-              Token.approve txOpts { spender: testCfg.simplePaidStorage, amount: v }
-            _ <- joinFiber f
-            Token.Approval { spender, value } <- take var
+              tx = Token.approve txOpts { spender: testCfg.simplePaidStorage, amount: v }
+            Tuple _ (Token.Approval { spender, value }) <- assertWeb3 testCfg.provider $
+              takeEvent (Proxy @Token.Approval) testCfg.token tx
             -- check that the event indicates the SimplePaidStorageContract has an allowance
             spender `shouldEqual` testCfg.simplePaidStorage
             -- that allowance should be the value we set
@@ -65,25 +53,15 @@ spec testCfg =
         $ flip parTraverse_ (zip testCfg.accounts (1 .. length testCfg.accounts))
         $ \(Tuple account i) -> do
             let
-              filter = eventFilter (Proxy @SPS.CountUpdated) testCfg.simplePaidStorage
               n = unsafeToUInt (Proxy @256) (fromInt i)
-            var <- empty
-            -- when the count is set to our unique value, return the tx hash that set it
-            f <- forkWeb3 testCfg.provider $ event filter $ \(SPS.CountUpdated { newCount }) -> do
-              if newCount == n then do
-                change <- ask
-                liftAff $ put change var
-                pure TerminateEvent
-              else pure ContinueEvent
-            let
               txOpts = defaultTransactionOptions
                 # _from ?~ account
                 # _to ?~ testCfg.simplePaidStorage
-            txHash <- assertWeb3 testCfg.provider $ SPS.updateCount txOpts { _newCount: n }
-            _ <- joinFiber f
-            Change { transactionHash } <- take var
-            -- check that the transaction hash that set the count is our transaction hash
-            transactionHash `shouldEqual` txHash
+              tx = SPS.updateCount txOpts { _newCount: n }
+            Tuple _ (SPS.CountUpdated { newCount }) <- assertWeb3 testCfg.provider $
+              takeEvent (Proxy @SPS.CountUpdated) testCfg.simplePaidStorage tx
+            -- check that the new count is the one we submitted
+            newCount `shouldEqual` n
 
       it "The owner of the SimplePaidStorage can collect the tokens" $ do
         let
@@ -107,7 +85,8 @@ spec testCfg =
             in
               SPS.withdrawTokens txOpts { amount: contractBalance }
         -- withdraw tokens and wait for event confirmation
-        (Tuple _ e) <- assertWeb3 testCfg.provider $ takeEvent (Proxy @Token.Transfer) testCfg.token fetchTokens
+        (Tuple _ e) <- assertWeb3 testCfg.provider $
+          takeEvent (Proxy @Token.Transfer) testCfg.token fetchTokens
         let Token.Transfer { from, to, value } = e
         -- check that the transfer passes the sanity check
         from `shouldEqual` testCfg.simplePaidStorage
@@ -130,7 +109,8 @@ distributeTokens { accounts, provider, token, tokenOwner } = runWeb3 provider $
           # _to ?~ token
           # _from ?~ tokenOwner
         amount = unsafeToUInt (Proxy @256) one
+        tx = Token.transfer txOpts { recipient, amount }
       in
-        Token.transfer txOpts { recipient, amount }
+        void $ takeEvent (Proxy @Token.Transfer) token tx
   in
     parTraverse_ distribute accounts
