@@ -8,6 +8,7 @@
     "build": "spago build",
     "chanterelle-build": "spago run -m ChanterelleMain --node-args=\"build\"",
     "test": "spago test",
+    "deploy": "spago run",
     "tidy": "purs-tidy format-in-place \"src/**/*.purs\" \"test/**/*.purs\""
   },
   "dependencies": {
