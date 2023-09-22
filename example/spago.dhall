@@ -2,7 +2,6 @@
 , dependencies =
   [ "aff"
   , "arrays"
-  , "avar"
   , "chanterelle"
   , "effect"
   , "either"
