@@ -4,9 +4,9 @@
   "description": "Chanterell demo project",
   "license": "ISC",
   "scripts": {
-    "postinstall": "spago install",
+    "postinstall": "spago -x bootstrap.dhall build",
+    "chanterelle-build": "spago -x bootstrap.dhall run -m ChanterelleMain --node-args=\"build\"",
     "build": "spago build",
-    "chanterelle-build": "spago run -m ChanterelleMain --node-args=\"build\"",
     "test": "spago test",
     "deploy": "spago run",
     "tidy": "purs-tidy format-in-place \"src/**/*.purs\" \"test/**/*.purs\"",
