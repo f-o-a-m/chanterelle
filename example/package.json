@@ -9,7 +9,9 @@
     "chanterelle-build": "spago run -m ChanterelleMain --node-args=\"build\"",
     "test": "spago test",
     "deploy": "spago run",
-    "tidy": "purs-tidy format-in-place \"src/**/*.purs\" \"test/**/*.purs\""
+    "tidy": "purs-tidy format-in-place \"src/**/*.purs\" \"test/**/*.purs\"",
+    "tidy-check": "purs-tidy check \"src/**/*.purs\" \"test/**/*.purs\""
+
   },
   "dependencies": {
     "ethjs-provider-http": "^0.1.6",

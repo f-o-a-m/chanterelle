@@ -22,6 +22,10 @@ jobs:
         npm run chanterelle-build
         npm run build
       working-directory: example
+    - name: lint
+      run: |
+        npm run tidy-check
+      working-directory: example
     - name: test
       run: |
         docker run --rm -d -it -p 8545:8545 foamspace/cliquebait:latest
