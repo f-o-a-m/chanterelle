@@ -1,0 +1,31 @@
+name: Run test suite
+
+on:
+  push:
+    branches:
+    - '*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4
+    - name: setup node
+      uses: actions/setup-node@v3
+      with:
+        node-version-file: .nvmrc
+    - name: build
+      run: |
+        npm install
+        npm run chanterelle-build
+        npm run build
+    - working-directory: example
+    - name: test
+      run: |
+        docker run --rm -d -it -p 8545:8545 foamspace/cliquebait:latest
+        npm run test
+    - working-directory: example
+
+~                      

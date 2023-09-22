@@ -32,7 +32,7 @@ let additions =
       ]
     , repo =
         "https://github.com/f-o-a-m/purescript-solc.git"
-    , version = "v4.0.0"
+    , version = "v4.1.0"
         
     }
   , web3-generator =
