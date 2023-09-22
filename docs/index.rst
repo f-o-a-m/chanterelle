@@ -21,5 +21,3 @@ Welcome to Chanterelle's documentation!
    dependencies
    compiling
    libraries
-   deployments
-   testing
