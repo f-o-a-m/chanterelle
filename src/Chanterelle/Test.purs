@@ -13,6 +13,7 @@ import Chanterelle.Logging (logDeployError)
 import Chanterelle.Types.Deploy (DeployConfig(..), DeployError(..), DeployM, runDeployM)
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (runExceptT)
+import Control.Monad.Reader (ask)
 import Data.Either (Either(..), either)
 import Data.Tuple (Tuple(..))
 import Effect.Aff (Aff)
@@ -20,7 +21,7 @@ import Effect.Aff.AVar as AVar
 import Effect.Aff.Class (liftAff)
 import Effect.Class (liftEffect)
 import Effect.Exception (throw)
-import Network.Ethereum.Web3 (class EventFilter, Address, EventAction(..), Provider, Web3, event, eventFilter, forkWeb3', runWeb3)
+import Network.Ethereum.Web3 (class EventFilter, Address, Change(..), EventAction(..), HexString, Provider, Web3, event, eventFilter, forkWeb3', runWeb3)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
 import Network.Ethereum.Web3.Solidity (class DecodeEvent)
 import Partial.Unsafe (unsafeCrashWith)
@@ -28,26 +29,33 @@ import Prim.Row as Row
 import Record.Builder (build, merge)
 import Type.Proxy (Proxy)
 
--- | Run a `Web3` action which will dispatch a single event, wait for the event,
--- | then return the action's result and the event.
+-- | Run a transaction which will dispatch a single event, wait for the event,
+-- | then return the txHash and the event. NB: It will return the first event
+-- | from the given contract caused by the transaction.
 takeEvent
-  :: forall a ev i ni
+  :: forall ev i ni
    . DecodeEvent i ni ev
   => Show ev
   => EventFilter ev
   => Proxy ev
   -> Address
-  -> Web3 a
-  -> Web3 (Tuple a ev)
+  -> Web3 HexString
+  -> Web3 (Tuple HexString ev)
 takeEvent prx addrs web3Action = do
   var <- liftAff AVar.empty
+  txHashVar <- liftAff AVar.empty
   _ <- forkWeb3' do
     event (eventFilter prx addrs) $ \e -> do
-      _ <- liftAff $ AVar.put e var
-      pure TerminateEvent
-  efRes <- web3Action
-  event <- liftAff $ AVar.take var
-  pure $ Tuple efRes event
+      txHash <- liftAff $ AVar.read txHashVar
+      Change { transactionHash } <- ask
+      if txHash == transactionHash then do
+        liftAff $ AVar.put e var
+        pure TerminateEvent
+      else pure ContinueEvent
+  txHash <- web3Action
+  liftAff $ AVar.put txHash txHashVar
+  ev <- liftAff $ AVar.take var
+  pure $ Tuple txHash ev
 
 -- | Assert the `Web3` action's result, crash the program if it doesn't succeed.
 assertWeb3
