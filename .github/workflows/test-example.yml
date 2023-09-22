@@ -29,5 +29,6 @@ jobs:
     - name: test
       run: |
         docker run --rm -d -it -p 8545:8545 foamspace/cliquebait:latest
+        sleep 2m
         npm run test
       working-directory: example
