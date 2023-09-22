@@ -7,7 +7,6 @@
   , "effect"
   , "either"
   , "eth-core"
-  , "foldable-traversable"
   , "maybe"
   , "newtype"
   , "parallel"
