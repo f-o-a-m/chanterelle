@@ -21,11 +21,11 @@ jobs:
         npm install
         npm run chanterelle-build
         npm run build
-    - working-directory: example
+      working-directory: example
     - name: test
       run: |
         docker run --rm -d -it -p 8545:8545 foamspace/cliquebait:latest
         npm run test
-    - working-directory: example
+      working-directory: example
 
 ~                      
