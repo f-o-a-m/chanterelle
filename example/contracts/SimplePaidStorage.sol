@@ -10,6 +10,7 @@ contract SimplePaidStorage {
     uint public count = 0;
 
     event CountUpdated(uint newCount);
+    event TokensWithdrawn(uint amount);
 
     constructor(address tokenAddress) {
         _token = IERC20(tokenAddress);
@@ -40,5 +41,6 @@ contract SimplePaidStorage {
     // In case the owner wants to withdraw tokens
     function withdrawTokens(uint amount) external onlyOwner {
         _token.transfer(_owner, amount);
+        emit TokensWithdrawn(amount);
     }
 }

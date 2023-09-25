@@ -2,7 +2,7 @@ module Test.SimplePaidStorageSpec where
 
 import Prelude
 
-import Chanterelle.Test (assertWeb3, takeEvent)
+import Chanterelle.Test (assertWeb3, takeEvent, takeEvents)
 import Contract.SimplePaidStorage as SPS
 import Contract.Token as Token
 import Control.Monad.Except (ExceptT(..), runExceptT)
@@ -12,7 +12,7 @@ import Data.Either (Either(..))
 import Data.Lens ((?~))
 import Data.Tuple (Tuple(..))
 import Effect.Aff (Aff)
-import Network.Ethereum.Web3 (Address, ChainCursor(..), Web3Error, _from, _to, defaultTransactionOptions, fromInt, runWeb3, unUIntN)
+import Network.Ethereum.Web3 (Address, ChainCursor(..), Web3Error, _from, _to, defaultTransactionOptions, eventFilter, fromInt, runWeb3, unUIntN)
 import Partial.Unsafe (unsafeCrashWith)
 import Test.Common (DeploySpecConfig, unsafeToUInt)
 import Test.Spec (SpecT, beforeAll_, describe, it)
@@ -85,13 +85,18 @@ spec testCfg =
             in
               SPS.withdrawTokens txOpts { amount: contractBalance }
         -- withdraw tokens and wait for event confirmation
-        (Tuple _ e) <- assertWeb3 testCfg.provider $
-          takeEvent (Proxy @Token.Transfer) testCfg.token fetchTokens
-        let Token.Transfer { from, to, value } = e
+        { withdrawn, transfer } <- assertWeb3 testCfg.provider $
+          takeEvents fetchTokens
+            { withdrawn: eventFilter (Proxy @SPS.TokensWithdrawn) testCfg.simplePaidStorage
+            , transfer: eventFilter (Proxy @Token.Transfer) testCfg.token
+            }
+        let Token.Transfer { from, to, value } = transfer
+        let SPS.TokensWithdrawn { amount } = withdrawn
         -- check that the transfer passes the sanity check
         from `shouldEqual` testCfg.simplePaidStorage
         to `shouldEqual` testCfg.simplePaidStorageOwner
         value `shouldEqual` contractBalance
+        amount `shouldEqual` value
         -- check that tokens are not created or destroyed
         { contractBalance: newContractBalance, ownerBalance: newOwnerBalance } <- fetchBalances
         unUIntN newContractBalance `shouldEqual` zero
