@@ -45,6 +45,7 @@ You can edit this file as you like.
   , "record"
   , "record-extra"
   , "refs"
+  , "simple-json"
   , "solc"
   , "strings"
   , "transformers"
