@@ -43,7 +43,6 @@ You can edit this file as you like.
   , "prelude"
   , "profunctor-lenses"
   , "record"
-  , "record-extra"
   , "refs"
   , "simple-json"
   , "solc"

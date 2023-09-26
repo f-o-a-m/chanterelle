@@ -18,10 +18,10 @@ import Chanterelle.Types.Bytecode (Bytecode(..))
 import Chanterelle.Types.Bytecode as CBC
 import Chanterelle.Types.Deploy (DeployM, runDeployM, ContractConfig, DeployConfig(..), DeployError(..), LibraryConfig, NetworkID)
 import Chanterelle.Utils (getNetworkID, getPrimaryAccount, pollTransactionReceipt, withExceptT', makeProvider)
+import Chanterelle.Utils.Web3 (attemptWithTimeout)
 import Control.Monad.Error.Class (class MonadThrow)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Reader.Class (class MonadAsk, ask)
-import Control.Parallel (parOneOf)
 import Data.Bifunctor (lmap)
 import Data.Either (Either(..), either)
 import Data.Int (toNumber)
@@ -30,7 +30,7 @@ import Data.Map as Map
 import Data.Maybe (fromMaybe, isNothing, maybe)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Validation.Semigroup (validation)
-import Effect.Aff (Aff, Error, attempt, delay, throwError)
+import Effect.Aff (Aff, attempt, throwError)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (liftEffect)
 import Effect.Exception (error, throw)
@@ -132,7 +132,7 @@ getPublishedContractDeployInfo txHash name (ArtifactBytecode { bytecode, deploye
   log Info $ "Polling for " <> name <> " transaction receipt: " <> show txHash
   let txReceiptError err = OnDeploymentError { name, message: "Failed to get transaction receipt: " <> show err }
   TransactionReceipt txReceipt <- do
-    eRes <- liftAff $ attemptWithTimeout timeout (pollTransactionReceipt txHash provider)
+    eRes <- liftAff $ attempt $ attemptWithTimeout timeout (pollTransactionReceipt txHash provider)
     either (throwError <<< txReceiptError) pure eRes
   if txReceipt.status == Failed || isNothing (txReceipt.contractAddress) then
     let
@@ -367,15 +367,3 @@ validateDeployArgs cfg =
     onSucc = pure
   in
     validation onErr onSucc cfg.unvalidatedArgs
-
--- | try an aff action for the specified amount of time before giving up.
-attemptWithTimeout
-  :: forall a
-   . Milliseconds
-  -> Aff a
-  -> Aff (Either Error a)
-attemptWithTimeout t action = attempt $
-  let
-    timeout = delay t *> throwError (error "timed out")
-  in
-    parOneOf [ action, timeout ]

@@ -10,7 +10,6 @@ contract SimplePaidStorage {
     uint public count = 0;
 
     event CountUpdated(uint newCount);
-    event TokensWithdrawn(uint amount);
 
     constructor(address tokenAddress) {
         _token = IERC20(tokenAddress);
@@ -32,15 +31,14 @@ contract SimplePaidStorage {
             "Token allowance not set for contract"
         );
 
-        _token.transferFrom(msg.sender, _owner, 1);
+        _token.transferFrom(msg.sender, address(this), 1);
 
         count = _newCount;
         emit CountUpdated(_newCount);
     }
 
-    // In case the owner wants to withdraw tokens
-    function withdrawTokens(uint amount) external onlyOwner {
+    // withdraw tokens to owner, pay the sender a fee
+    function withdrawTokens(uint amount) public onlyOwner {
         _token.transfer(_owner, amount);
-        emit TokensWithdrawn(amount);
     }
 }

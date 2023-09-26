@@ -16,22 +16,24 @@ import Prelude
 import Chanterelle.Deploy (makeDeployConfig)
 import Chanterelle.Logging (logDeployError)
 import Chanterelle.Types.Deploy (DeployConfig(..), DeployError(..), DeployM, runDeployM)
+import Chanterelle.Utils (pollTransactionReceipt)
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Reader (ask)
+import Data.Array.Partial as Array
 import Data.Either (Either(..), either)
+import Data.Lens ((.~))
 import Data.Symbol (class IsSymbol)
 import Data.Tuple (Tuple(..))
 import Effect.Aff (Aff, Fiber, error, joinFiber)
-import Effect.Aff.AVar (AVar)
 import Effect.Aff.AVar as AVar
 import Effect.Aff.Class (liftAff)
 import Effect.Class (liftEffect)
 import Effect.Exception (throw)
-import Network.Ethereum.Web3 (class EventFilter, Address, Change(..), EventAction(..), Filter, HexString, Provider, Web3, Web3Error, event, eventFilter, forkWeb3', runWeb3)
+import Network.Ethereum.Web3 (class EventFilter, Address, BlockNumber, ChainCursor(..), Change(..), EventAction(..), Filter, HexString, Provider, TransactionReceipt(..), TransactionStatus(..), Web3, Web3Error, _fromBlock, _toBlock, event, eventFilter, forkWeb3', runWeb3, unHex)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
 import Network.Ethereum.Web3.Solidity (class DecodeEvent)
-import Partial.Unsafe (unsafeCrashWith)
+import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 import Prim.Row as Row
 import Prim.RowList as RL
 import Record as R
@@ -52,33 +54,63 @@ takeEvent
   -> Web3 HexString
   -> Web3 (Tuple HexString ev)
 takeEvent p addr web3Action = do
-  txHashVar <- liftAff AVar.empty
-  let filter = eventFilter p addr
-  fiber <- hashMonitor txHashVar filter
   txHash <- web3Action
-  liftAff $ AVar.put txHash txHashVar
+  provider <- ask
+  TransactionReceipt { blockNumber, status } <- liftAff $ pollTransactionReceipt txHash provider
+  unless (status == Succeeded)
+    $ throwError
+    $ error
+    $ "transaction failed: " <> unHex txHash
+  let
+    filter = eventFilter p addr
+      # _fromBlock .~ BN blockNumber
+      # _toBlock .~ BN blockNumber
+  fiber <- hashMonitor txHash filter
   res <- liftAff $ joinFiber fiber
   case res of
     Left e -> throwError (error $ writeJSON e)
-    Right a -> pure (Tuple txHash a)
+    Right as ->
+      let
+        a = unsafePartial $ Array.head as
+      in
+        pure (Tuple txHash a)
+
+data MonitorStatus = Waiting | Active
+
+derive instance Eq MonitorStatus
 
 hashMonitor
-  :: forall ev i ni
+  :: forall ev i ni f
    . DecodeEvent i ni ev
-  => AVar HexString
+  => Applicative f
+  => Monoid (f ev)
+  => HexString
   -> Filter ev
-  -> Web3 (Fiber (Either Web3Error ev))
-hashMonitor txHashVar filter = do
-  var <- liftAff AVar.empty
+  -> Web3 (Fiber (Either Web3Error (f ev)))
+hashMonitor txHash filter = do
+  eventsVar <- liftAff $ AVar.new mempty
+  statusVar <- liftAff $ AVar.new Waiting
   let
     handler = \e -> do
-      txHash <- liftAff $ AVar.read txHashVar
       Change { transactionHash } <- ask
-      if txHash == transactionHash then do
-        liftAff (AVar.put e var)
-        pure TerminateEvent
-      else pure ContinueEvent
-  forkWeb3' (event filter handler *> liftAff (AVar.take var))
+      if txHash == transactionHash then liftAff do
+        evs <- AVar.take eventsVar
+        AVar.put (evs <> pure e) eventsVar
+        _ <- AVar.take statusVar
+        AVar.put Active statusVar
+        pure ContinueEvent
+      else liftAff do
+        status <- AVar.read statusVar
+        case status of
+          Active -> pure TerminateEvent
+          Waiting -> pure ContinueEvent
+  forkWeb3' do
+    _ <- event filter handler
+    liftAff do
+      ev <- AVar.read eventsVar
+      AVar.kill (error "clean up statusVar") statusVar
+      AVar.kill (error "clean up eventsVar") eventsVar
+      pure ev
 
 takeEvents
   :: forall row xs row' events
@@ -87,38 +119,46 @@ takeEvents
   => JoinEvents xs row' () events
   => Web3 HexString
   -> Record row
-  -> Web3 (Record events)
+  -> Web3 (Tuple HexString (Record events))
 takeEvents tx r = do
-  txHashVar <- liftAff $ AVar.empty
-  fibersBuilder <- takeEventsBuilder (Proxy :: _ xs) txHashVar r
-  let fibers = Builder.build fibersBuilder {}
   txHash <- tx
-  liftAff $ AVar.put txHash txHashVar
+  provider <- ask
+  TransactionReceipt { blockNumber } <- liftAff $ pollTransactionReceipt txHash provider
+  fibersBuilder <- takeEventsBuilder (Proxy :: _ xs) (Tuple txHash blockNumber) r
+  let fibers = Builder.build fibersBuilder {}
   eventsBuilder <- liftAff $ joinEventsBuilder (Proxy :: _ xs) fibers
-  pure $ Builder.build eventsBuilder {}
+  pure $ Tuple txHash $ Builder.build eventsBuilder {}
 
 class
   TakeEvents (xs :: RL.RowList Type) (row :: Row Type) (from :: Row Type) (to :: Row Type)
   | xs -> row from to where
-  takeEventsBuilder :: Proxy xs -> AVar HexString -> Record row -> Web3 (Builder { | from } { | to })
+  takeEventsBuilder :: Proxy xs -> Tuple HexString BlockNumber -> Record row -> Web3 (Builder { | from } { | to })
 
 instance TakeEvents RL.Nil row () () where
   takeEventsBuilder _ _ _ = pure (identity)
 
 instance
   ( DecodeEvent i ni ev
+  , Applicative f
+  , Monoid (f ev)
+  , EventFilter ev
   , IsSymbol name
-  , Row.Cons name (Filter ev) trash row
+  , Row.Cons name (Tuple (Proxy ev) Address) trash row
   , TakeEvents tail row from from'
   , Row.Lacks name from'
-  , Row.Cons name (Fiber (Either Web3Error ev)) from' to
+  , Row.Cons name (Fiber (Either Web3Error (f ev))) from' to
   ) =>
-  TakeEvents (RL.Cons name (Filter ev) tail) row from to where
-  takeEventsBuilder _ txHash r = do
-    let nameP = Proxy :: _ name
-    fiber <- hashMonitor txHash (R.get nameP r :: Filter ev)
+  TakeEvents (RL.Cons name (Tuple (Proxy ev) Address) tail) row from to where
+  takeEventsBuilder _ a@(Tuple txHash blockNumber) r = do
+    let
+      nameP = Proxy :: _ name
+      Tuple p addr = R.get nameP r :: Tuple (Proxy ev) Address
+      filter = eventFilter p addr
+        # _fromBlock .~ BN blockNumber
+        # _toBlock .~ BN blockNumber
+    fiber <- hashMonitor txHash filter
     let first = Builder.insert nameP fiber
-    rest <- takeEventsBuilder (Proxy :: _ tail) txHash r
+    rest <- takeEventsBuilder (Proxy :: _ tail) a r
     pure (first <<< rest)
 
 class
@@ -132,16 +172,16 @@ instance JoinEvents RL.Nil row () () where
 instance
   ( DecodeEvent i ni ev
   , IsSymbol name
-  , Row.Cons name (Fiber (Either Web3Error ev)) trash row
+  , Row.Cons name (Fiber (Either Web3Error (f ev))) trash row
   , JoinEvents tail row from from'
   , Row.Lacks name from'
-  , Row.Cons name ev from' to
+  , Row.Cons name (f ev) from' to
   ) =>
-  JoinEvents (RL.Cons name (Filter ev) tail) row from to where
+  JoinEvents (RL.Cons name (Tuple (Proxy ev) Address) tail) row from to where
   joinEventsBuilder _ r = do
     let
       nameP = Proxy :: _ name
-      fiber = R.get nameP r :: Fiber (Either Web3Error ev)
+      fiber = R.get nameP r :: Fiber (Either Web3Error (f ev))
     a <- joinFiber fiber >>= case _ of
       -- This is a hack and relies on the internals of ps-web3.
       Left e -> throwError (error $ writeJSON e)
