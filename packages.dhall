@@ -1,6 +1,6 @@
 let upstream =
-      https://raw.githubusercontent.com/f-o-a-m/package-sets/59993a861eb799ba059272143b9f770c5929cbe1/purs-0.15.7-web3.dhall
-        sha256:1604b957cfda6c8b061a3245ab75363499bd5a792c5edc2551b07539937b81bb
+      https://raw.githubusercontent.com/f-o-a-m/package-sets/921ac217454768ec3f614a9571c109b2ad542c07/purs-0.15.7-web3.dhall
+        sha256:818d12df6f7ce455657ff559798e50ec14e098f8d6acc655f674f26c7a007e3d
 
 let additions =
       { solc =
