@@ -73,7 +73,7 @@ let additions =
           , "web3"
           ]
         , repo = "https://github.com/f-o-a-m/purescript-web3-generator.git"
-        , version = "v5.0.0"
+        , version = "v5.1.0"
         }
       }
 
