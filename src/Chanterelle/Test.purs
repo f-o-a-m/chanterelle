@@ -30,7 +30,7 @@ import Effect.Aff.AVar as AVar
 import Effect.Aff.Class (liftAff)
 import Effect.Class (liftEffect)
 import Effect.Exception (throw)
-import Network.Ethereum.Web3 (class EventFilter, Address, BlockNumber, ChainCursor(..), Change(..), EventAction(..), Filter, HexString, Provider, TransactionReceipt(..), TransactionStatus(..), Web3, Web3Error, _fromBlock, _toBlock, event, eventFilter, forkWeb3', runWeb3, unHex)
+import Network.Ethereum.Web3 (class EventFilter, Address, BlockNumber, ChainCursor(..), Change(..), EventAction(..), Filter, HexString, Provider, TransactionReceipt(..), TransactionStatus(..), Web3, Web3Error, _fromBlock, _toBlock, event, eventFilter, forkWeb3', runWeb3, throwWeb3, unHex)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
 import Network.Ethereum.Web3.Solidity (class DecodeEvent)
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
@@ -126,7 +126,7 @@ takeEvents tx r = do
   TransactionReceipt { blockNumber } <- liftAff $ pollTransactionReceipt txHash provider
   fibersBuilder <- takeEventsBuilder (Proxy :: _ xs) (Tuple txHash blockNumber) r
   let fibers = Builder.build fibersBuilder {}
-  eventsBuilder <- liftAff $ joinEventsBuilder (Proxy :: _ xs) fibers
+  eventsBuilder <- joinEventsBuilder (Proxy :: _ xs) fibers
   pure $ Tuple txHash $ Builder.build eventsBuilder {}
 
 class
@@ -164,7 +164,7 @@ instance
 class
   JoinEvents (xs :: RL.RowList Type) (row :: Row Type) (from :: Row Type) (to :: Row Type)
   | xs -> row from to where
-  joinEventsBuilder :: Proxy xs -> Record row -> Aff (Builder { | from } { | to })
+  joinEventsBuilder :: Proxy xs -> Record row -> Web3 (Builder { | from } { | to })
 
 instance JoinEvents RL.Nil row () () where
   joinEventsBuilder _ _ = pure identity
@@ -182,9 +182,9 @@ instance
     let
       nameP = Proxy :: _ name
       fiber = R.get nameP r :: Fiber (Either Web3Error (f ev))
-    a <- joinFiber fiber >>= case _ of
+    a <- liftAff (joinFiber fiber) >>= case _ of
       -- This is a hack and relies on the internals of ps-web3.
-      Left e -> throwError (error $ writeJSON e)
+      Left e -> throwWeb3 e
       Right a -> pure a
     let first = Builder.insert nameP a
     rest <- joinEventsBuilder (Proxy :: _ tail) r

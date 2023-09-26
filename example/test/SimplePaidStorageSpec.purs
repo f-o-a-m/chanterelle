@@ -11,6 +11,9 @@ import Data.Array (length, zip, (..))
 import Data.Array.Partial as Array
 import Data.Either (Either(..))
 import Data.Lens ((?~))
+import Data.Maybe (fromJust)
+import Data.Maybe.First (First(..))
+import Data.Newtype (un)
 import Data.Tuple (Tuple(..))
 import Effect.Aff (Aff)
 import Network.Ethereum.Web3 (Address, ChainCursor(..), Web3Error, _from, _to, defaultTransactionOptions, fromInt, runWeb3, unUIntN)
@@ -68,7 +71,7 @@ spec testCfg =
             let SPS.CountUpdated { newCount } = unsafePartial $ Array.head countUpdated
             -- check that the new count is the one we submitted
             newCount `shouldEqual` n
-            let Token.Transfer { to, from, value } = unsafePartial $ Array.head transfer
+            let Token.Transfer { to, from, value } = unsafePartial $ fromJust $ un First transfer
             from `shouldEqual` account
             to `shouldEqual` testCfg.simplePaidStorage
             unUIntN value `shouldEqual` one
