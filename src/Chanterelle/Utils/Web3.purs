@@ -7,12 +7,13 @@ import Chanterelle.Types.Deploy (DeployError(..), NetworkID)
 import Chanterelle.Types.Project (Network(..), networkIDFitsChainSpec)
 import Control.Monad.Error.Class (class MonadThrow, throwError)
 import Control.Monad.Except (ExceptT(..), except, runExceptT, withExceptT)
+import Control.Parallel (parOneOf)
 import Data.Array (head)
 import Data.Either (Either(..))
 import Data.Int (fromString)
 import Data.Maybe (Maybe, maybe)
 import Data.String (null)
-import Effect.Aff (Milliseconds(..), delay)
+import Effect.Aff (Aff, Milliseconds(..), delay)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Exception (Error, error, try)
@@ -116,15 +117,25 @@ getNetworkID = do
 -- | indefinitely poll for a transaction receipt, sleeping for 3
 -- | seconds in between every call.
 pollTransactionReceipt
-  :: forall m
-   . MonadAff m
-  => HexString
+  :: HexString
   -> Provider
-  -> m TransactionReceipt
+  -> Aff TransactionReceipt
 pollTransactionReceipt txHash provider = do
   etxReceipt <- liftAff <<< runWeb3 provider $ eth_getTransactionReceipt txHash
   case etxReceipt of
     Left _ -> do
-      liftAff $ delay (Milliseconds 3000.0)
+      delay (Milliseconds 1000.0)
       pollTransactionReceipt txHash provider
     Right txRec -> pure txRec
+
+-- | try an aff action for the specified amount of time before giving up.
+attemptWithTimeout
+  :: forall a
+   . Milliseconds
+  -> Aff a
+  -> Aff a
+attemptWithTimeout t action =
+  let
+    timeout = delay t *> throwError (error "timed out")
+  in
+    parOneOf [ action, timeout ]

@@ -44,6 +44,7 @@ You can edit this file as you like.
   , "profunctor-lenses"
   , "record"
   , "refs"
+  , "simple-json"
   , "solc"
   , "strings"
   , "transformers"
