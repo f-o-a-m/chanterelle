@@ -26,18 +26,6 @@ import Node.Path as Path
 -- | Chanterelle Project Types
 --------------------------------------------------------------------------------
 
-newtype Dependency = Dependency String
-
-derive instance eqDependency :: Eq Dependency
-
-instance encodeJsonDependency :: EncodeJson Dependency where
-  encodeJson (Dependency d) = encodeJson d
-
-instance decodeJsonDependency :: DecodeJson Dependency where
-  decodeJson d = Dependency <$> decodeJson d
-
----------------------------------------------------------------------
-
 newtype Library = Library { name :: String, sourceRoot :: Maybe FilePath, sourceFile :: FilePath }
 
 derive instance newtypeLibrary :: Newtype Library _
@@ -274,7 +262,7 @@ newtype ChanterelleProjectSpec =
     , artifactsDir :: FilePath
     , libArtifactsDir :: FilePath
     , modules :: Array String
-    , dependencies :: Array Dependency
+    , remappings :: Array ST.Remapping
     , extraAbis :: Maybe FilePath
     , libraries :: Libraries
     , networks :: Networks
@@ -298,8 +286,8 @@ instance EncodeJson ChanterelleProjectSpec where
       ~> "source-dir" := project.sourceDir
       ~> "artifacts-dir" := project.artifactsDir
       ~> "modules" := project.modules
-      ~> "dependencies" := project.dependencies
-      ~> "extra-abis" := project.dependencies
+      ~> "remappings" := project.remappings
+      ~> "extra-abis" := project.extraAbis
       ~> "libraries" := project.libraries
       ~> "networks" := project.networks
       ~> "purescript-generator" := psGenEncode
@@ -328,7 +316,7 @@ instance DecodeJson ChanterelleProjectSpec where
     artifactsDir <- obj .:! "artifacts-dir" .!= "build"
     libArtifactsDir <- obj .:! "library-artifacts-dir" .!= (Path.concat [ artifactsDir, "libraries" ])
     modules <- obj .: "modules"
-    dependencies <- obj .:! "dependencies" .!= mempty
+    remappings <- obj .:! "remappings" .!= mempty
     extraAbis <- obj .:! "extra-abis"
     libraries <- obj .:! "libraries" .!= mempty
     networks <- obj .:! "networks" .!= mempty
@@ -337,7 +325,7 @@ instance DecodeJson ChanterelleProjectSpec where
     solcOutputSelection <- obj .:! "solc-output-selection" .!= mempty
     solcEvmVersion <- obj .:! "solc-evm-version"
     psGen <- psGenDecode =<< obj .: "purescript-generator"
-    pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, libArtifactsDir, modules, dependencies, extraAbis, libraries, networks, psGen, solcVersion, solcEvmVersion, solcOptimizerSettings, solcOutputSelection }
+    pure $ ChanterelleProjectSpec { name, version, sourceDir, artifactsDir, libArtifactsDir, modules, remappings, extraAbis, libraries, networks, psGen, solcVersion, solcEvmVersion, solcOptimizerSettings, solcOutputSelection }
 
     where
     psGenDecode psj = do

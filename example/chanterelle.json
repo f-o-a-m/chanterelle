@@ -6,7 +6,7 @@
     "modules": [ "Token"
                , "SimplePaidStorage"
                ],
-    "dependencies": [ "openzeppelin-contracts" ],
+    "remappings": [ "openzeppelin-contracts=node_modules/openzeppelin-contracts" ],
     "solc-output-selection": [],
     "purescript-generator": {
         "output-path": "src",
