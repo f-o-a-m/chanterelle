@@ -9,7 +9,7 @@ import Chanterelle.Logging (LogLevel(..), log, logSolcError)
 import Chanterelle.Types.Artifact (Artifact(..))
 import Chanterelle.Types.Bytecode (Bytecode(..), flattenLinkReferences)
 import Chanterelle.Types.Compile (CompileError(..))
-import Chanterelle.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), Dependency(..), getSolc, partitionSelectionSpecs)
+import Chanterelle.Types.Project (ChanterelleModule(..), ChanterelleProject(..), ChanterelleProjectSpec(..), getSolc, partitionSelectionSpecs)
 import Chanterelle.Utils (assertDirectory', fileIsDirty)
 import Chanterelle.Utils.Error (withExceptT')
 import Control.Error.Util (note)
@@ -169,9 +169,11 @@ makeSolcInput moduleName sourcePath = do
     { cls: requestedContractSelections, fls: requestedFileSelections } = partitionSelectionSpecs spec.solcOutputSelection
     contractLevelSelections = [ ST.ABI, ST.EvmOutputSelection (Just $ ST.BytecodeSelection Nothing), ST.EvmOutputSelection (Just $ ST.DeployedBytecodeSelection Nothing) ] <> requestedContractSelections
     outputSelection = Just $ ST.OutputSelections (M.singleton "*" (ST.OutputSelection { file: requestedFileSelections, contract: M.singleton "*" contractLevelSelections }))
-    depMappings = (\(Dependency dep) -> ST.Remapping { from: dep, to: (project.root <> "/node_modules/" <> dep) }) <$> spec.dependencies
     sourceDirMapping = [ ST.GlobalRemapping { to: (Path.concat [ project.root, spec.sourceDir ]) } ]
-    remappings = sourceDirMapping <> depMappings
+    f remapping = case remapping of
+      ST.Remapping { from, to } -> ST.Remapping { from, to: Path.concat [ project.root, to ] }
+      g -> g
+    remappings = sourceDirMapping <> map f spec.remappings
     optimizer = spec.solcOptimizerSettings
     evmVersion = spec.solcEvmVersion
     metadata = Nothing

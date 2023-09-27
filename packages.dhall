@@ -27,7 +27,7 @@ let additions =
           , "tuples"
           ]
         , repo = "https://github.com/f-o-a-m/purescript-solc.git"
-        , version = "v4.1.0"
+        , version = "v4.2.0"
         }
       , web3-generator =
         { dependencies =
