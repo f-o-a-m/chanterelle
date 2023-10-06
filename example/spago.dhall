@@ -17,6 +17,7 @@
   , "transformers"
   , "tuples"
   , "web3"
+  , "identity"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]
