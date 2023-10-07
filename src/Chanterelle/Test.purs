@@ -20,9 +20,11 @@ import Chanterelle.Utils (pollTransactionReceipt)
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Reader (ask)
+import Data.Array (head)
 import Data.Array.Partial as Array
 import Data.Either (Either(..), either)
 import Data.Lens ((.~))
+import Data.Maybe (Maybe(..))
 import Data.Symbol (class IsSymbol)
 import Data.Tuple (Tuple(..))
 import Effect.Aff (Aff, Fiber, error, joinFiber)
@@ -67,13 +69,10 @@ takeEvent p addr web3Action = do
       # _toBlock .~ BN blockNumber
   fiber <- hashMonitor txHash filter
   res <- liftAff $ joinFiber fiber
-  case res of
+  case head <$> res of
     Left e -> throwError (error $ writeJSON e)
-    Right as ->
-      let
-        a = unsafePartial $ Array.head as
-      in
-        pure (Tuple txHash a)
+    Right Nothing -> throwError (error "No event found")
+    Right (Just a) -> pure (Tuple txHash a)
 
 data MonitorStatus = Waiting | Active
 
