@@ -1,6 +1,6 @@
 let upstream =
-      https://raw.githubusercontent.com/f-o-a-m/package-sets/purs-0.15-web3/purs-0.15.7-web3.dhall
-        sha256:cb35bdebefab6fd0d9b0a09b1f461cd8e053509b12ee17099d9324287d20f1f5
+      https://raw.githubusercontent.com/f-o-a-m/package-sets/9e9623711d22de73259e765f5acf8407b7332998/purs-0.15.7-web3.dhall
+        sha256:f0ffdb72aef1af63caf537a130b40d8f73779e82496404d9cedb66c6a699b55d
 
 let additions =
       { solc =
@@ -73,7 +73,7 @@ let additions =
           , "web3"
           ]
         , repo = "https://github.com/f-o-a-m/purescript-web3-generator.git"
-        , version = "v6.0.0"
+        , version = "v7.0.0"
         }
       }
 

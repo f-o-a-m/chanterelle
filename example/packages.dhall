@@ -1,2 +1,1 @@
-../packages.dhall
-  with chanterelle = ../spago.dhall as Location
+../packages.dhall with chanterelle = ../spago.dhall as Location
