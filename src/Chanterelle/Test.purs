@@ -21,7 +21,6 @@ import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Reader (ask)
 import Data.Array (head)
-import Data.Array.Partial as Array
 import Data.Either (Either(..), either)
 import Data.Lens ((.~))
 import Data.Maybe (Maybe(..))
@@ -35,7 +34,7 @@ import Effect.Exception (throw)
 import Network.Ethereum.Web3 (class EventFilter, Address, BlockNumber, ChainCursor(..), Change(..), EventAction(..), Filter, HexString, Provider, TransactionReceipt(..), TransactionStatus(..), Web3, Web3Error, _fromBlock, _toBlock, event, eventFilter, forkWeb3', runWeb3, throwWeb3, unHex)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
 import Network.Ethereum.Web3.Solidity (class DecodeEvent)
-import Partial.Unsafe (unsafeCrashWith, unsafePartial)
+import Partial.Unsafe (unsafeCrashWith)
 import Prim.Row as Row
 import Prim.RowList as RL
 import Record as R
