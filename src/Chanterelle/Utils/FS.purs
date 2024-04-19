@@ -49,7 +49,7 @@ assertDirectory dn = do
     Left _ -> do
       -- assume an error means the file doesn't exist
       log Debug ("creating directory " <> dn)
-      liftAff $ FS.mkdir' dn {recursive: true, mode: permsReadWrite}
+      liftAff $ FS.mkdir' dn { recursive: true, mode: permsReadWrite }
     Right stats ->
       if not (Stats.isDirectory stats) then throwError ("Path " <> dn <> " exists but is not a directory!")
       else log Debug ("path " <> dn <> " exists and is a directory")
