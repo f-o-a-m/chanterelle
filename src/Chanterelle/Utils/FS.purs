@@ -15,8 +15,8 @@ import Effect.Class (liftEffect)
 import Effect.Uncurried (EffectFn2, EffectFn3, runEffectFn2, runEffectFn3)
 import Node.Encoding (Encoding(..))
 import Node.FS.Aff as FS
+import Node.FS.Perms (permsReadWrite)
 import Node.FS.Stats as Stats
-import Node.FS.Sync.Mkdirp (mkdirp)
 import Node.Path (FilePath)
 import Node.Path as Path
 
@@ -49,7 +49,7 @@ assertDirectory dn = do
     Left _ -> do
       -- assume an error means the file doesn't exist
       log Debug ("creating directory " <> dn)
-      liftEffect $ mkdirp dn
+      liftAff $ FS.mkdir' dn {recursive: true, mode: permsReadWrite}
     Right stats ->
       if not (Stats.isDirectory stats) then throwError ("Path " <> dn <> " exists but is not a directory!")
       else log Debug ("path " <> dn <> " exists and is a directory")

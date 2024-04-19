@@ -1,6 +1,18 @@
 let upstream =
-      https://raw.githubusercontent.com/f-o-a-m/package-sets/9e9623711d22de73259e765f5acf8407b7332998/purs-0.15.7-web3.dhall
-        sha256:f0ffdb72aef1af63caf537a130b40d8f73779e82496404d9cedb66c6a699b55d
+      https://github.com/purescript/package-sets/releases/download/psc-0.15.15-20240416/packages.dhall
+        sha256:ca727657c01cc31d0e79c2113b59126b9826f4b56d20a8193be3c725599fb754
+
+let eth-core-deps =
+      https://raw.githubusercontent.com/f-o-a-m/purescript-eth-core/master/packages.dhall
+        sha256:af2751772a729d58edf7056805007934e3687b3079f8a02ac514e705aeab8c42
+
+let web3-deps =
+      https://raw.githubusercontent.com/f-o-a-m/purescript-web3/master/packages.dhall
+        sha256:c1bebe7e4899bd64304a84fea26f9ea635e20897f206ce6fa86bd446715c5ffc
+
+let web3-generator-deps =
+      https://raw.githubusercontent.com/f-o-a-m/purescript-web3-generator/master/packages.dhall
+        sha256:89a7ee097ae9a095bf3bfddcb354d4c6b747d15b9b47ef0f5dc5f2280d3a8929
 
 let additions =
       { solc =
@@ -43,7 +55,6 @@ let additions =
           , "control"
           , "effect"
           , "either"
-          , "errors"
           , "eth-core"
           , "exceptions"
           , "fixed-points"
@@ -54,11 +65,9 @@ let additions =
           , "maybe"
           , "language-cst-parser"
           , "tidy-codegen"
-          , "mkdirp"
           , "newtype"
           , "node-buffer"
           , "node-fs"
-          , "node-fs-aff"
           , "node-path"
           , "node-process"
           , "ordered-collections"
@@ -73,8 +82,8 @@ let additions =
           , "web3"
           ]
         , repo = "https://github.com/f-o-a-m/purescript-web3-generator.git"
-        , version = "v7.0.0"
+        , version = "v7.1.0"
         }
       }
 
-in  upstream // additions
+in  upstream // eth-core-deps // web3-deps // web3-generator-deps // additions

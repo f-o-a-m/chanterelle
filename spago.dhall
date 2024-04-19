@@ -1,7 +1,3 @@
-{-
-Welcome to a Spago project!
-You can edit this file as you like.
--}
 { name = "chanterelle"
 , dependencies =
   [ "aff"
@@ -17,7 +13,6 @@ You can edit this file as you like.
   , "datetime"
   , "effect"
   , "either"
-  , "errors"
   , "eth-core"
   , "exceptions"
   , "foldable-traversable"
@@ -28,11 +23,9 @@ You can edit this file as you like.
   , "js-date"
   , "logging"
   , "maybe"
-  , "mkdirp"
   , "newtype"
   , "node-buffer"
   , "node-fs"
-  , "node-fs-aff"
   , "node-path"
   , "node-process"
   , "now"

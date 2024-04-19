@@ -17,7 +17,7 @@ import Data.Show.Generic (genericShow)
 import Effect.Aff (Aff)
 import Effect.Class (liftEffect)
 import Node.Path (resolve)
-import Node.Process (cwd, exit)
+import Node.Process (cwd, exit')
 
 data SelectCLI (a :: Type) (b :: Type) = SelectCLI a
 
@@ -110,4 +110,4 @@ runCommand project = case _ of
     eRes <- runCompileM Chanterelle.generatePS project
     either terminateOnCompileError mempty eRes
 
-  terminateOnCompileError e = logCompileError e *> liftEffect (exit 1)
+  terminateOnCompileError e = logCompileError e *> liftEffect (exit' 1)
