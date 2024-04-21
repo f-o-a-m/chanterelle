@@ -3,16 +3,16 @@ let upstream =
         sha256:ca727657c01cc31d0e79c2113b59126b9826f4b56d20a8193be3c725599fb754
 
 let eth-core-deps =
-      https://raw.githubusercontent.com/f-o-a-m/purescript-eth-core/master/packages.dhall
-        sha256:af2751772a729d58edf7056805007934e3687b3079f8a02ac514e705aeab8c42
+      https://raw.githubusercontent.com/f-o-a-m/purescript-eth-core/v10.1.0/packages.dhall
+        sha256:ca727657c01cc31d0e79c2113b59126b9826f4b56d20a8193be3c725599fb754
 
 let web3-deps =
-      https://raw.githubusercontent.com/f-o-a-m/purescript-web3/master/packages.dhall
-        sha256:c1bebe7e4899bd64304a84fea26f9ea635e20897f206ce6fa86bd446715c5ffc
+      https://raw.githubusercontent.com/f-o-a-m/purescript-web3/v7.2.0/packages.dhall
+        sha256:2687f2bfcd60b5260d340407c9851e963b440ad520bbc93595f0452f859c9846
 
 let web3-generator-deps =
-      https://raw.githubusercontent.com/f-o-a-m/purescript-web3-generator/master/packages.dhall
-        sha256:89a7ee097ae9a095bf3bfddcb354d4c6b747d15b9b47ef0f5dc5f2280d3a8929
+      https://raw.githubusercontent.com/f-o-a-m/purescript-web3-generator/v7.1.0/packages.dhall
+        sha256:cb46062e88d379ffc9871af092f3b219b6f519b86b31490fe6233747cb130d00
 
 let additions =
       { solc =
