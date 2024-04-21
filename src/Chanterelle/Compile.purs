@@ -37,7 +37,7 @@ import Foreign.Object as FO
 import Foreign.Object as M
 import Language.Solidity.Compiler (compile) as Solc
 import Language.Solidity.Compiler.Types as ST
-import Network.Ethereum.Core.HexString (fromByteString)
+import Network.Ethereum.Core.HexString (fromBuffer)
 import Network.Ethereum.Core.Keccak256 (keccak256)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Aff as FS
@@ -144,7 +144,7 @@ makeSolcSource
 makeSolcSource sourceCode =
   ST.FromContent
     { content: sourceCode
-    , keccak256: Just $ fromByteString $ keccak256 sourceCode
+    , keccak256: Just $ fromBuffer $ keccak256 sourceCode
     }
 
 --------------------------------------------------------------------------------
