@@ -94,8 +94,10 @@ log
 log level msg = do
   currentLevel <- liftEffect $ getLogLevelWithDefault Info
   when (level >= currentLevel) $
-    let (Logger log) = fancyColorLogger
-    in log { level, msg }
+    let
+      (Logger log) = fancyColorLogger
+    in
+      log { level, msg }
 
 logSolcError
   :: forall m

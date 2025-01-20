@@ -19,7 +19,6 @@ jobs:
     - name: build
       run: |
         npm install
-        npm run chanterelle-build
         npm run build
       working-directory: example
     - name: lint
