@@ -15,7 +15,7 @@
   "dependencies": {
     "purescript": "^0.15.8",
     "purescript-psa": "^0.8.2",
-    "spago": "^0.21.0",
+    "spago": "next",
     "ethjs-provider-http": "^0.1.6",
     "mkdirp": "^0.5.1",
     "keccak": "^1.0.2",

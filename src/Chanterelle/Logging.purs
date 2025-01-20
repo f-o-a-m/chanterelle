@@ -14,7 +14,6 @@ import Ansi.Codes (Color(..))
 import Ansi.Output (withGraphics, foreground)
 import Chanterelle.Types.Compile as Compile
 import Chanterelle.Types.Deploy as Deploy
-import Control.Logger as Logger
 import Data.Array (intercalate)
 import Data.JSDate (now, toISOString)
 import Data.Maybe (fromMaybe)
@@ -25,6 +24,8 @@ import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Console as Console
 import Language.Solidity.Compiler.Types as ST
+
+newtype Logger m r = Logger (r -> m Unit)
 
 data LogLevel = Debug | Info | Warn | Error
 
@@ -72,8 +73,8 @@ fancyColorLogger
   :: forall m a
    . MonadEffect m
   => Loggable a
-  => Logger.Logger m { level :: LogLevel, msg :: a }
-fancyColorLogger = Logger.Logger $ \{ level, msg } -> liftEffect do
+  => Logger m { level :: LogLevel, msg :: a }
+fancyColorLogger = Logger $ \{ level, msg } -> liftEffect do
   iso <- liftEffect $ toISOString =<< now
   Console.log $ colorize level (iso <> " [" <> show level <> "] " <> logify msg)
   where
@@ -93,7 +94,10 @@ log
 log level msg = do
   currentLevel <- liftEffect $ getLogLevelWithDefault Info
   when (level >= currentLevel) $
-    Logger.log fancyColorLogger { level, msg }
+    let
+      (Logger log) = fancyColorLogger
+    in
+      log { level, msg }
 
 logSolcError
   :: forall m
