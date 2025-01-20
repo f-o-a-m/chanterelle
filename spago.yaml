@@ -1,0 +1,293 @@
+package:
+  dependencies:
+    - aff: ">=7.1.0 <8.0.0"
+    - ansi: ">=7.0.0 <8.0.0"
+    - argonaut: ">=9.0.0 <10.0.0"
+    - argonaut-core: ">=7.0.0 <8.0.0"
+    - argonaut-traversals: ">=10.0.0 <11.0.0"
+    - arrays: ">=7.3.0 <8.0.0"
+    - avar: ">=5.0.0 <6.0.0"
+    - bifunctors: ">=6.0.0 <7.0.0"
+    - console: ">=6.1.0 <7.0.0"
+    - control: ">=6.0.0 <7.0.0"
+    - datetime: ">=6.1.0 <7.0.0"
+    - effect: ">=4.0.0 <5.0.0"
+    - either: ">=6.1.0 <7.0.0"
+    - eth-core: "*"
+    - exceptions: ">=6.1.0 <7.0.0"
+    - foldable-traversable: ">=6.0.0 <7.0.0"
+    - foreign-object: ">=4.1.0 <5.0.0"
+    - functors: ">=5.0.0 <6.0.0"
+    - identity: ">=6.0.0 <7.0.0"
+    - integers: ">=6.0.0 <7.0.0"
+    - js-date: ">=8.0.0 <9.0.0"
+    - maybe: ">=6.0.0 <7.0.0"
+    - newtype: ">=5.0.0 <6.0.0"
+    - node-buffer: ">=9.0.0 <10.0.0"
+    - node-fs: ">=9.2.0 <10.0.0"
+    - node-path: ">=5.0.1 <6.0.0"
+    - node-process: ">=11.2.0 <12.0.0"
+    - now: ">=6.0.0 <7.0.0"
+    - optparse: ">=5.0.1 <6.0.0"
+    - ordered-collections: ">=3.2.0 <4.0.0"
+    - parallel: ">=6.0.0 <7.0.0"
+    - partial: ">=4.0.0 <5.0.0"
+    - prelude: ">=6.0.1 <7.0.0"
+    - profunctor-lenses: ">=8.0.0 <9.0.0"
+    - record: ">=4.0.0 <5.0.0"
+    - refs: ">=6.0.0 <7.0.0"
+    - simple-json: ">=9.0.0 <10.0.0"
+    - solc: "*"
+    - strings: ">=6.0.1 <7.0.0"
+    - transformers: ">=6.1.0 <7.0.0"
+    - tuples: ">=7.0.0 <8.0.0"
+    - unfoldable: ">=6.0.0 <7.0.0"
+    - validation: ">=6.0.0 <7.0.0"
+    - web3: "*"
+    - web3-generator: "*"
+  name: chanterelle
+workspace:
+  extraPackages:
+    coroutine-transducers:
+      dependencies:
+        - aff
+        - console
+        - coroutines
+        - effect
+        - either
+        - foldable-traversable
+        - freet
+        - functors
+        - maybe
+        - newtype
+        - parallel
+        - prelude
+        - psci-support
+        - tailrec
+        - transformers
+        - tuples
+      git: https://github.com/martyall/purescript-coroutine-transducers
+      ref: v1.0.0
+    dodo-printer:
+      dependencies:
+        - aff
+        - ansi
+        - arrays
+        - avar
+        - console
+        - control
+        - effect
+        - either
+        - exceptions
+        - foldable-traversable
+        - integers
+        - lists
+        - maybe
+        - minibench
+        - newtype
+        - node-buffer
+        - node-child-process
+        - node-path
+        - node-process
+        - node-streams
+        - parallel
+        - partial
+        - posix-types
+        - prelude
+        - safe-coerce
+        - strings
+        - tuples
+      git: https://github.com/natefaubion/purescript-dodo-printer.git
+      ref: v2.2.1
+    eth-core:
+      dependencies:
+        - argonaut
+        - arrays
+        - effect
+        - either
+        - foldable-traversable
+        - foreign
+        - functions
+        - gen
+        - integers
+        - js-bigints
+        - lists
+        - maybe
+        - newtype
+        - node-buffer
+        - nonempty
+        - ordered-collections
+        - partial
+        - prelude
+        - simple-json
+        - strings
+        - unfoldable
+        - unsafe-coerce
+      git: https://github.com/f-o-a-m/purescript-eth-core
+      ref: 3db27d22f738498a1e4263f537cd25279fc88088
+    solc:
+      dependencies:
+        - aff
+        - argonaut
+        - argonaut-codecs
+        - arrays
+        - bifunctors
+        - control
+        - effect
+        - either
+        - eth-core
+        - foldable-traversable
+        - foreign-object
+        - functions
+        - integers
+        - maybe
+        - newtype
+        - node-path
+        - prelude
+        - strings
+        - transformers
+        - tuples
+      git: https://github.com/f-o-a-m/purescript-solc.git
+      ref: v4.2.0
+    tidy:
+      dependencies:
+        - arrays
+        - dodo-printer
+        - foldable-traversable
+        - language-cst-parser
+        - lists
+        - maybe
+        - ordered-collections
+        - partial
+        - prelude
+        - strings
+        - tuples
+      git: https://github.com/natefaubion/purescript-tidy.git
+      ref: v0.10.0
+    tidy-codegen:
+      dependencies:
+        - aff
+        - ansi
+        - arrays
+        - avar
+        - bifunctors
+        - console
+        - control
+        - dodo-printer
+        - effect
+        - either
+        - enums
+        - exceptions
+        - filterable
+        - foldable-traversable
+        - free
+        - identity
+        - integers
+        - language-cst-parser
+        - lazy
+        - lists
+        - maybe
+        - newtype
+        - node-buffer
+        - node-child-process
+        - node-path
+        - node-process
+        - node-streams
+        - ordered-collections
+        - parallel
+        - partial
+        - posix-types
+        - prelude
+        - record
+        - safe-coerce
+        - st
+        - strings
+        - tidy
+        - transformers
+        - tuples
+        - type-equality
+        - unicode
+      git: https://github.com/natefaubion/purescript-tidy-codegen.git
+      ref: v4.0.0
+    web3:
+      dependencies:
+        - aff
+        - argonaut
+        - arrays
+        - bifunctors
+        - control
+        - coroutine-transducers
+        - coroutines
+        - effect
+        - either
+        - eth-core
+        - exceptions
+        - foldable-traversable
+        - foreign
+        - foreign-object
+        - fork
+        - gen
+        - heterogeneous
+        - identity
+        - maybe
+        - newtype
+        - parallel
+        - parsing
+        - partial
+        - prelude
+        - profunctor-lenses
+        - record
+        - ring-modules
+        - simple-json
+        - strings
+        - tagged
+        - tailrec
+        - transformers
+        - tuples
+        - typelevel-prelude
+        - unfoldable
+        - unsafe-coerce
+        - variant
+      git: https://github.com/f-o-a-m/purescript-web3.git
+      ref: bd87cd18adb863cfccdfe5ff263a129c02f1c8c2
+    web3-generator:
+      dependencies:
+        - aff
+        - ansi
+        - argonaut
+        - argonaut-codecs
+        - argonaut-core
+        - argonaut-traversals
+        - arrays
+        - bifunctors
+        - console
+        - control
+        - effect
+        - either
+        - eth-core
+        - exceptions
+        - fixed-points
+        - foldable-traversable
+        - identity
+        - integers
+        - language-cst-parser
+        - lists
+        - maybe
+        - newtype
+        - node-buffer
+        - node-fs
+        - node-path
+        - node-process
+        - optparse
+        - ordered-collections
+        - partial
+        - prelude
+        - profunctor-lenses
+        - string-parsers
+        - strings
+        - tidy-codegen
+        - transformers
+        - tuples
+        - web3
+      git: https://github.com/f-o-a-m/purescript-web3-generator.git
+      ref: 12ddba3d0694f86d1cf274856e5c42c7d8f87a3a
