@@ -4,28 +4,27 @@
   "description": "Chanterell demo project",
   "license": "ISC",
   "scripts": {
-    "postinstall": "spago -x bootstrap.dhall build",
-    "chanterelle-build": "spago -x bootstrap.dhall run -m ChanterelleMain --node-args=\"build\"",
+    "postinstall": "spago build",
+    "chanterelle-build": "spago run -p build-contracts",
     "build": "spago build",
     "test": "spago test",
-    "deploy": "spago run",
+    "deploy": "spago run -p deploy",
     "tidy": "purs-tidy format-in-place \"src/**/*.purs\" \"test/**/*.purs\"",
     "tidy-check": "purs-tidy check \"src/**/*.purs\" \"test/**/*.purs\""
 
   },
   "dependencies": {
     "ethjs-provider-http": "^0.1.6",
-    "keccak": "^1.0.2",
+    "keccak": "^3.0.0",
     "rlp": "^2.0.0",
-    "secp256k1": "^3.0.1"
+    "secp256k1": "^5.0.0"
   },
   "devDependencies": {
-    "mkdirp": "^0.5.1",
     "openzeppelin-contracts": "^4.0.0",
     "purescript": "^0.15.8",
     "purescript-psa": "^0.8.2",
     "purs-tidy": "^0.10.0",
     "solc": "^0.8",
-    "spago": "^0.21.0"
+    "spago": "next"
   }
 }

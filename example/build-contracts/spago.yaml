@@ -1,0 +1,8 @@
+package:
+  dependencies:
+    - chanterelle
+  name: build-contracts
+  run:
+    main: ChanterelleMain
+    execArgs:
+      - "build"
