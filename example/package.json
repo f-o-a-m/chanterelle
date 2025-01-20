@@ -4,8 +4,7 @@
   "description": "Chanterell demo project",
   "license": "ISC",
   "scripts": {
-    "postinstall": "spago build",
-    "chanterelle-build": "spago run -p build-contracts",
+    "postinstall": "spago run -p build-contracts",
     "build": "spago build",
     "test": "spago test",
     "deploy": "spago run -p deploy",
